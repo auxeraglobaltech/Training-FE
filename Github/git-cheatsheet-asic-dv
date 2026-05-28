@@ -1,0 +1,202 @@
+# Git & GitHub Quick Reference — ASIC DV Team
+
+> Keep this file in your repo at `docs/git-cheatsheet.md`
+
+---
+
+## First-time setup (once per machine)
+
+```bash
+git config --global user.name  "Your Name"
+git config --global user.email "you@company.com"
+git config --global core.editor "vim"
+git config --global credential.helper store
+git config --global pull.rebase true      # cleaner history on pull
+```
+
+---
+
+## Clone the project repo
+
+```bash
+git clone git@github.com:your-org/asic-dv-project.git
+cd asic-dv-project
+git status
+```
+
+---
+
+## Daily loop
+
+```bash
+git pull origin main                          # 1. always start here
+# ... edit your files ...
+git add tb/sequences/your_file.sv             # 2. stage specific file
+git add -A                                    # 2. or stage everything
+git status                                    # 3. confirm staging
+git commit -m "feat(axi): short description"  # 4. commit with clear message
+git push origin your-branch-name              # 5. push to GitHub
+```
+
+---
+
+## Branches
+
+```bash
+# Create and switch to a new branch
+git checkout -b feat/rs-axi-stress-seq
+
+# List all branches (including remote)
+git branch -a
+
+# Switch between existing branches
+git checkout main
+
+# Keep your branch up to date with main
+git fetch origin
+git rebase origin/main
+
+# Push branch + open PR (GitHub prints URL)
+git push origin feat/rs-axi-stress-seq
+
+# Delete local branch (after merge)
+git branch -d feat/rs-axi-stress-seq
+
+# Delete remote branch
+git push origin --delete feat/rs-axi-stress-seq
+```
+
+### Branch naming
+
+| Prefix      | Use for                                  |
+|-------------|------------------------------------------|
+| `feat/`     | New test, sequence, or feature           |
+| `fix/`      | Bug fix in testbench or scoreboard       |
+| `cov/`      | Functional coverage model work           |
+| `refactor/` | Code cleanup, no behaviour change        |
+| `chore/`    | Build, CI, config changes                |
+
+Pattern: `type/your-initials-short-description`
+Example: `feat/rs-axi-back2back-write`
+
+---
+
+## Merge conflicts
+
+```bash
+# See which files conflict
+git status
+
+# After editing conflicted files (remove ALL <<<, ===, >>> markers):
+git add <resolved-file>
+git commit -m "fix: resolve merge conflict in axi scoreboard"   # after merge
+git rebase --continue                                            # after rebase
+
+# Abort and start over
+git merge --abort
+git rebase --abort
+
+# Quick scan to confirm no markers remain
+grep -rn "<<<<<<" tb/
+
+# Launch visual merge tool
+git mergetool
+```
+
+**Conflict marker anatomy:**
+```
+<<<<<<< HEAD          ← your changes start here
+  your version
+=======               ← divider
+  incoming version
+>>>>>>> branch-name   ← incoming changes end here
+```
+
+---
+
+## Undo & recover
+
+| Situation | Safe command |
+|-----------|-------------|
+| Discard unstaged edits to a file | `git restore <file>` |
+| Unstage a file (keep edits) | `git restore --staged <file>` |
+| Fix last commit message (not pushed) | `git commit --amend -m "new message"` |
+| Add missed file to last commit (not pushed) | `git add <file> && git commit --amend --no-edit` |
+| Undo last commit, keep changes staged | `git reset --soft HEAD~1` |
+| Undo last commit, keep changes unstaged | `git reset HEAD~1` |
+| Safely undo a pushed/merged commit | `git revert <hash>` |
+| Save WIP before switching branch | `git stash push -m "wip: description"` |
+| Restore WIP | `git stash pop` |
+| Find a "lost" commit | `git reflog` |
+
+> **Rule:** Use `git revert` on shared/pushed branches. Use `git reset` only on local unpushed commits.
+
+---
+
+## Team ops
+
+```bash
+# Who last changed each line?
+git blame tb/scoreboard/axi_sb.sv
+git blame -L 45,60 tb/scoreboard/axi_sb.sv   # specific lines only
+
+# Find which commit broke a regression (binary search)
+git bisect start
+git bisect bad                    # current HEAD is broken
+git bisect good v2.4-release      # last known good tag or hash
+# run regression, then:  git bisect bad  OR  git bisect good
+# repeat ~6 times — git announces the first bad commit
+git bisect reset                  # return to original branch
+
+# Apply a single commit from another branch
+git cherry-pick <commit-hash>
+git cherry-pick --continue        # after resolving any conflict
+
+# Tag a tapeout or release milestone
+git tag -a v1.0-tapeout-freeze -m "Regression at 98.3% — tapeout freeze"
+git push origin --tags
+
+# Search commit history
+git log --grep="scoreboard" --oneline
+git log --author="R. Sharma" --oneline
+git log --oneline -- tb/scoreboard/axi_sb.sv
+git log --oneline --graph --all --decorate   # visual branch graph
+```
+
+---
+
+## .gitignore essentials for DV repos
+
+```
+*.vcd
+*.fsdb
+simv
+simv.daidir/
+csrc/
+DVEfiles/
+ucli.key
+*.log
+regression_results/
+coverage_reports/
+```
+
+---
+
+## Commit message format
+
+```
+type(scope): short description (≤72 chars)
+```
+
+| Type        | When to use                          |
+|-------------|--------------------------------------|
+| `feat`      | New test, sequence, or feature       |
+| `fix`       | Bug fix                              |
+| `cov`       | Coverage work                        |
+| `refactor`  | Cleanup with no behaviour change     |
+| `chore`     | Build, CI, config changes            |
+| `docs`      | Documentation only                   |
+
+---
+
+*From the Git & GitHub on Linux Field Guide — ASIC DV Team*
