@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UVM Micro-Course — Universal Verification Methodology for ASIC Engineers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--bg2:#161b27;--bg3:#1e2435;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);
+  --text:#e8eaf0;--text2:#8b91a8;--text3:#555c72;
+  --teal:#1fc490;--teal-d:rgba(31,196,144,0.12);--teal-d2:rgba(31,196,144,0.07);
+  --purple:#7c6df0;--purple-d:rgba(124,109,240,0.12);
+  --amber:#f0a430;--amber-d:rgba(240,164,48,0.12);
+  --coral:#f0634a;--coral-d:rgba(240,99,74,0.10);
+  --green:#4cc46a;--green-d:rgba(76,196,106,0.10);
+  --blue:#5aa8f0;--blue-d:rgba(90,168,240,0.12);
+  --pink:#d966a8;--pink-d:rgba(217,102,168,0.12);
+  --ff:'DM Sans',sans-serif;--fm:'JetBrains Mono',monospace
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--ff);font-size:15px;line-height:1.7;min-height:100vh}
+
+/* ── LAYOUT ── */
+.app{display:flex;min-height:100vh}
+.sidebar{width:260px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);padding:1.5rem 0;position:fixed;top:0;left:0;height:100vh;overflow-y:auto;z-index:100}
+.main{margin-left:260px;flex:1;max-width:920px;padding:3rem 3rem 6rem}
+
+/* ── SIDEBAR ── */
+.s-logo{padding:0 1.25rem 1.25rem;border-bottom:1px solid var(--border);margin-bottom:1rem}
+.s-logo .ltag{font-family:var(--fm);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--teal);display:block;margin-bottom:5px}
+.s-logo .ltitle{font-size:13px;font-weight:500;color:var(--text);line-height:1.4}
+.s-part{padding:0 1.25rem;margin:1rem 0 .25rem}
+.s-part span{font-family:var(--fm);font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--text3)}
+.snav{list-style:none;padding:0 .75rem}
+.snav li{margin-bottom:1px}
+.snav a{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;font-size:12.5px;color:var(--text2);text-decoration:none;transition:all .15s}
+.snav a:hover{background:rgba(255,255,255,.05);color:var(--text)}
+.snav a.active{background:var(--teal-d);color:var(--teal)}
+.snav .nn{font-family:var(--fm);font-size:10px;width:18px;height:18px;border-radius:50%;border:1px solid currentColor;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.7}
+.s-divider{height:1px;background:var(--border);margin:.75rem 1.25rem}
+.prog-wrap{padding:1rem 1.25rem 0}
+.prog-lbl{font-size:10px;font-family:var(--fm);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:5px}
+.prog-track{background:var(--bg3);border-radius:20px;height:3px}
+.prog-fill{height:3px;background:var(--teal);border-radius:20px;transition:width .4s ease;width:0%}
+
+/* ── HERO ── */
+.hero{margin-bottom:2.5rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}
+.eyebrow{display:flex;align-items:center;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+.tag{font-family:var(--fm);font-size:10px;text-transform:uppercase;letter-spacing:.1em;padding:3px 9px;border-radius:4px}
+.tag.teal{background:var(--teal-d);color:var(--teal);border:1px solid rgba(31,196,144,.25)}
+.tag.purple{background:var(--purple-d);color:var(--purple);border:1px solid rgba(124,109,240,.25)}
+.tag.amber{background:var(--amber-d);color:var(--amber);border:1px solid rgba(240,164,48,.25)}
+.tag.coral{background:var(--coral-d);color:var(--coral);border:1px solid rgba(240,99,74,.25)}
+.tag.blue{background:var(--blue-d);color:var(--blue);border:1px solid rgba(90,168,240,.25)}
+.hero h1{font-size:1.9rem;font-weight:600;line-height:1.25;margin-bottom:.6rem}
+.hero h1 span{color:var(--teal)}
+.hero p{font-size:14px;color:var(--text2);line-height:1.7;max-width:560px;margin-bottom:1.25rem}
+.meta-row{display:flex;flex-wrap:wrap;gap:1.25rem}
+.mi{font-size:12px;color:var(--text3);display:flex;align-items:center;gap:5px}
+.mdot{width:4px;height:4px;border-radius:50%;background:var(--teal)}
+
+/* ── PART BANNER ── */
+.part-banner{display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:10px;margin-bottom:2rem;border:1px solid var(--border)}
+.part-banner.p1{background:linear-gradient(135deg,rgba(31,196,144,.06),rgba(124,109,240,.06))}
+.part-banner.p2{background:linear-gradient(135deg,rgba(240,164,48,.06),rgba(240,99,74,.06))}
+.part-banner.p3{background:linear-gradient(135deg,rgba(90,168,240,.06),rgba(217,102,168,.06))}
+.pb-icon{font-size:1.75rem;flex-shrink:0}
+.pb-label{font-family:var(--fm);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:3px}
+.pb-title{font-size:15px;font-weight:500}
+.pb-sub{font-size:12px;color:var(--text2);margin-top:2px}
+
+/* ── MODULE ── */
+.module{display:none;animation:fi .2s ease}
+.module.visible{display:block}
+@keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.mod-header{display:flex;align-items:flex-start;gap:14px;margin-bottom:1.25rem}
+.mbadge{width:42px;height:42px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--fm);font-size:12px;font-weight:500;flex-shrink:0}
+.mbadge.t{background:var(--teal-d);color:var(--teal);border:1px solid rgba(31,196,144,.2)}
+.mbadge.pu{background:var(--purple-d);color:var(--purple);border:1px solid rgba(124,109,240,.2)}
+.mbadge.am{background:var(--amber-d);color:var(--amber);border:1px solid rgba(240,164,48,.2)}
+.mbadge.co{background:var(--coral-d);color:var(--coral);border:1px solid rgba(240,99,74,.2)}
+.mbadge.gr{background:var(--green-d);color:var(--green);border:1px solid rgba(76,196,106,.2)}
+.mbadge.bl{background:var(--blue-d);color:var(--blue);border:1px solid rgba(90,168,240,.2)}
+.mbadge.pk{background:var(--pink-d);color:var(--pink);border:1px solid rgba(217,102,168,.2)}
+.mod-header h2{font-size:1.3rem;font-weight:500;line-height:1.3;color:var(--text)}
+.msub{font-size:11px;color:var(--text3);font-family:var(--fm);margin-top:3px}
+
+/* ── OBJECTIVE ── */
+.obj{border-radius:8px;padding:11px 15px;font-size:13px;line-height:1.6;margin-bottom:1.5rem}
+.obj.t{background:var(--teal-d2);border:1px solid rgba(31,196,144,.2);color:var(--teal)}
+.obj.pu{background:var(--purple-d);border:1px solid rgba(124,109,240,.2);color:var(--purple)}
+.obj.am{background:var(--amber-d);border:1px solid rgba(240,164,48,.2);color:var(--amber)}
+.obj.co{background:var(--coral-d);border:1px solid rgba(240,99,74,.2);color:var(--coral)}
+.obj.gr{background:var(--green-d);border:1px solid rgba(76,196,106,.2);color:var(--green)}
+.obj.bl{background:var(--blue-d);border:1px solid rgba(90,168,240,.2);color:var(--blue)}
+.obj.pk{background:var(--pink-d);border:1px solid rgba(217,102,168,.2);color:var(--pink)}
+
+/* ── PROSE ── */
+.prose{font-size:14.5px;line-height:1.8;color:var(--text2);margin-bottom:.9rem}
+.prose strong{color:var(--text);font-weight:500}
+code{font-family:var(--fm);font-size:12px;background:var(--bg3);padding:1px 5px;border-radius:3px;color:var(--purple)}
+
+/* ── SECTION LABEL ── */
+.sl{font-family:var(--fm);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);margin:1.75rem 0 .6rem;padding-bottom:7px;border-bottom:1px solid var(--border)}
+
+/* ── CARDS ── */
+.cgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:.6rem 0 1.25rem}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px}
+.card .ctag{font-family:var(--fm);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:7px}
+.card .ctitle{font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px}
+.card .cdesc{font-size:12px;color:var(--text2);line-height:1.55}
+
+/* ── CODE ── */
+.cw{background:#0a0d14;border:1px solid var(--border2);border-radius:10px;margin:.6rem 0 1.25rem;overflow:hidden}
+.cb{background:var(--bg3);border-bottom:1px solid var(--border);padding:7px 13px;display:flex;align-items:center;gap:5px}
+.cd{width:9px;height:9px;border-radius:50%}
+.cb span{font-family:var(--fm);font-size:10px;color:var(--text3);margin-left:5px}
+pre{padding:14px 16px;overflow-x:auto;font-family:var(--fm);font-size:12.5px;line-height:1.75}
+.kw{color:#79b8ff}.cm{color:#4a5270;font-style:italic}.str{color:var(--teal)}.op{color:var(--coral);font-weight:500}.fn{color:var(--amber)}.tp{color:var(--purple)}
+
+/* ── TABLE ── */
+.tbl{width:100%;border-collapse:collapse;font-size:13px;margin:.6rem 0 1.25rem}
+.tbl th{background:var(--bg3);color:var(--text2);font-weight:500;padding:8px 12px;text-align:left;border:1px solid var(--border);font-family:var(--fm);font-size:11px}
+.tbl td{padding:8px 12px;border:1px solid var(--border);color:var(--text2);vertical-align:top}
+.tbl td:first-child{font-family:var(--fm);font-size:11.5px;color:var(--purple);white-space:nowrap}
+.tbl code{font-size:11px}
+
+/* ── WARNING / TAKEAWAY ── */
+.warn{background:var(--coral-d);border-left:3px solid var(--coral);border-radius:0 6px 6px 0;padding:9px 13px;font-size:13px;color:#f09080;line-height:1.6;margin:.6rem 0 1rem}
+.warn strong{color:var(--coral)}
+.tip{background:var(--teal-d);border-left:3px solid var(--teal);border-radius:0 6px 6px 0;padding:9px 13px;font-size:13px;color:var(--teal);line-height:1.6;margin:.6rem 0 1rem}
+.tip strong{color:var(--teal)}
+.takeaway{background:var(--bg3);border-radius:8px;padding:11px 15px;font-size:13px;color:var(--text2);line-height:1.6;margin:.9rem 0 1.25rem;border-left:3px solid var(--border2)}
+.takeaway strong{color:var(--text);font-weight:500}
+
+/* ── EXERCISE ── */
+.ex-box{background:var(--bg2);border:1px solid rgba(240,164,48,.25);border-radius:12px;padding:1.25rem;margin:1.25rem 0}
+.ex-head{display:flex;align-items:center;gap:9px;margin-bottom:11px}
+.ex-icon{width:30px;height:30px;border-radius:7px;background:var(--amber-d);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.ex-head h3{font-size:13px;font-weight:500;color:var(--text)}
+.ex-timer{font-family:var(--fm);font-size:11px;color:var(--amber);margin-left:auto}
+.ex-ctx{font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:10px;background:var(--bg3);border-radius:6px;padding:9px 11px}
+.ex-steps{list-style:none;counter-reset:step}
+.ex-steps li{counter-increment:step;font-size:13.5px;line-height:1.65;padding:6px 0 6px 30px;position:relative;color:var(--text2);border-bottom:1px solid var(--border)}
+.ex-steps li:last-child{border-bottom:none}
+.ex-steps li::before{content:counter(step);position:absolute;left:0;top:8px;width:19px;height:19px;border-radius:50%;background:var(--amber);color:#000;font-size:10px;font-family:var(--fm);font-weight:500;display:flex;align-items:center;justify-content:center}
+.toggle-ans{font-family:var(--ff);font-size:12px;background:none;border:1px solid var(--border2);border-radius:6px;padding:5px 12px;cursor:pointer;color:var(--text3);margin-top:12px;transition:all .15s}
+.toggle-ans:hover{color:var(--text);border-color:var(--text3)}
+.ans-reveal{display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px}
+.ans-tag{font-family:var(--fm);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);margin-bottom:7px}
+
+/* ── DIAGRAM ── */
+.diagram{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1.25rem;margin:.6rem 0 1.25rem;overflow-x:auto}
+.dia-row{display:flex;align-items:center;gap:0;margin:.4rem 0;flex-wrap:nowrap}
+.dia-box{background:var(--bg3);border:1px solid var(--border2);border-radius:7px;padding:7px 14px;font-size:12px;font-family:var(--fm);white-space:nowrap;text-align:center}
+.dia-box.t{border-color:rgba(31,196,144,.4);color:var(--teal)}
+.dia-box.pu{border-color:rgba(124,109,240,.4);color:var(--purple)}
+.dia-box.am{border-color:rgba(240,164,48,.4);color:var(--amber)}
+.dia-box.co{border-color:rgba(240,99,74,.4);color:var(--coral)}
+.dia-box.bl{border-color:rgba(90,168,240,.4);color:var(--blue)}
+.dia-arrow{color:var(--text3);font-size:16px;padding:0 6px;flex-shrink:0}
+.dia-stack{display:flex;flex-direction:column;gap:8px;margin:.6rem 0 1.25rem}
+.dia-layer{display:flex;align-items:stretch;gap:8px}
+.dia-label{font-family:var(--fm);font-size:10px;color:var(--text3);writing-mode:initial;display:flex;align-items:center;min-width:80px;padding-right:8px;justify-content:flex-end}
+
+/* ── COMPLETION ── */
+.completion{text-align:center;padding:2rem 1.5rem;background:var(--teal-d2);border:1px solid rgba(31,196,144,.2);border-radius:12px;margin:1.75rem 0}
+.completion .check{font-size:2.75rem;color:var(--teal);display:block;margin-bottom:.75rem}
+.completion h2{font-size:1.3rem;font-weight:500;color:var(--teal);margin-bottom:.5rem}
+.completion p{font-size:13.5px;color:var(--text2);max-width:440px;margin:0 auto 1.25rem;line-height:1.7}
+.ref-links{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.rl{font-family:var(--fm);font-size:10px;padding:3px 9px;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;color:var(--teal);text-decoration:none}
+.rl:hover{background:var(--teal-d)}
+
+/* ── FOOTER ── */
+.mf{display:flex;justify-content:space-between;align-items:center;margin-top:2rem;padding-top:1.25rem;border-top:1px solid var(--border)}
+.bn{font-family:var(--ff);font-size:13px;padding:7px 16px;border-radius:7px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s}
+.bn:hover{background:var(--bg3);color:var(--text)}
+.bn.p{background:var(--teal);color:#000;border-color:var(--teal);font-weight:500}
+.bn.p:hover{background:#17a87a}
+.bn:disabled{opacity:.25;cursor:default;pointer-events:none}
+
+/* ── MOBILE ── */
+@media(max-width:768px){
+  .sidebar{display:none}
+  .main{margin-left:0;padding:1.25rem 1rem 4rem}
+  .mob-nav{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:1.25rem}
+  .mb{font-size:11px;padding:4px 10px;border-radius:5px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer}
+  .mb.active{background:var(--teal);color:#000;border-color:var(--teal)}
+}
+@media(min-width:769px){.mob-nav{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ══════════ SIDEBAR ══════════ -->
+<aside class="sidebar">
+  <div class="s-logo">
+    <span class="ltag">Micro-Course Series · UVM</span>
+    <div class="ltitle">Universal Verification<br>Methodology</div>
+  </div>
+
+  <div class="s-part"><span>Part 1 — Foundation</span></div>
+  <ul class="snav">
+    <li><a href="#" class="active" onclick="goTo(0,this);return false"><span class="nn">1</span>Why UVM?</a></li>
+    <li><a href="#" onclick="goTo(1,this);return false"><span class="nn">2</span>Testbench Architecture</a></li>
+    <li><a href="#" onclick="goTo(2,this);return false"><span class="nn">3</span>Sequence Item</a></li>
+    <li><a href="#" onclick="goTo(3,this);return false"><span class="nn">4</span>Phases & Config DB</a></li>
+  </ul>
+
+  <div class="s-divider"></div>
+  <div class="s-part"><span>Part 2 — Components</span></div>
+  <ul class="snav">
+    <li><a href="#" onclick="goTo(4,this);return false"><span class="nn">5</span>Sequence & Sequencer</a></li>
+    <li><a href="#" onclick="goTo(5,this);return false"><span class="nn">6</span>Driver</a></li>
+    <li><a href="#" onclick="goTo(6,this);return false"><span class="nn">7</span>Monitor & Scoreboard</a></li>
+    <li><a href="#" onclick="goTo(7,this);return false"><span class="nn">8</span>Agent & Environment</a></li>
+    <li><a href="#" onclick="goTo(8,this);return false"><span class="nn">9</span>Test & TB Top</a></li>
+  </ul>
+
+  <div class="s-divider"></div>
+  <div class="s-part"><span>Part 3 — Advanced</span></div>
+  <ul class="snav">
+    <li><a href="#" onclick="goTo(9,this);return false"><span class="nn">10</span>TLM Ports</a></li>
+    <li><a href="#" onclick="goTo(10,this);return false"><span class="nn">11</span>Callbacks & Events</a></li>
+    <li><a href="#" onclick="goTo(11,this);return false"><span class="nn">12</span>RAL & Register Model</a></li>
+  </ul>
+
+  <div class="prog-wrap">
+    <div class="prog-lbl">Progress</div>
+    <div class="prog-track"><div class="prog-fill" id="pbar" style="width:8%"></div></div>
+  </div>
+</aside>
+
+<!-- ══════════ MAIN ══════════ -->
+<main class="main">
+
+  <!-- MOBILE NAV -->
+  <div class="mob-nav" id="mobnav">
+    <button class="mb active" onclick="goTo(0)">1</button>
+    <button class="mb" onclick="goTo(1)">2</button>
+    <button class="mb" onclick="goTo(2)">3</button>
+    <button class="mb" onclick="goTo(3)">4</button>
+    <button class="mb" onclick="goTo(4)">5</button>
+    <button class="mb" onclick="goTo(5)">6</button>
+    <button class="mb" onclick="goTo(6)">7</button>
+    <button class="mb" onclick="goTo(7)">8</button>
+    <button class="mb" onclick="goTo(8)">9</button>
+    <button class="mb" onclick="goTo(9)">10</button>
+    <button class="mb" onclick="goTo(10)">11</button>
+    <button class="mb" onclick="goTo(11)">12</button>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="eyebrow">
+      <span class="tag teal">Micro-Course Series</span>
+      <span class="tag purple">ASIC Verification</span>
+      <span class="tag amber">3 Parts · 12 Modules</span>
+      <span class="tag blue">~90 min total</span>
+    </div>
+    <h1>Mastering <span>UVM</span> — Universal<br>Verification Methodology</h1>
+    <p>From testbench architecture to RAL register models. Three tightly focused micro-courses that take you from zero to writing production-grade UVM testbenches for any ASIC or IP block.</p>
+    <div class="meta-row">
+      <span class="mi"><span class="mdot"></span>Assumes SV knowledge</span>
+      <span class="mi"><span class="mdot"></span>12 modules with exercises</span>
+      <span class="mi"><span class="mdot"></span>Full code examples throughout</span>
+    </div>
+  </div>
+
+<!-- ════════════════════════════════════════════
+     MODULE 1 — WHY UVM
+════════════════════════════════════════════ -->
+<div class="module visible" id="mod-0">
+  <div class="part-banner p1">
+    <div class="pb-icon">🏗️</div>
+    <div><div class="pb-label">Part 1 · Foundation</div><div class="pb-title">Modules 1–4: Architecture, Sequence Items, Phases, Config DB</div><div class="pb-sub">~25 min</div></div>
+  </div>
+  <div class="mod-header">
+    <div class="mbadge t">01</div>
+    <div><h2>Why UVM exists — and what it solves</h2><div class="msub">Module 1 · ~4 min · Hook</div></div>
+  </div>
+  <div class="obj t"><strong>Outcome:</strong> Understand what problem UVM solves, why ad-hoc testbenches fail at scale, and what the three pillars of UVM give you that SystemVerilog alone cannot.</div>
+
+  <p class="prose">Your SV testbench works fine for a single block. Then the project grows: 4 engineers, 12 IP blocks, 3 different interface protocols, and a top-level integration test that nobody owns. Stimulus gets duplicated. Scoreboards drift out of sync. Coverage models conflict. Six months before tapeout, you discover nobody was checking the same thing.</p>
+  <p class="prose">UVM (IEEE 1800.2) is the industry standard answer. It provides a class-based, reusable framework with a defined component hierarchy, a phased execution model, and a standard factory that lets you swap components without rewriting the testbench.</p>
+
+  <div class="sl">The three pillars UVM gives you</div>
+  <div class="cgrid">
+    <div class="card"><div class="ctag">Pillar 1</div><div class="ctitle">Reusability</div><div class="cdesc">Every component is a parameterised class. A driver written for one DUT port can be extended, not rewritten, for a new project. The factory enables override without code changes.</div></div>
+    <div class="card"><div class="ctag">Pillar 2</div><div class="ctitle">Structured phasing</div><div class="cdesc">UVM defines 12 standard phases (build → connect → run → check → report). Every component participates. No more race conditions between testbench setup and simulation start.</div></div>
+    <div class="card"><div class="ctag">Pillar 3</div><div class="ctitle">Separation of concerns</div><div class="cdesc">Stimulus (sequence), driving (driver), checking (scoreboard), and configuration (config object) are separate classes. Each engineer owns one layer. Integration is the framework's job.</div></div>
+  </div>
+
+  <div class="sl">The UVM component hierarchy at a glance</div>
+  <div class="diagram">
+    <div class="dia-stack">
+      <div class="dia-layer"><div class="dia-label">Test</div><div class="dia-box t" style="flex:1;font-size:13px">uvm_test — controls which sequences run, configures the environment</div></div>
+      <div class="dia-layer"><div class="dia-label">Env</div><div class="dia-box pu" style="flex:1;font-size:13px">uvm_env — instantiates and connects agents + scoreboard</div></div>
+      <div class="dia-layer"><div class="dia-label">Agent</div>
+        <div style="flex:1;display:flex;gap:8px">
+          <div class="dia-box am" style="flex:1;font-size:12px">Sequencer</div>
+          <div class="dia-box am" style="flex:1;font-size:12px">Driver</div>
+          <div class="dia-box am" style="flex:1;font-size:12px">Monitor</div>
+        </div>
+      </div>
+      <div class="dia-layer"><div class="dia-label">Interface</div><div class="dia-box co" style="flex:1;font-size:13px">Virtual Interface → DUT pins</div></div>
+    </div>
+  </div>
+
+  <div class="sl">UVM class hierarchy — what you extend</div>
+  <table class="tbl">
+    <tr><th>Your class extends</th><th>Base class</th><th>Purpose</th></tr>
+    <tr><td>uvm_sequence_item</td><td>uvm_object</td><td>Transaction / stimulus packet</td></tr>
+    <tr><td>uvm_sequence</td><td>uvm_sequence_item</td><td>Ordered stream of transactions</td></tr>
+    <tr><td>uvm_driver</td><td>uvm_component</td><td>Drives transactions onto DUT interface</td></tr>
+    <tr><td>uvm_monitor</td><td>uvm_component</td><td>Samples DUT outputs passively</td></tr>
+    <tr><td>uvm_scoreboard</td><td>uvm_component</td><td>Checks actual vs expected</td></tr>
+    <tr><td>uvm_agent</td><td>uvm_component</td><td>Groups driver + sequencer + monitor</td></tr>
+    <tr><td>uvm_env</td><td>uvm_component</td><td>Top-level component container</td></tr>
+    <tr><td>uvm_test</td><td>uvm_component</td><td>Entry point — starts sequences</td></tr>
+  </table>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> UVM solves the scalability problem of ad-hoc SV testbenches. Every component has a defined role. The phased execution model eliminates race conditions. The factory enables swapping components without editing code.</div>
+  <div class="mf"><button class="bn" disabled>← Previous</button><button class="bn p" onclick="goTo(1)">Testbench Architecture →</button></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     MODULE 2 — TESTBENCH ARCHITECTURE
+════════════════════════════════════════════ -->
+<div class="module" id="mod-1">
+  <div class="mod-header">
+    <div class="mbadge pu">02</div>
+    <div><h2>Testbench hierarchy and UVM factory</h2><div class="msub">Module 2 · ~6 min · Core architecture</div></div>
+  </div>
+  <div class="obj pu"><strong>Outcome:</strong> Build the skeleton of a UVM testbench — top module, interface, component registration, factory overrides, and the two-line test launch that wires it all together.</div>
+
+  <div class="sl">The testbench top module — static SV, not a class</div>
+  <div class="prose">The <code>tb_top</code> module is the only non-class piece of your testbench. It instantiates the DUT, creates the interface, and passes the virtual interface into the UVM config DB. Everything else is class-based and runs under <code>run_test()</code>.</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>tb_top.sv</span></div><pre><span class="kw">module</span> tb_top;
+  <span class="kw">import</span> uvm_pkg::*;
+  <span class="kw">`include</span> <span class="str">"uvm_macros.svh"</span>
+  <span class="kw">`include</span> <span class="str">"my_pkg.sv"</span>   <span class="cm">// your testbench package</span>
+
+  <span class="cm">// Clock and reset generation</span>
+  <span class="kw">bit</span> clk;
+  <span class="kw">always</span> #5 clk = ~clk;
+
+  <span class="cm">// Interface instantiation</span>
+  my_if dut_if (.clk(clk));
+
+  <span class="cm">// DUT instantiation</span>
+  my_dut dut (.clk(clk), .a(dut_if.a), .b(dut_if.b), .out(dut_if.out));
+
+  <span class="cm">// Pass vif into config DB — UVM components retrieve it from here</span>
+  <span class="kw">initial</span> begin
+    uvm_config_db#(<span class="kw">virtual</span> my_if)::set(<span class="kw">null</span>, <span class="str">"uvm_test_top.*"</span>, <span class="str">"vif"</span>, dut_if);
+    run_test();  <span class="cm">// launches the test class named on +UVM_TESTNAME=</span>
+  <span class="kw">end</span>
+<span class="kw">endmodule</span></pre></div>
+
+  <div class="sl">UVM factory — registration and override</div>
+  <p class="prose">Every UVM component and object must be registered with the factory using macros. Registration is what allows the factory override mechanism to swap one implementation for another without changing any other code.</p>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>factory registration macros</span></div><pre><span class="cm">// For uvm_component subclasses (driver, monitor, agent, env, test)</span>
+<span class="kw">`uvm_component_utils</span>(my_driver)
+
+<span class="cm">// For uvm_object subclasses (sequence_item, sequence, config objects)</span>
+<span class="kw">`uvm_object_utils</span>(my_seq_item)
+
+<span class="cm">// With field macros — enables print/copy/compare/pack automatically</span>
+<span class="kw">`uvm_object_utils_begin</span>(my_seq_item)
+  <span class="kw">`uvm_field_int</span>(addr,  UVM_ALL_ON)
+  <span class="kw">`uvm_field_int</span>(data,  UVM_ALL_ON)
+  <span class="kw">`uvm_field_int</span>(write, UVM_ALL_ON)
+<span class="kw">`uvm_object_utils_end</span>
+
+<span class="cm">// Factory override — swap my_driver with error_driver for one test</span>
+<span class="cm">// Put this in the test's build_phase before super.build_phase()</span>
+my_driver::type_id::set_type_override(error_driver::get_type());</pre></div>
+
+  <div class="sl">Component creation — always use the factory</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>create via factory, not new()</span></div><pre><span class="cm">// WRONG — bypasses factory, override will never apply</span>
+my_driver drv = <span class="kw">new</span>(<span class="str">"drv"</span>, this);
+
+<span class="cm">// CORRECT — always use type_id::create()</span>
+my_driver drv = my_driver::type_id::create(<span class="str">"drv"</span>, this);
+
+<span class="cm">// For objects (sequences, sequence items) — no parent argument</span>
+my_seq_item item = my_seq_item::type_id::create(<span class="str">"item"</span>);</pre></div>
+
+  <div class="sl">Logging — UVM reporting macros</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>reporting</span></div><pre><span class="kw">`uvm_info</span>   (get_type_name(), <span class="str">"Driving transaction"</span>, UVM_MEDIUM)
+<span class="kw">`uvm_warning</span>(get_type_name(), <span class="str">"Unexpected X on bus"</span>)
+<span class="kw">`uvm_error</span>  (get_type_name(), <span class="str">"Scoreboard mismatch!"</span>)
+<span class="kw">`uvm_fatal</span>  (get_type_name(), <span class="str">"Interface not found in config DB"</span>)
+
+<span class="cm">// Verbosity levels: UVM_NONE UVM_LOW UVM_MEDIUM UVM_HIGH UVM_FULL UVM_DEBUG</span>
+<span class="cm">// Simulator flag: +UVM_VERBOSITY=UVM_HIGH</span></pre></div>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> <code>tb_top</code> is static SV — it creates the interface and calls <code>run_test()</code>. Everything inside is class-based. Always use <code>type_id::create()</code>, never <code>new()</code> — that's what makes factory overrides work.</div>
+  <div class="mf"><button class="bn" onclick="goTo(0)">← Why UVM?</button><button class="bn p" onclick="goTo(2)">Sequence Item →</button></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     MODULE 3 — SEQUENCE ITEM
+════════════════════════════════════════════ -->
+<div class="module" id="mod-2">
+  <div class="mod-header">
+    <div class="mbadge am">03</div>
+    <div><h2>Sequence Item — the transaction object</h2><div class="msub">Module 3 · ~7 min · Core concept</div></div>
+  </div>
+  <div class="obj am"><strong>Outcome:</strong> Write a complete sequence item with utility macros, field macros, randomisation constraints, and all built-in methods — print, copy, clone, compare, pack, unpack.</div>
+
+  <div class="sl">What is a sequence item?</div>
+  <p class="prose">A <code>uvm_sequence_item</code> is the transaction — the unit of stimulus. It represents one bus transfer, one packet, one register access. The driver converts it into pin-level wiggling. The scoreboard uses it to check the DUT's response.</p>
+  <p class="prose">Think of it as a struct with superpowers: built-in randomisation, automatic print/compare/pack methods, deep-copy support, and factory registration — all from macros.</p>
+
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>complete sequence item — APB transaction</span></div><pre><span class="kw">class</span> apb_seq_item <span class="kw">extends</span> uvm_sequence_item;
+  <span class="cm">// ── factory registration ─────────────────────────────────────</span>
+  <span class="kw">`uvm_object_utils_begin</span>(apb_seq_item)
+    <span class="kw">`uvm_field_int</span>(addr,  UVM_ALL_ON)
+    <span class="kw">`uvm_field_int</span>(data,  UVM_ALL_ON)
+    <span class="kw">`uvm_field_int</span>(write, UVM_ALL_ON | UVM_BIN)
+    <span class="kw">`uvm_field_int</span>(prot,  UVM_ALL_ON | UVM_NOCOMPARE)
+  <span class="kw">`uvm_object_utils_end</span>
+
+  <span class="cm">// ── fields ───────────────────────────────────────────────────</span>
+  <span class="kw">rand logic</span> [31:0] addr;
+  <span class="kw">rand logic</span> [31:0] data;
+  <span class="kw">rand logic</span>        write;   <span class="cm">// 1=write, 0=read</span>
+  <span class="kw">rand logic</span> [2:0]  prot;
+
+  <span class="cm">// ── constraints ──────────────────────────────────────────────</span>
+  <span class="kw">constraint</span> c_addr_align { addr[1:0] == 2'b00; }  <span class="cm">// word-aligned</span>
+  <span class="kw">constraint</span> c_addr_range { addr inside {[32'h4000_0000 : 32'h4000_FFFF]}; }
+  <span class="kw">constraint</span> c_write_dist { write dist { 1 := 70, 0 := 30 }; }
+
+  <span class="cm">// ── constructor ──────────────────────────────────────────────</span>
+  <span class="kw">function new</span>(string name = <span class="str">"apb_seq_item"</span>);
+    <span class="kw">super</span>.new(name);
+  <span class="kw">endfunction</span>
+
+  <span class="cm">// ── custom display ───────────────────────────────────────────</span>
+  <span class="kw">function string</span> convert2string();
+    <span class="kw">return</span> $sformatf(<span class="str">"[%s] ADDR=%0h DATA=%0h WRITE=%0b"</span>,
+                     get_name(), addr, data, write);
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></pre></div>
+
+  <div class="sl">Field macro flags — controlling built-in behaviour</div>
+  <table class="tbl">
+    <tr><th>Flag</th><th>Effect</th></tr>
+    <tr><td>UVM_ALL_ON</td><td>Enables copy, compare, print, pack, record for this field</td></tr>
+    <tr><td>UVM_NOCOPY</td><td>Exclude from copy/clone</td></tr>
+    <tr><td>UVM_NOCOMPARE</td><td>Exclude from compare (e.g. timestamp, protocol signals)</td></tr>
+    <tr><td>UVM_NOPRINT</td><td>Exclude from print/sprint</td></tr>
+    <tr><td>UVM_NOPACK</td><td>Exclude from pack/unpack</td></tr>
+    <tr><td>UVM_BIN / UVM_HEX / UVM_DEC</td><td>Print radix for this field</td></tr>
+  </table>
+
+  <div class="sl">Built-in methods — what the macros give you for free</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>built-in object methods</span></div><pre><span class="kw">apb_seq_item</span> item, item2, item3;
+item = apb_seq_item::type_id::create(<span class="str">"item"</span>);
+
+<span class="cm">// print — displays all UVM_ALL_ON fields to log</span>
+item.print();
+
+<span class="cm">// copy — shallow copy (fields) from item into item2 (item2 must exist)</span>
+item2 = apb_seq_item::type_id::create(<span class="str">"item2"</span>);
+item2.copy(item);
+
+<span class="cm">// clone — creates a new object + copies (deep copy)</span>
+$cast(item3, item.clone());
+
+<span class="cm">// compare — returns 1 if equal, 0 if different (uses uvm_comparer)</span>
+<span class="kw">if</span> (!item.compare(item2))
+  <span class="kw">`uvm_error</span>(<span class="str">"SCB"</span>, <span class="str">"Transaction mismatch!"</span>)
+
+<span class="cm">// pack_bytes — serialise fields into byte array (for coverage, TLM)</span>
+<span class="kw">byte</span> packed[];
+item.pack_bytes(packed);
+
+<span class="cm">// unpack_bytes — deserialise back into a new item</span>
+item2.unpack_bytes(packed);</pre></div>
+
+  <div class="sl">Exercise — write a sequence item</div>
+  <div class="ex-box">
+    <div class="ex-head"><div class="ex-icon">✏️</div><h3>Write an AXI4-Lite write transaction sequence item</h3><span class="ex-timer">⏱ 5 min</span></div>
+    <div class="ex-ctx">Fields needed: <code>awaddr[31:0]</code>, <code>awprot[2:0]</code>, <code>wdata[31:0]</code>, <code>wstrb[3:0]</code>, <code>write_flag</code> (rand bit). Constraints: awaddr word-aligned, wstrb != 0 on writes.</div>
+    <ol class="ex-steps">
+      <li>Declare the class extending <code>uvm_sequence_item</code> and register with <code>`uvm_object_utils_begin</code>/<code>end</code> including field macros for all 5 fields.</li>
+      <li>Add a constraint ensuring <code>awaddr[1:0] == 2'b00</code> and <code>wstrb != 4'h0</code>.</li>
+      <li>Write the constructor calling <code>super.new(name)</code>.</li>
+      <li>Override <code>convert2string()</code> to print addr and data in hex.</li>
+    </ol>
+    <button class="toggle-ans" onclick="toggleAns('ans0')">▶ Show reference answer</button>
+    <div class="ans-reveal" id="ans0">
+      <div class="ans-tag">Reference answer</div>
+      <div class="cw" style="margin-top:0"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>axil_seq_item.sv</span></div><pre><span class="kw">class</span> axil_seq_item <span class="kw">extends</span> uvm_sequence_item;
+  <span class="kw">`uvm_object_utils_begin</span>(axil_seq_item)
+    <span class="kw">`uvm_field_int</span>(awaddr,     UVM_ALL_ON | UVM_HEX)
+    <span class="kw">`uvm_field_int</span>(awprot,     UVM_ALL_ON | UVM_BIN)
+    <span class="kw">`uvm_field_int</span>(wdata,      UVM_ALL_ON | UVM_HEX)
+    <span class="kw">`uvm_field_int</span>(wstrb,      UVM_ALL_ON | UVM_HEX)
+    <span class="kw">`uvm_field_int</span>(write_flag, UVM_ALL_ON | UVM_BIN)
+  <span class="kw">`uvm_object_utils_end</span>
+
+  <span class="kw">rand logic</span> [31:0] awaddr;
+  <span class="kw">rand logic</span> [2:0]  awprot;
+  <span class="kw">rand logic</span> [31:0] wdata;
+  <span class="kw">rand logic</span> [3:0]  wstrb;
+  <span class="kw">rand bit</span>          write_flag;
+
+  <span class="kw">constraint</span> c_align  { awaddr[1:0] == 2'b00; }
+  <span class="kw">constraint</span> c_wstrb  { write_flag -> (wstrb != 4'h0); }
+
+  <span class="kw">function new</span>(string name = <span class="str">"axil_seq_item"</span>);
+    <span class="kw">super</span>.new(name);
+  <span class="kw">endfunction</span>
+
+  <span class="kw">function string</span> convert2string();
+    <span class="kw">return</span> $sformatf(<span class="str">"AWADDR=%0h WDATA=%0h WSTRB=%0h W=%0b"</span>,
+                     awaddr, wdata, wstrb, write_flag);
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></pre></div>
+    </div>
+  </div>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> The sequence item is your transaction DNA. Field macros give you print/copy/compare/pack for free. UVM_NOCOMPARE excludes protocol-only fields from scoreboard checking. Always override <code>convert2string()</code> — your debug logs will thank you.</div>
+  <div class="mf"><button class="bn" onclick="goTo(1)">← Testbench Architecture</button><button class="bn p" onclick="goTo(3)">Phases & Config DB →</button></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     MODULE 4 — PHASES & CONFIG DB
+════════════════════════════════════════════ -->
+<div class="module" id="mod-3">
+  <div class="mod-header">
+    <div class="mbadge co">04</div>
+    <div><h2>UVM Phases and Config DB</h2><div class="msub">Module 4 · ~8 min · Core concept</div></div>
+  </div>
+  <div class="obj co"><strong>Outcome:</strong> Use all 12 UVM phases correctly, never misplace logic between build and run, and pass configuration objects and virtual interfaces through the hierarchy using config DB.</div>
+
+  <div class="sl">The 12 UVM phases — what runs and when</div>
+  <table class="tbl">
+    <tr><th>Phase</th><th>Type</th><th>What you do here</th></tr>
+    <tr><td>build_phase</td><td>function</td><td>Create child components with <code>type_id::create()</code>. Set config DB values for children.</td></tr>
+    <tr><td>connect_phase</td><td>function</td><td>Connect TLM ports. Get virtual interfaces from config DB.</td></tr>
+    <tr><td>end_of_elaboration_phase</td><td>function</td><td>Print topology, final checks before simulation.</td></tr>
+    <tr><td>start_of_simulation_phase</td><td>function</td><td>Print configuration, set initial state.</td></tr>
+    <tr><td>run_phase</td><td>task</td><td>Main simulation — drive stimulus, monitor, score. Uses <code>phase.raise_objection()</code>.</td></tr>
+    <tr><td>extract_phase</td><td>function</td><td>Collect results from scoreboards/monitors.</td></tr>
+    <tr><td>check_phase</td><td>function</td><td>Final pass/fail checks — scoreboards report here.</td></tr>
+    <tr><td>report_phase</td><td>function</td><td>Print summary statistics and coverage.</td></tr>
+    <tr><td>final_phase</td><td>function</td><td>Last chance cleanup before simulator exits.</td></tr>
+  </table>
+
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>phase skeleton — build + connect + run</span></div><pre><span class="kw">class</span> my_env <span class="kw">extends</span> uvm_env;
+  <span class="kw">`uvm_component_utils</span>(my_env)
+
+  my_agent    m_agent;
+  my_scoreboard m_scb;
+
+  <span class="kw">function void</span> build_phase(uvm_phase phase);
+    <span class="kw">super</span>.build_phase(phase);
+    <span class="cm">// Create components — order matters (parent before child)</span>
+    m_agent = my_agent::type_id::create(<span class="str">"m_agent"</span>, this);
+    m_scb   = my_scoreboard::type_id::create(<span class="str">"m_scb"</span>, this);
+  <span class="kw">endfunction</span>
+
+  <span class="kw">function void</span> connect_phase(uvm_phase phase);
+    <span class="cm">// Connect monitor's analysis port to scoreboard's export</span>
+    m_agent.m_monitor.ap.connect(m_scb.analysis_export);
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></pre></div>
+
+  <div class="sl">Objection mechanism — controlling simulation end</div>
+  <div class="warn"><strong>Critical:</strong> The run_phase ends when all objections are dropped. If you never raise an objection, simulation ends immediately at time 0. Always raise in the test's run_phase, lower when done.</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>objection pattern</span></div><pre><span class="kw">task</span> run_phase(uvm_phase phase);
+  my_sequence seq;
+  phase.raise_objection(this);         <span class="cm">// sim runs while objection held</span>
+  seq = my_sequence::type_id::create(<span class="str">"seq"</span>);
+  seq.start(m_env.m_agent.m_sequencer);
+  <span class="cm">// optional: add drain time for last transaction to complete</span>
+  #100ns;
+  phase.drop_objection(this);          <span class="cm">// sim ends when all drop</span>
+<span class="kw">endtask</span></pre></div>
+
+  <div class="sl">Config DB — passing interfaces and config objects</div>
+  <p class="prose">The config DB is UVM's global key-value store. It decouples the testbench top (static) from the class-based components. The interface goes in at <code>tb_top</code>, comes out in <code>connect_phase</code> of the driver/monitor.</p>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>config DB set (tb_top) and get (driver/monitor)</span></div><pre><span class="cm">// ── SET in tb_top initial block ───────────────────────────────</span>
+uvm_config_db#(<span class="kw">virtual</span> my_if)::set(
+  <span class="kw">null</span>,                <span class="cm">// context (null = global)</span>
+  <span class="str">"uvm_test_top.*"</span>,    <span class="cm">// scope path — wildcard matches all children</span>
+  <span class="str">"vif"</span>,               <span class="cm">// key name</span>
+  dut_if               <span class="cm">// value</span>
+);
+
+<span class="cm">// ── GET in driver or monitor connect_phase ───────────────────</span>
+<span class="kw">virtual</span> my_if vif;
+<span class="kw">function void</span> connect_phase(uvm_phase phase);
+  <span class="kw">if</span> (!uvm_config_db#(<span class="kw">virtual</span> my_if)::get(this, <span class="str">""</span>, <span class="str">"vif"</span>, vif))
+    <span class="kw">`uvm_fatal</span>(<span class="str">"NOVIF"</span>, <span class="str">"Virtual interface not found in config DB!"</span>)
+<span class="kw">endfunction</span>
+
+<span class="cm">// ── Passing config objects (e.g. APB config) ─────────────────</span>
+apb_config cfg = apb_config::type_id::create(<span class="str">"cfg"</span>);
+cfg.base_addr   = 32'h4000_0000;
+cfg.is_active   = UVM_ACTIVE;
+uvm_config_db#(apb_config)::set(this, <span class="str">"m_agent*"</span>, <span class="str">"cfg"</span>, cfg);</pre></div>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> Build phase creates. Connect phase wires. Run phase drives. Always raise the objection before stimulus starts and drop it when done. Config DB is the standard handshake for passing virtual interfaces from static SV into the class-based testbench hierarchy.</div>
+  <div class="mf"><button class="bn" onclick="goTo(2)">← Sequence Item</button><button class="bn p" onclick="goTo(4)">Sequence & Sequencer →</button></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     MODULE 5 — SEQUENCE & SEQUENCER
+════════════════════════════════════════════ -->
+<div class="module" id="mod-4">
+  <div class="part-banner p2">
+    <div class="pb-icon">⚙️</div>
+    <div><div class="pb-label">Part 2 · Components</div><div class="pb-title">Modules 5–9: Seq/Sequencer, Driver, Monitor, Agent, Env, Test</div><div class="pb-sub">~35 min</div></div>
+  </div>
+  <div class="mod-header">
+    <div class="mbadge gr">05</div>
+    <div><h2>Sequences and Sequencer</h2><div class="msub">Module 5 · ~8 min · Core component</div></div>
+  </div>
+  <div class="obj gr"><strong>Outcome:</strong> Write single, nested, and virtual sequences. Control the sequencer arbitration. Use sequence macros and start_item/finish_item correctly.</div>
+
+  <div class="sl">The sequence — ordered stimulus pipeline</div>
+  <p class="prose">A sequence is a class that generates a stream of sequence items. It has no clock — it is purely transactional. The sequencer queues items and the driver pulls them one at a time using the <strong>get_next_item / item_done</strong> handshake.</p>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>basic sequence — write burst</span></div><pre><span class="kw">class</span> apb_write_seq <span class="kw">extends</span> uvm_sequence#(apb_seq_item);
+  <span class="kw">`uvm_object_utils</span>(apb_write_seq)
+
+  <span class="kw">int</span> num_txns = 8;  <span class="cm">// configurable from test</span>
+
+  <span class="kw">function new</span>(string name = <span class="str">"apb_write_seq"</span>);
+    <span class="kw">super</span>.new(name);
+  <span class="kw">endfunction</span>
+
+  <span class="kw">task</span> body();
+    apb_seq_item item;
+    <span class="kw">repeat</span>(num_txns) begin
+      item = apb_seq_item::type_id::create(<span class="str">"item"</span>);
+      start_item(item);             <span class="cm">// request sequencer slot</span>
+      <span class="kw">if</span> (!item.randomize() with { write == 1; })
+        <span class="kw">`uvm_fatal</span>(<span class="str">"RAND"</span>, <span class="str">"Randomization failed"</span>)
+      finish_item(item);            <span class="cm">// send to driver, wait for ack</span>
+    <span class="kw">end</span>
+  <span class="kw">endtask</span>
+<span class="kw">endclass</span></pre></div>
+
+  <div class="sl">Sequence macros — shorthand for start_item/finish_item</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>`uvm_do family macros</span></div><pre><span class="cm">// `uvm_do — create, randomize, start, finish in one line</span>
+<span class="kw">`uvm_do</span>(item)
+
+<span class="cm">// `uvm_do_with — randomize with inline constraints</span>
+<span class="kw">`uvm_do_with</span>(item, { item.write == 1; item.addr == 32'h1000; })
+
+<span class="cm">// `uvm_do_on — start item on a specific sequencer</span>
+<span class="kw">`uvm_do_on</span>(item, p_sequencer)
+
+<span class="cm">// `uvm_create + `uvm_rand_send — separate create from send</span>
+<span class="kw">`uvm_create</span>(item)
+item.addr = 32'hDEAD;  <span class="cm">// direct assignment</span>
+<span class="kw">`uvm_rand_send_with</span>(item, { item.write == 0; })</pre></div>
+
+  <div class="sl">Nested and virtual sequences</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>nested sequences and virtual sequence</span></div><pre><span class="cm">// Nested sequence — calls sub-sequences in order</span>
+<span class="kw">class</span> apb_init_seq <span class="kw">extends</span> uvm_sequence#(apb_seq_item);
+  <span class="kw">`uvm_object_utils</span>(apb_init_seq)
+  <span class="kw">task</span> body();
+    apb_write_seq  wr_seq;
+    apb_read_seq   rd_seq;
+    <span class="kw">`uvm_do</span>(wr_seq)  <span class="cm">// write phase</span>
+    <span class="kw">`uvm_do</span>(rd_seq)  <span class="cm">// then read phase</span>
+  <span class="kw">endtask</span>
+<span class="kw">endclass</span>
+
+<span class="cm">// Virtual sequence — controls multiple sequencers simultaneously</span>
+<span class="kw">class</span> top_virtual_seq <span class="kw">extends</span> uvm_sequence;
+  <span class="kw">`uvm_object_utils</span>(top_virtual_seq)
+  <span class="cm">// handles to all sequencers — set by test before start()</span>
+  apb_sequencer  apb_seqr;
+  axi_sequencer  axi_seqr;
+  <span class="kw">task</span> body();
+    apb_write_seq  apb_seq;
+    axi_read_seq   axi_seq;
+    fork
+      apb_seq.start(apb_seqr);   <span class="cm">// runs in parallel</span>
+      axi_seq.start(axi_seqr);
+    join
+  <span class="kw">endtask</span>
+<span class="kw">endclass</span></pre></div>
+
+  <div class="sl">The sequencer — arbitration and flow control</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>sequencer declaration and arbitration</span></div><pre><span class="cm">// Sequencer declaration (usually just typedef)</span>
+<span class="kw">typedef</span> uvm_sequencer#(apb_seq_item) apb_sequencer;
+
+<span class="cm">// Sequencer arbitration modes (set in build_phase)</span>
+m_sequencer.set_arbitration(UVM_SEQ_ARB_FIFO);      <span class="cm">// default, in-order</span>
+m_sequencer.set_arbitration(UVM_SEQ_ARB_RANDOM);    <span class="cm">// random pick</span>
+m_sequencer.set_arbitration(UVM_SEQ_ARB_WEIGHTED);  <span class="cm">// by priority</span>
+m_sequencer.set_arbitration(UVM_SEQ_ARB_STRICT_FIFO); <span class="cm">// strict priority</span>
+
+<span class="cm">// Sequence control — locking the sequencer</span>
+seq.grab(m_sequencer);     <span class="cm">// exclusive access, blocks other sequences</span>
+<span class="cm">// ... send high-priority stimulus ...</span>
+seq.ungrab(m_sequencer);   <span class="cm">// release</span></pre></div>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> Sequences are pure stimulus logic — no clocks, no DUT knowledge. Use <code>start_item/finish_item</code> for explicit control, <code>`uvm_do_with</code> for inline constraints. Virtual sequences coordinate multiple agents in parallel using <code>fork/join</code>.</div>
+  <div class="mf"><button class="bn" onclick="goTo(3)">← Phases & Config DB</button><button class="bn p" onclick="goTo(5)">Driver →</button></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     MODULE 6 — DRIVER
+════════════════════════════════════════════ -->
+<div class="module" id="mod-5">
+  <div class="mod-header">
+    <div class="mbadge bl">06</div>
+    <div><h2>UVM Driver — pin-level stimulus</h2><div class="msub">Module 6 · ~7 min · Core component</div></div>
+  </div>
+  <div class="obj bl"><strong>Outcome:</strong> Write a complete driver that gets items from the sequencer, drives them onto the virtual interface cycle-accurately, and handles reset cleanly.</div>
+
+  <div class="sl">Driver anatomy</div>
+  <p class="prose">The driver bridges the transactional world (sequence items) and the pin-level world (virtual interface). It runs in <code>run_phase</code>, loops forever pulling items from the sequencer with <code>seq_item_port.get_next_item()</code>, drives them cycle-by-cycle, then calls <code>item_done()</code> to signal completion.</p>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>complete APB driver</span></div><pre><span class="kw">class</span> apb_driver <span class="kw">extends</span> uvm_driver#(apb_seq_item);
+  <span class="kw">`uvm_component_utils</span>(apb_driver)
+
+  <span class="kw">virtual</span> apb_if vif;
+
+  <span class="kw">function new</span>(string name, uvm_component parent);
+    <span class="kw">super</span>.new(name, parent);
+  <span class="kw">endfunction</span>
+
+  <span class="kw">function void</span> connect_phase(uvm_phase phase);
+    <span class="kw">if</span>(!uvm_config_db#(<span class="kw">virtual</span> apb_if)::get(this,<span class="str">""</span>,<span class="str">"vif"</span>,vif))
+      <span class="kw">`uvm_fatal</span>(<span class="str">"NOVIF"</span>,<span class="str">"No virtual interface"</span>)
+  <span class="kw">endfunction</span>
+
+  <span class="kw">task</span> run_phase(uvm_phase phase);
+    apb_seq_item req;
+    <span class="cm">// Wait for reset to deassert before driving</span>
+    @(posedge vif.PRESETn);
+    forever begin
+      seq_item_port.get_next_item(req);  <span class="cm">// blocking get from sequencer</span>
+      drive_item(req);                   <span class="cm">// pin-level driving</span>
+      seq_item_port.item_done();         <span class="cm">// unblock sequencer</span>
+    <span class="kw">end</span>
+  <span class="kw">endtask</span>
+
+  <span class="kw">task</span> drive_item(apb_seq_item req);
+    <span class="cm">// Setup phase: assert PSEL, deassert PENABLE</span>
+    @(posedge vif.PCLK);
+    vif.PSEL    <= 1;
+    vif.PENABLE <= 0;
+    vif.PWRITE  <= req.write;
+    vif.PADDR   <= req.addr;
+    vif.PWDATA  <= req.data;
+    <span class="cm">// Access phase: assert PENABLE</span>
+    @(posedge vif.PCLK);
+    vif.PENABLE <= 1;
+    <span class="cm">// Wait for PREADY — slave may insert wait states</span>
+    do @(posedge vif.PCLK); while(!vif.PREADY);
+    <span class="cm">// End of transfer: deassert PSEL and PENABLE</span>
+    vif.PSEL    <= 0;
+    vif.PENABLE <= 0;
+    <span class="kw">`uvm_info</span>(get_type_name(), req.convert2string(), UVM_HIGH)
+  <span class="kw">endtask</span>
+<span class="kw">endclass</span></pre></div>
+
+  <div class="tip"><strong>Pattern:</strong> Use <code>try_next_item()</code> instead of <code>get_next_item()</code> when you need to idle the bus during gaps in the sequence stream. <code>try_next_item</code> returns null if no item is available, allowing you to drive idle cycles.</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>try_next_item pattern for bus idle</span></div><pre><span class="kw">task</span> run_phase(uvm_phase phase);
+  apb_seq_item req;
+  forever begin
+    seq_item_port.try_next_item(req);
+    <span class="kw">if</span> (req != <span class="kw">null</span>) begin
+      drive_item(req);
+      seq_item_port.item_done();
+    <span class="kw">end else</span> begin
+      drive_idle();     <span class="cm">// drive bus to idle state for one cycle</span>
+      @(posedge vif.PCLK);
+    <span class="kw">end</span>
+  <span class="kw">end</span>
+<span class="kw">endtask</span></pre></div>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> Driver = get_next_item → drive_item → item_done, forever. Get the virtual interface in connect_phase, not build_phase. Wait for reset before driving. Use try_next_item when you need to drive idle states between transactions.</div>
+  <div class="mf"><button class="bn" onclick="goTo(4)">← Sequence & Sequencer</button><button class="bn p" onclick="goTo(6)">Monitor & Scoreboard →</button></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     MODULE 7 — MONITOR & SCOREBOARD
+════════════════════════════════════════════ -->
+<div class="module" id="mod-6">
+  <div class="mod-header">
+    <div class="mbadge pk">07</div>
+    <div><h2>Monitor and Scoreboard</h2><div class="msub">Module 7 · ~8 min · Core components</div></div>
+  </div>
+  <div class="obj pk"><strong>Outcome:</strong> Write a monitor that samples DUT outputs and broadcasts via TLM analysis port, and a scoreboard that receives from both the reference model and monitor, compares, and reports.</div>
+
+  <div class="sl">Monitor — passive observer, never drives</div>
+  <p class="prose">The monitor samples the DUT interface at clock edges and converts signal-level activity into sequence items. It then writes each captured item into an <strong>analysis port</strong> — a broadcast mechanism that any number of subscribers (scoreboards, coverage collectors) can connect to.</p>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>APB monitor</span></div><pre><span class="kw">class</span> apb_monitor <span class="kw">extends</span> uvm_monitor;
+  <span class="kw">`uvm_component_utils</span>(apb_monitor)
+
+  <span class="kw">virtual</span> apb_if                          vif;
+  uvm_analysis_port#(apb_seq_item)        ap;  <span class="cm">// broadcast port</span>
+
+  <span class="kw">function new</span>(string name, uvm_component parent);
+    <span class="kw">super</span>.new(name, parent);
+  <span class="kw">endfunction</span>
+
+  <span class="kw">function void</span> build_phase(uvm_phase phase);
+    ap = <span class="kw">new</span>(<span class="str">"ap"</span>, this);  <span class="cm">// analysis port — created in build</span>
+  <span class="kw">endfunction</span>
+
+  <span class="kw">function void</span> connect_phase(uvm_phase phase);
+    <span class="kw">if</span>(!uvm_config_db#(<span class="kw">virtual</span> apb_if)::get(this,<span class="str">""</span>,<span class="str">"vif"</span>,vif))
+      <span class="kw">`uvm_fatal</span>(<span class="str">"NOVIF"</span>,<span class="str">"No virtual interface"</span>)
+  <span class="kw">endfunction</span>
+
+  <span class="kw">task</span> run_phase(uvm_phase phase);
+    apb_seq_item item;
+    forever begin
+      <span class="cm">// Wait for a completed transfer (PSEL + PENABLE + PREADY)</span>
+      @(posedge vif.PCLK);
+      <span class="kw">if</span>(vif.PSEL && vif.PENABLE && vif.PREADY) begin
+        item = apb_seq_item::type_id::create(<span class="str">"item"</span>);
+        item.addr  = vif.PADDR;
+        item.data  = vif.PWRITE ? vif.PWDATA : vif.PRDATA;
+        item.write = vif.PWRITE;
+        ap.write(item);  <span class="cm">// broadcast to all connected subscribers</span>
+      <span class="kw">end</span>
+    <span class="kw">end</span>
+  <span class="kw">endtask</span>
+<span class="kw">endclass</span></pre></div>
+
+  <div class="sl">Scoreboard — the checker</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>scoreboard with reference model</span></div><pre><span class="kw">class</span> apb_scoreboard <span class="kw">extends</span> uvm_scoreboard;
+  <span class="kw">`uvm_component_utils</span>(apb_scoreboard)
+
+  <span class="cm">// Two analysis exports — one from monitor, one from ref model</span>
+  uvm_analysis_export#(apb_seq_item) mon_export;
+  uvm_analysis_export#(apb_seq_item) ref_export;
+
+  uvm_tlm_analysis_fifo#(apb_seq_item) mon_fifo;
+  uvm_tlm_analysis_fifo#(apb_seq_item) ref_fifo;
+
+  <span class="kw">int</span> pass_count, fail_count;
+
+  <span class="kw">function void</span> build_phase(uvm_phase phase);
+    mon_export = <span class="kw">new</span>(<span class="str">"mon_export"</span>, this);
+    ref_export = <span class="kw">new</span>(<span class="str">"ref_export"</span>, this);
+    mon_fifo   = <span class="kw">new</span>(<span class="str">"mon_fifo"</span>, this);
+    ref_fifo   = <span class="kw">new</span>(<span class="str">"ref_fifo"</span>, this);
+  <span class="kw">endfunction</span>
+
+  <span class="kw">function void</span> connect_phase(uvm_phase phase);
+    mon_export.connect(mon_fifo.analysis_export);
+    ref_export.connect(ref_fifo.analysis_export);
+  <span class="kw">endfunction</span>
+
+  <span class="kw">task</span> run_phase(uvm_phase phase);
+    apb_seq_item mon_item, ref_item;
+    forever begin
+      mon_fifo.get(mon_item);   <span class="cm">// blocking: wait for monitor item</span>
+      ref_fifo.get(ref_item);   <span class="cm">// blocking: wait for reference item</span>
+      <span class="kw">if</span> (!mon_item.compare(ref_item)) begin
+        <span class="kw">`uvm_error</span>(<span class="str">"SCB"</span>, $sformatf(<span class="str">"MISMATCH\n  GOT: %s\n  EXP: %s"</span>,
+                   mon_item.convert2string(), ref_item.convert2string()))
+        fail_count++;
+      <span class="kw">end else</span> pass_count++;
+    <span class="kw">end</span>
+  <span class="kw">endtask</span>
+
+  <span class="kw">function void</span> report_phase(uvm_phase phase);
+    <span class="kw">`uvm_info</span>(<span class="str">"SCB"</span>,$sformatf(<span class="str">"RESULTS: PASS=%0d FAIL=%0d"</span>,
+              pass_count,fail_count),UVM_NONE)
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></pre></div>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> The monitor is passive — it only reads the interface, never drives it. The analysis port is a broadcast bus — one <code>ap.write()</code> call reaches every connected export. Scoreboards use FIFOs to buffer items from both monitor and reference model and compare them in the run_phase.</div>
+  <div class="mf"><button class="bn" onclick="goTo(5)">← Driver</button><button class="bn p" onclick="goTo(7)">Agent & Environment →</button></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     MODULE 8 — AGENT & ENVIRONMENT
+════════════════════════════════════════════ -->
+<div class="module" id="mod-7">
+  <div class="mod-header">
+    <div class="mbadge t">08</div>
+    <div><h2>Agent and Environment</h2><div class="msub">Module 8 · ~7 min · Integration layer</div></div>
+  </div>
+  <div class="obj t"><strong>Outcome:</strong> Assemble the agent (sequencer + driver + monitor) and environment (agents + scoreboard), wire TLM connections, and configure active vs passive mode.</div>
+
+  <div class="sl">The agent — reusable verification IP</div>
+  <p class="prose">The agent is the reusable unit you'd package as a VIP. An <strong>active agent</strong> contains all three sub-components (sequencer + driver + monitor). A <strong>passive agent</strong> contains only the monitor — used when you're observing a bus that another master drives.</p>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>APB agent — active/passive configurable</span></div><pre><span class="kw">class</span> apb_agent <span class="kw">extends</span> uvm_agent;
+  <span class="kw">`uvm_component_utils</span>(apb_agent)
+
+  apb_driver     m_driver;
+  apb_monitor    m_monitor;
+  apb_sequencer  m_sequencer;
+
+  uvm_active_passive_enum is_active = UVM_ACTIVE;  <span class="cm">// default: active</span>
+
+  <span class="kw">function void</span> build_phase(uvm_phase phase);
+    <span class="kw">super</span>.build_phase(phase);
+    <span class="cm">// Get is_active from config DB if set by test</span>
+    uvm_config_db#(uvm_active_passive_enum)::get(
+      this, <span class="str">""</span>, <span class="str">"is_active"</span>, is_active);
+    <span class="cm">// Monitor always created — even passive agents need to observe</span>
+    m_monitor = apb_monitor::type_id::create(<span class="str">"m_monitor"</span>, this);
+    <span class="kw">if</span>(is_active == UVM_ACTIVE) begin
+      m_driver    = apb_driver::type_id::create(<span class="str">"m_driver"</span>, this);
+      m_sequencer = apb_sequencer::type_id::create(<span class="str">"m_sequencer"</span>, this);
+    <span class="kw">end</span>
+  <span class="kw">endfunction</span>
+
+  <span class="kw">function void</span> connect_phase(uvm_phase phase);
+    <span class="kw">if</span>(is_active == UVM_ACTIVE)
+      m_driver.seq_item_port.connect(m_sequencer.seq_item_export);
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></pre></div>
+
+  <div class="sl">The environment — wires everything together</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>UVM environment</span></div><pre><span class="kw">class</span> apb_env <span class="kw">extends</span> uvm_env;
+  <span class="kw">`uvm_component_utils</span>(apb_env)
+
+  apb_agent      m_agent;
+  apb_scoreboard m_scb;
+
+  <span class="kw">function void</span> build_phase(uvm_phase phase);
+    <span class="kw">super</span>.build_phase(phase);
+    m_agent = apb_agent::type_id::create(<span class="str">"m_agent"</span>, this);
+    m_scb   = apb_scoreboard::type_id::create(<span class="str">"m_scb"</span>, this);
+  <span class="kw">endfunction</span>
+
+  <span class="kw">function void</span> connect_phase(uvm_phase phase);
+    <span class="cm">// Wire monitor's analysis port to scoreboard's export</span>
+    m_agent.m_monitor.ap.connect(m_scb.mon_export);
+    <span class="cm">// Reference model output would also connect to m_scb.ref_export</span>
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></pre></div>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> The agent is your reusable VIP unit. Always make it active/passive configurable via the config DB. The environment is the integration glue — it creates components and wires their TLM ports. Connect ports in connect_phase, never in build_phase.</div>
+  <div class="mf"><button class="bn" onclick="goTo(6)">← Monitor & Scoreboard</button><button class="bn p" onclick="goTo(8)">Test & TB Top →</button></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     MODULE 9 — TEST & TB TOP
+════════════════════════════════════════════ -->
+<div class="module" id="mod-8">
+  <div class="mod-header">
+    <div class="mbadge pu">09</div>
+    <div><h2>Test class and full testbench assembly</h2><div class="msub">Module 9 · ~8 min · Integration + exercise</div></div>
+  </div>
+  <div class="obj pu"><strong>Outcome:</strong> Write a complete test class that builds the env, configures it, starts sequences, and write the testbench top that assembles the full simulation. See all 9 components working together.</div>
+
+  <div class="sl">The test class — control room</div>
+  <p class="prose">The test is the highest-level UVM component. There is one test per simulation run, selected by <code>+UVM_TESTNAME=my_test</code>. It creates the environment, applies factory overrides for that specific scenario, sets up config objects, then starts the stimulus sequence.</p>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>complete UVM test</span></div><pre><span class="kw">class</span> apb_base_test <span class="kw">extends</span> uvm_test;
+  <span class="kw">`uvm_component_utils</span>(apb_base_test)
+
+  apb_env m_env;
+
+  <span class="kw">function new</span>(string name, uvm_component parent);
+    <span class="kw">super</span>.new(name, parent);
+  <span class="kw">endfunction</span>
+
+  <span class="kw">function void</span> build_phase(uvm_phase phase);
+    <span class="kw">super</span>.build_phase(phase);
+    m_env = apb_env::type_id::create(<span class="str">"m_env"</span>, this);
+    <span class="cm">// Set base address config for agent</span>
+    apb_config cfg = apb_config::type_id::create(<span class="str">"cfg"</span>);
+    cfg.base_addr = 32'h4000_0000;
+    uvm_config_db#(apb_config)::set(this, <span class="str">"m_env.m_agent*"</span>, <span class="str">"cfg"</span>, cfg);
+  <span class="kw">endfunction</span>
+
+  <span class="kw">task</span> run_phase(uvm_phase phase);
+    apb_write_seq seq;
+    phase.raise_objection(this);
+    seq = apb_write_seq::type_id::create(<span class="str">"seq"</span>);
+    seq.num_txns = 20;
+    seq.start(m_env.m_agent.m_sequencer);
+    #500ns;
+    phase.drop_objection(this);
+  <span class="kw">endtask</span>
+<span class="kw">endclass</span>
+
+<span class="cm">// Extended test — factory override swaps in error sequence</span>
+<span class="kw">class</span> apb_error_test <span class="kw">extends</span> apb_base_test;
+  <span class="kw">`uvm_component_utils</span>(apb_error_test)
+  <span class="kw">function void</span> build_phase(uvm_phase phase);
+    apb_write_seq::type_id::set_type_override(apb_error_seq::get_type());
+    <span class="kw">super</span>.build_phase(phase);  <span class="cm">// override must be set BEFORE super call</span>
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></pre></div>
+
+  <div class="sl">Complete testbench top — everything assembled</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>tb_top.sv — full assembly</span></div><pre><span class="kw">module</span> tb_top;
+  <span class="kw">import</span> uvm_pkg::*;
+  <span class="kw">`include</span> <span class="str">"uvm_macros.svh"</span>
+  <span class="kw">`include</span> <span class="str">"apb_pkg.sv"</span>
+
+  <span class="kw">bit</span> PCLK;
+  <span class="kw">always</span> #5 PCLK = ~PCLK;
+
+  apb_if    dut_if (.PCLK(PCLK));
+  apb_slave dut    (
+    .PCLK(PCLK),      .PRESETn(dut_if.PRESETn),
+    .PSEL(dut_if.PSEL), .PENABLE(dut_if.PENABLE),
+    .PWRITE(dut_if.PWRITE), .PADDR(dut_if.PADDR),
+    .PWDATA(dut_if.PWDATA), .PREADY(dut_if.PREADY),
+    .PRDATA(dut_if.PRDATA), .PSLVERR(dut_if.PSLVERR)
+  );
+
+  <span class="kw">initial</span> begin
+    uvm_config_db#(<span class="kw">virtual</span> apb_if)::set(<span class="kw">null</span>,<span class="str">"uvm_test_top.*"</span>,<span class="str">"vif"</span>,dut_if);
+    run_test();
+    <span class="cm">// Run with: +UVM_TESTNAME=apb_base_test</span>
+    <span class="cm">// Run with: +UVM_TESTNAME=apb_error_test</span>
+  <span class="kw">end</span>
+<span class="kw">endmodule</span></pre></div>
+
+  <div class="sl">Exercise — build the full testbench skeleton</div>
+  <div class="ex-box">
+    <div class="ex-head"><div class="ex-icon">✏️</div><h3>Skeleton checklist — can you recall all 9 pieces?</h3><span class="ex-timer">⏱ 6 min</span></div>
+    <div class="ex-ctx">Without looking at the code above, list the file and the critical line(s) that each component contributes to make the testbench work. Score yourself.</div>
+    <ol class="ex-steps">
+      <li><code>tb_top.sv</code> — what two critical calls go in the <code>initial</code> block?</li>
+      <li><code>apb_seq_item</code> — what macro enables print/compare/pack, and where does it go?</li>
+      <li><code>apb_driver</code> — what is the exact method call to get the next item and what must follow it?</li>
+      <li><code>apb_monitor</code> — what type is the analysis port and what call broadcasts an item?</li>
+      <li><code>apb_agent</code> — what single line in connect_phase wires driver to sequencer?</li>
+      <li><code>apb_base_test</code> — what two calls in run_phase bracket the sequence execution?</li>
+    </ol>
+    <button class="toggle-ans" onclick="toggleAns('ans8')">▶ Show answers</button>
+    <div class="ans-reveal" id="ans8">
+      <div class="ans-tag">Answers</div>
+      <div class="cw" style="margin-top:0"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>checklist answers</span></div><pre><span class="cm">// 1. tb_top initial block</span>
+uvm_config_db#(virtual my_if)::set(null,"uvm_test_top.*","vif",dut_if);
+run_test();
+
+<span class="cm">// 2. Sequence item macro</span>
+`uvm_object_utils_begin / `uvm_field_int / `uvm_object_utils_end
+
+<span class="cm">// 3. Driver get/done handshake</span>
+seq_item_port.get_next_item(req);  <span class="cm">// ... drive ... then:</span>
+seq_item_port.item_done();
+
+<span class="cm">// 4. Monitor analysis port</span>
+uvm_analysis_port#(apb_seq_item) ap;
+ap.write(item);   <span class="cm">// broadcasts to all connected exports</span>
+
+<span class="cm">// 5. Agent connect_phase</span>
+m_driver.seq_item_port.connect(m_sequencer.seq_item_export);
+
+<span class="cm">// 6. Test run_phase brackets</span>
+phase.raise_objection(this);
+seq.start(m_env.m_agent.m_sequencer);
+phase.drop_objection(this);</pre></div>
+    </div>
+  </div>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> The test class is the only entry point per simulation run. Factory overrides must be set BEFORE <code>super.build_phase()</code>. The full assembly is: tb_top → run_test → test builds env → env builds agents → agents build driver+sequencer+monitor → all connect in connect_phase.</div>
+  <div class="mf"><button class="bn" onclick="goTo(7)">← Agent & Environment</button><button class="bn p" onclick="goTo(9)">TLM Ports →</button></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     MODULE 10 — TLM
+════════════════════════════════════════════ -->
+<div class="module" id="mod-9">
+  <div class="part-banner p3">
+    <div class="pb-icon">🔬</div>
+    <div><div class="pb-label">Part 3 · Advanced Topics</div><div class="pb-title">Modules 10–12: TLM, Callbacks, Events, RAL</div><div class="pb-sub">~30 min</div></div>
+  </div>
+  <div class="mod-header">
+    <div class="mbadge am">10</div>
+    <div><h2>TLM — Transaction Level Modelling ports</h2><div class="msub">Module 10 · ~8 min · Advanced</div></div>
+  </div>
+  <div class="obj am"><strong>Outcome:</strong> Connect components using TLM ports, exports, and FIFOs. Understand blocking vs non-blocking transport, analysis ports, and when to use each.</div>
+
+  <div class="sl">TLM port types — the connection fabric</div>
+  <div class="cgrid">
+    <div class="card"><div class="ctag">Analysis</div><div class="ctitle">uvm_analysis_port</div><div class="cdesc">One-to-many broadcast. <code>write()</code> call. No blocking. Used by monitors to fan out to scoreboards, coverage, loggers simultaneously.</div></div>
+    <div class="card"><div class="ctag">Blocking get</div><div class="ctitle">uvm_get_port</div><div class="cdesc">Consumer pulls from producer. Blocks until item available. Driver ← Sequencer uses <code>seq_item_port</code> which is a specialised get port.</div></div>
+    <div class="card"><div class="ctag">Blocking put</div><div class="ctitle">uvm_put_port</div><div class="cdesc">Producer pushes to consumer. Blocks until consumer accepts. Alternative to analysis for point-to-point non-broadcast transfer.</div></div>
+    <div class="card"><div class="ctag">FIFO</div><div class="ctitle">uvm_tlm_analysis_fifo</div><div class="cdesc">Decouples producer and consumer timing. Analysis port writes into FIFO; consumer reads with <code>get()</code>. Standard scoreboard pattern.</div></div>
+  </div>
+
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>TLM connection patterns</span></div><pre><span class="cm">// ── Analysis: one monitor → two subscribers ───────────────────</span>
+<span class="cm">// In build_phase of each component:</span>
+uvm_analysis_port#(apb_seq_item)   mon.ap;        <span class="cm">// producer</span>
+uvm_analysis_export#(apb_seq_item) scb.mon_export; <span class="cm">// consumer 1</span>
+uvm_analysis_export#(apb_seq_item) cov.ap_export;  <span class="cm">// consumer 2</span>
+<span class="cm">// In connect_phase (env level):</span>
+mon.ap.connect(scb.mon_export);
+mon.ap.connect(cov.ap_export);   <span class="cm">// analysis supports fan-out</span>
+
+<span class="cm">// ── Analysis FIFO — decouple timing between monitor and scoreboard</span>
+uvm_tlm_analysis_fifo#(apb_seq_item) fifo;
+<span class="cm">// Connect monitor → FIFO input</span>
+mon.ap.connect(fifo.analysis_export);
+<span class="cm">// Scoreboard reads from FIFO (blocking get)</span>
+fifo.get(item);  <span class="cm">// blocks until item available</span>
+
+<span class="cm">// ── Blocking transport — point-to-point with response ─────────</span>
+uvm_blocking_transport_port#(req_t,rsp_t) port;
+uvm_blocking_transport_imp#(req_t,rsp_t,component) imp;
+<span class="cm">// Usage:</span>
+port.transport(req, rsp);  <span class="cm">// sends req, blocks, gets rsp back</span></pre></div>
+
+  <div class="sl">TLM FIFO — the scoreboard buffer pattern in full</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>analysis FIFO usage in scoreboard</span></div><pre><span class="kw">class</span> apb_scoreboard <span class="kw">extends</span> uvm_scoreboard;
+  <span class="kw">`uvm_component_utils</span>(apb_scoreboard)
+
+  uvm_tlm_analysis_fifo#(apb_seq_item) exp_fifo; <span class="cm">// expected (ref model)</span>
+  uvm_tlm_analysis_fifo#(apb_seq_item) act_fifo; <span class="cm">// actual (DUT monitor)</span>
+
+  <span class="kw">function void</span> build_phase(uvm_phase phase);
+    exp_fifo = <span class="kw">new</span>(<span class="str">"exp_fifo"</span>, this);
+    act_fifo = <span class="kw">new</span>(<span class="str">"act_fifo"</span>, this);
+  <span class="kw">endfunction</span>
+
+  <span class="kw">task</span> run_phase(uvm_phase phase);
+    apb_seq_item exp_item, act_item;
+    forever begin
+      exp_fifo.get(exp_item);   <span class="cm">// wait for expected</span>
+      act_fifo.get(act_item);   <span class="cm">// wait for actual</span>
+      check_items(exp_item, act_item);
+    <span class="kw">end</span>
+  <span class="kw">endtask</span>
+<span class="kw">endclass</span>
+
+<span class="cm">// In environment connect_phase:</span>
+ref_model.ap.connect(m_scb.exp_fifo.analysis_export);
+m_agent.m_monitor.ap.connect(m_scb.act_fifo.analysis_export);</pre></div>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> Analysis ports are fire-and-forget broadcasts — one write reaches all connected exports. Use TLM FIFOs to decouple producer/consumer timing in scoreboards. The driver↔sequencer connection uses the specialised seq_item_port/export, not a generic TLM port.</div>
+  <div class="mf"><button class="bn" onclick="goTo(8)">← Test & TB Top</button><button class="bn p" onclick="goTo(10)">Callbacks & Events →</button></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     MODULE 11 — CALLBACKS & EVENTS
+════════════════════════════════════════════ -->
+<div class="module" id="mod-10">
+  <div class="mod-header">
+    <div class="mbadge gr">11</div>
+    <div><h2>Callbacks and UVM Events</h2><div class="msub">Module 11 · ~8 min · Advanced</div></div>
+  </div>
+  <div class="obj gr"><strong>Outcome:</strong> Add callbacks to components to enable error injection without modifying verified code, and use UVM events and barriers to synchronise parallel processes.</div>
+
+  <div class="sl">UVM Callbacks — modify behaviour without subclassing</div>
+  <p class="prose">Callbacks let you inject behaviour into a component at specific hook points — pre_drive, post_drive, pre_randomize — without subclassing or modifying the original verified component. The component declares the hooks; the test registers callback objects that fill them in.</p>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>callback class + registration + usage</span></div><pre><span class="cm">// Step 1: Declare callback class with hook methods</span>
+<span class="kw">class</span> apb_driver_cbs <span class="kw">extends</span> uvm_callback;
+  <span class="kw">`uvm_object_utils</span>(apb_driver_cbs)
+  <span class="cm">// Default implementations do nothing — override in subclass</span>
+  <span class="kw">virtual task</span> pre_drive(apb_driver drv, apb_seq_item item); <span class="kw">endtask</span>
+  <span class="kw">virtual task</span> post_drive(apb_driver drv, apb_seq_item item); <span class="kw">endtask</span>
+<span class="kw">endclass</span>
+
+<span class="cm">// Step 2: Register callback type in the component</span>
+<span class="kw">class</span> apb_driver <span class="kw">extends</span> uvm_driver#(apb_seq_item);
+  <span class="kw">`uvm_register_cb</span>(apb_driver, apb_driver_cbs)  <span class="cm">// register hook</span>
+  <span class="kw">task</span> drive_item(apb_seq_item item);
+    <span class="kw">`uvm_do_callbacks</span>(apb_driver, apb_driver_cbs, pre_drive(this, item))
+    <span class="cm">// ... actual driving code ...</span>
+    <span class="kw">`uvm_do_callbacks</span>(apb_driver, apb_driver_cbs, post_drive(this, item))
+  <span class="kw">endtask</span>
+<span class="kw">endclass</span>
+
+<span class="cm">// Step 3: Implement error injection callback</span>
+<span class="kw">class</span> apb_error_inject_cb <span class="kw">extends</span> apb_driver_cbs;
+  <span class="kw">`uvm_object_utils</span>(apb_error_inject_cb)
+  <span class="kw">virtual task</span> pre_drive(apb_driver drv, apb_seq_item item);
+    <span class="cm">// Corrupt every 5th address — no changes to driver needed</span>
+    <span class="kw">if</span> ($urandom_range(0,4) == 0) item.addr = item.addr ^ 32'hFFFF;
+  <span class="kw">endtask</span>
+<span class="kw">endclass</span>
+
+<span class="cm">// Step 4: Add callback instance in the test</span>
+apb_error_inject_cb err_cb = apb_error_inject_cb::type_id::create(<span class="str">"err_cb"</span>);
+uvm_callbacks#(apb_driver, apb_driver_cbs)::add(
+  m_env.m_agent.m_driver, err_cb);</pre></div>
+
+  <div class="sl">UVM Events — synchronise between parallel processes</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>uvm_event and uvm_event_pool</span></div><pre><span class="cm">// ── Declare and use a named event from the global event pool ─</span>
+uvm_event e = uvm_event_pool::get_global(<span class="str">"seq_done"</span>);
+
+<span class="cm">// In producer (sequence body):</span>
+seq_body_completes: e.trigger();        <span class="cm">// fires event</span>
+
+<span class="cm">// In consumer (another sequence or component):</span>
+e.wait_trigger();                       <span class="cm">// blocks until fired</span>
+e.wait_trigger_data(data_obj);          <span class="cm">// blocks + receives payload</span>
+
+<span class="cm">// ── UVM Barrier — synchronise N processes ─────────────────────</span>
+uvm_barrier barrier = <span class="kw">new</span>(<span class="str">"barrier"</span>);
+barrier.set_threshold(3);   <span class="cm">// wait until 3 processes call wait_for()</span>
+
+<span class="cm">// In each of the 3 parallel sequences:</span>
+barrier.wait_for();          <span class="cm">// all 3 release simultaneously</span>
+
+<span class="cm">// ── Heartbeat — detect stuck components ───────────────────────</span>
+uvm_heartbeat hb;
+uvm_event     hb_e = uvm_event_pool::get_global(<span class="str">"heartbeat"</span>);
+hb = <span class="kw">new</span>(<span class="str">"hb"</span>, this, hb_e);
+hb.add(m_driver);            <span class="cm">// register component</span>
+hb.set_mode(UVM_ANY_ACTIVE); <span class="cm">// any registered component must pulse</span>
+hb.start(hb_e);              <span class="cm">// timeout if no pulse within threshold</span>
+
+<span class="cm">// In the monitored component — pulse the heartbeat:</span>
+hb_e.trigger();              <span class="cm">// call periodically inside run_phase</span></pre></div>
+
+  <div class="sl">Callback in a sequence — resetting behaviour without modifying base</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>callback registered to a sequence</span></div><pre><span class="kw">class</span> apb_seq_cbs <span class="kw">extends</span> uvm_callback;
+  <span class="kw">virtual task</span> post_body(apb_write_seq seq); <span class="kw">endtask</span>
+<span class="kw">endclass</span>
+
+<span class="kw">class</span> apb_write_seq <span class="kw">extends</span> uvm_sequence#(apb_seq_item);
+  <span class="kw">`uvm_register_cb</span>(apb_write_seq, apb_seq_cbs)
+  <span class="kw">task</span> body();
+    <span class="cm">// ... sequence body ...</span>
+    <span class="kw">`uvm_do_callbacks</span>(apb_write_seq, apb_seq_cbs, post_body(this))
+  <span class="kw">endtask</span>
+<span class="kw">endclass</span></pre></div>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> Callbacks are extension hooks in verified components — use them for error injection, coverage taps, and protocol violations without touching the base component. UVM events coordinate parallel sequences. Barriers synchronise N concurrent processes. Heartbeats detect hung drivers or monitors.</div>
+  <div class="mf"><button class="bn" onclick="goTo(9)">← TLM Ports</button><button class="bn p" onclick="goTo(11)">RAL & Register Model →</button></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     MODULE 12 — RAL
+════════════════════════════════════════════ -->
+<div class="module" id="mod-11">
+  <div class="mod-header">
+    <div class="mbadge bl">12</div>
+    <div><h2>RAL — Register Abstraction Layer</h2><div class="msub">Module 12 · ~10 min · Advanced</div></div>
+  </div>
+  <div class="obj bl"><strong>Outcome:</strong> Build a RAL register model for a peripheral, connect it to the DUT via an adapter, and use frontdoor/backdoor access to read/write registers and run built-in register tests.</div>
+
+  <div class="sl">Why RAL exists</div>
+  <p class="prose">Without RAL, every register test writes raw hex values to raw addresses. When the register map changes (and it always changes), you update every test that references those registers. RAL replaces this with a named model — <code>reg_model.ctrl.write()</code> instead of <code>axi_write(32'h4001_0004, 32'h0000_0001)</code>.</p>
+
+  <div class="sl">Building the register model</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>register, register block, register map</span></div><pre><span class="cm">// ── Step 1: Define individual registers ───────────────────────</span>
+<span class="kw">class</span> ctrl_reg <span class="kw">extends</span> uvm_reg;
+  <span class="kw">`uvm_object_utils</span>(ctrl_reg)
+
+  uvm_reg_field enable;   <span class="cm">// bit 0</span>
+  uvm_reg_field mode;     <span class="cm">// bits [3:1]</span>
+  uvm_reg_field reserved; <span class="cm">// bits [31:4] — read-only, tied 0</span>
+
+  <span class="kw">function new</span>(string name = <span class="str">"ctrl_reg"</span>);
+    <span class="kw">super</span>.new(name, 32, UVM_NO_COVERAGE);
+  <span class="kw">endfunction</span>
+
+  <span class="kw">function void</span> build();
+    enable   = uvm_reg_field::type_id::create(<span class="str">"enable"</span>);
+    mode     = uvm_reg_field::type_id::create(<span class="str">"mode"</span>);
+    reserved = uvm_reg_field::type_id::create(<span class="str">"reserved"</span>);
+    <span class="cm">// configure(parent, size, lsb_pos, access, volatile, reset, has_reset)</span>
+    enable.configure  (this, 1,  0, <span class="str">"RW"</span>, 0, 1'b0, 1);
+    mode.configure    (this, 3,  1, <span class="str">"RW"</span>, 0, 3'b0, 1);
+    reserved.configure(this, 28, 4, <span class="str">"RO"</span>, 0, 28'b0, 1);
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span>
+
+<span class="cm">// ── Step 2: Define the register block (full peripheral map) ───</span>
+<span class="kw">class</span> apb_reg_block <span class="kw">extends</span> uvm_reg_block;
+  <span class="kw">`uvm_object_utils</span>(apb_reg_block)
+
+  ctrl_reg   ctrl;    <span class="cm">// offset 0x00</span>
+  status_reg status;  <span class="cm">// offset 0x04</span>
+  data_reg   data;    <span class="cm">// offset 0x08</span>
+
+  uvm_reg_map default_map;
+
+  <span class="kw">function void</span> build();
+    ctrl   = ctrl_reg::type_id::create(<span class="str">"ctrl"</span>);
+    status = status_reg::type_id::create(<span class="str">"status"</span>);
+    data   = data_reg::type_id::create(<span class="str">"data"</span>);
+    ctrl.build();  status.build();  data.build();
+    ctrl.configure  (this, <span class="kw">null</span>, <span class="str">"ctrl"</span>);
+    status.configure(this, <span class="kw">null</span>, <span class="str">"status"</span>);
+    data.configure  (this, <span class="kw">null</span>, <span class="str">"data"</span>);
+
+    <span class="cm">// Create register map — base addr, bus width, endian</span>
+    default_map = create_map(<span class="str">"default_map"</span>, 32'h4000_0000, 4, UVM_LITTLE_ENDIAN);
+    default_map.add_reg(ctrl,   32'h00, <span class="str">"RW"</span>);
+    default_map.add_reg(status, 32'h04, <span class="str">"RO"</span>);
+    default_map.add_reg(data,   32'h08, <span class="str">"RW"</span>);
+    lock_model();  <span class="cm">// freeze map after build</span>
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></pre></div>
+
+  <div class="sl">Adapter — connects RAL to your bus sequencer</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>APB register adapter</span></div><pre><span class="kw">class</span> apb_reg_adapter <span class="kw">extends</span> uvm_reg_adapter;
+  <span class="kw">`uvm_object_utils</span>(apb_reg_adapter)
+
+  <span class="cm">// Convert RAL generic access → APB sequence item</span>
+  <span class="kw">function</span> uvm_sequence_base reg2bus(const ref uvm_reg_bus_op rw);
+    apb_seq_item item = apb_seq_item::type_id::create(<span class="str">"item"</span>);
+    item.write = (rw.kind == UVM_WRITE);
+    item.addr  = rw.addr;
+    item.data  = rw.data;
+    <span class="kw">return</span> item;
+  <span class="kw">endfunction</span>
+
+  <span class="cm">// Convert APB response → RAL generic response</span>
+  <span class="kw">function void</span> bus2reg(uvm_sequence_item bus_item, ref uvm_reg_bus_op rw);
+    apb_seq_item item;
+    $cast(item, bus_item);
+    rw.kind   = item.write ? UVM_WRITE : UVM_READ;
+    rw.addr   = item.addr;
+    rw.data   = item.data;
+    rw.status = UVM_IS_OK;
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></pre></div>
+
+  <div class="sl">Using the RAL model in a test</div>
+  <div class="cw"><div class="cb"><div class="cd" style="background:#f75f5f"></div><div class="cd" style="background:#f7c948"></div><div class="cd" style="background:#40c463"></div><span>frontdoor and backdoor register access</span></div><pre><span class="cm">// In test build_phase — create and connect the model</span>
+apb_reg_block reg_model = apb_reg_block::type_id::create(<span class="str">"reg_model"</span>);
+reg_model.build();
+apb_reg_adapter adapter = apb_reg_adapter::type_id::create(<span class="str">"adapter"</span>);
+reg_model.default_map.set_sequencer(
+  m_env.m_agent.m_sequencer, adapter);
+
+<span class="cm">// ── Frontdoor write — goes through the bus (driver drives it)</span>
+uvm_status_e status;
+reg_model.ctrl.write(status, 32'h0000_0003);  <span class="cm">// enable=1, mode=1</span>
+reg_model.ctrl.read (status, read_data);
+
+<span class="cm">// ── Field-level access — read/write specific fields only</span>
+uvm_reg_data_t val;
+reg_model.ctrl.enable.write(status, 1'b1);
+reg_model.ctrl.mode.read(status, val);
+
+<span class="cm">// ── Backdoor write — directly updates HDL without driving bus</span>
+<span class="cm">// Requires HDL path set during build</span>
+reg_model.ctrl.write(status, 32'h7, UVM_BACKDOOR);
+
+<span class="cm">// ── mirror() / update() — sync model with DUT ────────────────</span>
+reg_model.ctrl.mirror(status, UVM_CHECK);  <span class="cm">// read DUT, compare to model</span>
+reg_model.ctrl.update(status);             <span class="cm">// write model value to DUT</span>
+
+<span class="cm">// ── Built-in register tests (run from UVM_TESTNAME) ──────────</span>
+<span class="cm">// +UVM_TESTNAME=uvm_reg_hw_reset_seq — checks all reset values</span>
+<span class="cm">// +UVM_TESTNAME=uvm_reg_bit_bash_seq — walks bits through registers</span>
+<span class="cm">// +UVM_TESTNAME=uvm_reg_access_seq  — write/read/compare all regs</span></pre></div>
+
+  <div class="completion">
+    <span class="check">✓</span>
+    <h2>UVM Mastery — all three parts complete</h2>
+    <p>You can now build a complete UVM testbench from scratch: testbench architecture, sequence items, sequences, drivers, monitors, scoreboards, agents, environments, tests, TLM wiring, callbacks, events, and register models — for any ASIC or IP block.</p>
+    <div class="ref-links">
+      <a class="rl" href="https://verificationguide.com/uvm-topics/" target="_blank">UVM Topics</a>
+      <a class="rl" href="https://verificationguide.com/systemverilog/systemverilog-assertions/" target="_blank">SVA Reference</a>
+      <a class="rl" href="https://accellera.org/downloads/standards/uvm" target="_blank">IEEE 1800.2 Standard</a>
+    </div>
+  </div>
+  <div class="mf"><button class="bn" onclick="goTo(10)">← Callbacks & Events</button><button class="bn p" onclick="goTo(0)">↺ Restart Course</button></div>
+</div>
+
+</main>
+</div>
+
+<script>
+let cur = 0;
+const total = 12;
+function pct(i){ return Math.round(((i+1)/total)*100)+'%'; }
+function goTo(idx){
+  document.getElementById('mod-'+cur).classList.remove('visible');
+  cur = idx;
+  document.getElementById('mod-'+cur).classList.add('visible');
+  document.getElementById('pbar').style.width = pct(cur);
+  document.querySelectorAll('.snav a').forEach((a,i)=>a.classList.toggle('active',i===cur));
+  document.querySelectorAll('.mb').forEach((b,i)=>b.classList.toggle('active',i===cur));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function toggleAns(id){
+  const el=document.getElementById(id);
+  const btn=el.previousElementSibling;
+  const show=el.style.display==='block';
+  el.style.display=show?'none':'block';
+  btn.textContent=show?'▶ Show reference answer':'▼ Hide reference answer';
+}
+</script>
+</body>
+</html>

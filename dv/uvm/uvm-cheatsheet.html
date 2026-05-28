@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UVM Cheat Sheet — Universal Verification Methodology</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0d14;--bg2:#111520;--bg3:#171c2c;
+  --border:rgba(255,255,255,0.09);--border2:rgba(255,255,255,0.14);
+  --text:#dde2f0;--text2:#7a82a0;--text3:#3e4560;
+  --teal:#1fc490;--purple:#8b7ef5;--amber:#f0a430;
+  --coral:#f0634a;--green:#4cc46a;--blue:#5aa8f0;--pink:#d966a8;
+  --ff:'DM Sans',sans-serif;--fm:'JetBrains Mono',monospace
+}
+html,body{font-family:var(--ff);background:var(--bg);color:var(--text);font-size:11.5px;line-height:1.5}
+.page{max-width:1180px;margin:0 auto;padding:1.25rem 1.25rem 1.75rem}
+
+/* HEADER */
+.hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid var(--teal);padding-bottom:9px;margin-bottom:1.1rem}
+.hdr h1{font-size:1.25rem;font-weight:600;color:var(--text)}
+.hdr h1 span{color:var(--teal)}
+.hdr .meta{font-family:var(--fm);font-size:9.5px;color:var(--text3);text-align:right;line-height:1.6}
+
+/* GRID */
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
+.span2{grid-column:span 2}
+.span3{grid-column:span 3}
+
+/* SECTION */
+.sec{background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:10px 12px}
+.sh{display:flex;align-items:center;gap:6px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.sh .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.sh h2{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text2)}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse}
+th{font-family:var(--fm);font-size:9.5px;color:var(--text3);font-weight:400;padding:3px 7px;background:var(--bg3);text-align:left;border:1px solid var(--border);text-transform:uppercase;letter-spacing:.06em}
+td{padding:4px 7px;border:1px solid var(--border);font-size:11px;color:var(--text2);vertical-align:top}
+td:first-child{font-family:var(--fm);font-size:10.5px;color:var(--purple);white-space:nowrap}
+td code{font-family:var(--fm);font-size:10px}
+
+/* CODE */
+.cb{background:var(--bg);border:1px solid var(--border2);border-radius:5px;padding:7px 9px;font-family:var(--fm);font-size:10.5px;line-height:1.7;overflow-x:auto;white-space:pre;margin:5px 0 0;color:var(--text)}
+.kw{color:#79b8ff}.cm{color:#3a4060}.str{color:var(--teal)}.op{color:var(--coral)}.fn{color:var(--amber)}
+
+/* FLOW */
+.flow{display:flex;flex-direction:column;gap:5px;margin:5px 0 0}
+.fl{display:flex;align-items:stretch;gap:5px}
+.flb{background:var(--bg3);border:1px solid var(--border2);border-radius:5px;padding:5px 9px;font-size:10.5px;font-family:var(--fm);text-align:center;flex:1}
+.flb.t{border-color:rgba(31,196,144,.4);color:var(--teal)}
+.flb.pu{border-color:rgba(139,126,245,.4);color:var(--purple)}
+.flb.am{border-color:rgba(240,164,48,.4);color:var(--amber)}
+.flb.co{border-color:rgba(240,99,74,.4);color:var(--coral)}
+.flb.bl{border-color:rgba(90,168,240,.4);color:var(--blue)}
+.fla{color:var(--text3);font-size:14px;display:flex;align-items:center;padding:0 2px}
+.fll{font-family:var(--fm);font-size:9px;color:var(--text3);display:flex;align-items:center;min-width:64px;justify-content:flex-end;padding-right:6px}
+
+/* PILL */
+.pill{display:inline-block;font-family:var(--fm);font-size:9.5px;padding:1px 5px;border-radius:3px}
+.pt{background:rgba(31,196,144,.12);color:var(--teal)}
+.pp{background:rgba(139,126,245,.12);color:var(--purple)}
+.pa{background:rgba(240,164,48,.12);color:var(--amber)}
+.pc{background:rgba(240,99,74,.12);color:var(--coral)}
+.pg{background:rgba(76,196,106,.12);color:var(--green)}
+.pb{background:rgba(90,168,240,.12);color:var(--blue)}
+.pk{background:rgba(217,102,168,.12);color:var(--pink)}
+
+/* FOOTER */
+.ftr{margin-top:12px;padding-top:7px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-family:var(--fm);font-size:9.5px;color:var(--text3)}
+@media print{body{background:#fff;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{padding:.4rem}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- HEADER -->
+<div class="hdr">
+  <h1>Universal Verification Methodology <span>(UVM)</span> — Quick Reference</h1>
+  <div class="meta">ASIC Design Verification · IEEE 1800.2<br>verificationguide.com</div>
+</div>
+
+<!-- ROW 1: 3 columns -->
+<div class="g3">
+
+  <!-- TESTBENCH HIERARCHY -->
+  <div class="sec">
+    <div class="sh"><div class="dot" style="background:var(--teal)"></div><h2>Testbench Hierarchy</h2></div>
+    <div class="flow">
+      <div class="fl"><div class="fll">Test</div><div class="flb t">uvm_test — controls sequences, overrides</div></div>
+      <div class="fl"><div class="fll">Env</div><div class="flb pu">uvm_env — instantiates agents + scoreboard</div></div>
+      <div class="fl"><div class="fll">Agent</div>
+        <div style="flex:1;display:flex;gap:5px">
+          <div class="flb am" style="flex:1;font-size:9.5px">Sequencer</div>
+          <div class="flb am" style="flex:1;font-size:9.5px">Driver</div>
+          <div class="flb am" style="flex:1;font-size:9.5px">Monitor</div>
+        </div>
+      </div>
+      <div class="fl"><div class="fll">DUT</div><div class="flb co">Virtual Interface → DUT pins</div></div>
+    </div>
+    <div style="margin-top:8px">
+      <table>
+        <tr><th>Class</th><th>Extends</th><th>Macro</th></tr>
+        <tr><td>seq_item</td><td>uvm_sequence_item</td><td><code>`uvm_object_utils</code></td></tr>
+        <tr><td>sequence</td><td>uvm_sequence#(T)</td><td><code>`uvm_object_utils</code></td></tr>
+        <tr><td>driver</td><td>uvm_driver#(T)</td><td><code>`uvm_component_utils</code></td></tr>
+        <tr><td>monitor</td><td>uvm_monitor</td><td><code>`uvm_component_utils</code></td></tr>
+        <tr><td>scoreboard</td><td>uvm_scoreboard</td><td><code>`uvm_component_utils</code></td></tr>
+        <tr><td>agent</td><td>uvm_agent</td><td><code>`uvm_component_utils</code></td></tr>
+        <tr><td>env</td><td>uvm_env</td><td><code>`uvm_component_utils</code></td></tr>
+        <tr><td>test</td><td>uvm_test</td><td><code>`uvm_component_utils</code></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- PHASES -->
+  <div class="sec">
+    <div class="sh"><div class="dot" style="background:var(--purple)"></div><h2>UVM Phases</h2></div>
+    <table>
+      <tr><th>Phase</th><th>Type</th><th>Use for</th></tr>
+      <tr><td>build_phase</td><td><span class="pill pp">func</span></td><td>Create children via type_id::create()</td></tr>
+      <tr><td>connect_phase</td><td><span class="pill pp">func</span></td><td>Wire TLM ports; get vif from cfg DB</td></tr>
+      <tr><td>end_of_elaboration</td><td><span class="pill pp">func</span></td><td>Print topology; final checks</td></tr>
+      <tr><td>start_of_simulation</td><td><span class="pill pp">func</span></td><td>Print config; set initial values</td></tr>
+      <tr><td>run_phase</td><td><span class="pill pt">task</span></td><td>Main sim — drive, monitor, check</td></tr>
+      <tr><td>extract_phase</td><td><span class="pill pp">func</span></td><td>Collect results</td></tr>
+      <tr><td>check_phase</td><td><span class="pill pp">func</span></td><td>Final pass/fail decisions</td></tr>
+      <tr><td>report_phase</td><td><span class="pill pp">func</span></td><td>Print summary and coverage</td></tr>
+      <tr><td>final_phase</td><td><span class="pill pp">func</span></td><td>Cleanup before exit</td></tr>
+    </table>
+    <div class="cb"><span class="kw">task</span> run_phase(uvm_phase phase);
+  phase.raise_objection(this);
+  seq.start(m_env.m_agent.m_seqr);
+  #100ns;
+  phase.drop_objection(this);
+<span class="kw">endtask</span></div>
+  </div>
+
+  <!-- CONFIG DB -->
+  <div class="sec">
+    <div class="sh"><div class="dot" style="background:var(--amber)"></div><h2>Config DB</h2></div>
+    <div class="cb"><span class="cm">// SET — in tb_top initial block</span>
+uvm_config_db#(<span class="kw">virtual</span> my_if)::set(
+  <span class="kw">null</span>,                <span class="cm">// context</span>
+  <span class="str">"uvm_test_top.*"</span>,   <span class="cm">// path scope</span>
+  <span class="str">"vif"</span>,              <span class="cm">// key</span>
+  dut_if);             <span class="cm">// value</span>
+
+<span class="cm">// GET — in connect_phase of driver/monitor</span>
+<span class="kw">if</span>(!uvm_config_db#(<span class="kw">virtual</span> my_if)::get(
+  this, <span class="str">""</span>, <span class="str">"vif"</span>, vif))
+  <span class="kw">`uvm_fatal</span>(<span class="str">"NOVIF"</span>,<span class="str">"Not found"</span>)
+
+<span class="cm">// Config object pattern</span>
+uvm_config_db#(my_cfg)::set(
+  this, <span class="str">"m_agent*"</span>, <span class="str">"cfg"</span>, cfg);</div>
+    <table style="margin-top:7px">
+      <tr><th>Scope wildcard</th><th>Matches</th></tr>
+      <tr><td>"uvm_test_top.*"</td><td>All components under test</td></tr>
+      <tr><td>"m_env.m_agent*"</td><td>All agents under env</td></tr>
+      <tr><td>"*"</td><td>All components (use carefully)</td></tr>
+      <tr><td>""</td><td>This component only</td></tr>
+    </table>
+  </div>
+
+</div><!-- /g3 -->
+
+<!-- ROW 2: 2 columns -->
+<div class="g2">
+
+  <!-- SEQUENCE ITEM + MACROS -->
+  <div class="sec">
+    <div class="sh"><div class="dot" style="background:var(--coral)"></div><h2>Sequence Item & Field Macros</h2></div>
+    <div class="cb"><span class="kw">class</span> my_item <span class="kw">extends</span> uvm_sequence_item;
+  <span class="kw">`uvm_object_utils_begin</span>(my_item)
+    <span class="kw">`uvm_field_int</span>(addr,  UVM_ALL_ON | UVM_HEX)
+    <span class="kw">`uvm_field_int</span>(data,  UVM_ALL_ON | UVM_HEX)
+    <span class="kw">`uvm_field_int</span>(write, UVM_ALL_ON | UVM_BIN | UVM_NOCOMPARE)
+  <span class="kw">`uvm_object_utils_end</span>
+  <span class="kw">rand logic</span>[31:0] addr, data;
+  <span class="kw">rand logic</span>       write;
+  <span class="kw">constraint</span> c_align { addr[1:0]==2'b00; }
+  <span class="kw">function new</span>(string name=<span class="str">"my_item"</span>); <span class="kw">super</span>.new(name); <span class="kw">endfunction</span>
+  <span class="kw">function string</span> convert2string();
+    <span class="kw">return</span> $sformatf(<span class="str">"A=%0h D=%0h W=%0b"</span>,addr,data,write);
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></div>
+    <table style="margin-top:6px">
+      <tr><th>Flag</th><th>Effect</th></tr>
+      <tr><td>UVM_ALL_ON</td><td>Enable copy, compare, print, pack</td></tr>
+      <tr><td>UVM_NOCOMPARE</td><td>Skip in scoreboard compare</td></tr>
+      <tr><td>UVM_NOCOPY</td><td>Skip in copy/clone</td></tr>
+      <tr><td>UVM_NOPRINT</td><td>Skip in print/sprint</td></tr>
+      <tr><td>UVM_HEX / UVM_BIN / UVM_DEC</td><td>Print radix</td></tr>
+    </table>
+    <div style="margin-top:6px">
+      <table>
+        <tr><th>Method</th><th>What it does</th></tr>
+        <tr><td>item.print()</td><td>Print all UVM_ALL_ON fields to log</td></tr>
+        <tr><td>item2.copy(item)</td><td>Shallow copy fields (item2 must exist)</td></tr>
+        <tr><td>$cast(i2, item.clone())</td><td>Deep copy — creates new object</td></tr>
+        <tr><td>item.compare(item2)</td><td>Returns 1 if equal, 0 if different</td></tr>
+        <tr><td>item.pack_bytes(ba)</td><td>Serialise fields into byte array</td></tr>
+        <tr><td>item.unpack_bytes(ba)</td><td>Deserialise from byte array</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- SEQUENCE + DRIVER + MONITOR -->
+  <div class="sec">
+    <div class="sh"><div class="dot" style="background:var(--green)"></div><h2>Sequence · Driver · Monitor patterns</h2></div>
+    <div class="cb"><span class="cm">// ── SEQUENCE body ──────────────────────────────────</span>
+<span class="kw">task</span> body();
+  my_item item;
+  <span class="kw">repeat</span>(n) begin
+    item = my_item::type_id::create(<span class="str">"item"</span>);
+    start_item(item);
+    <span class="kw">if</span>(!item.randomize() with {write==1;})
+      <span class="kw">`uvm_fatal</span>(<span class="str">"RAND"</span>,<span class="str">"failed"</span>)
+    finish_item(item);
+  <span class="kw">end</span>
+<span class="kw">endtask</span>
+<span class="cm">// Macro shorthand:</span>
+<span class="kw">`uvm_do_with</span>(item, { item.write==1; item.addr==32'h100; })
+
+<span class="cm">// ── DRIVER run_phase loop ──────────────────────────</span>
+<span class="kw">task</span> run_phase(uvm_phase phase);
+  my_item req;
+  @(posedge vif.resetn);     <span class="cm">// wait for reset</span>
+  forever begin
+    seq_item_port.get_next_item(req);
+    drive_item(req);          <span class="cm">// pin-level task</span>
+    seq_item_port.item_done();
+  <span class="kw">end</span>
+<span class="kw">endtask</span>
+
+<span class="cm">// ── MONITOR run_phase loop ─────────────────────────</span>
+<span class="kw">task</span> run_phase(uvm_phase phase);
+  my_item item;
+  forever begin
+    @(posedge vif.clk);
+    <span class="kw">if</span>(vif.valid && vif.ready) begin
+      item = my_item::type_id::create(<span class="str">"item"</span>);
+      item.addr = vif.addr; item.data = vif.data;
+      ap.write(item);       <span class="cm">// broadcast to subscribers</span>
+    <span class="kw">end</span>
+  <span class="kw">end</span>
+<span class="kw">endtask</span></div>
+  </div>
+
+</div><!-- /g2 -->
+
+<!-- ROW 3: 4 columns -->
+<div class="g4">
+
+  <!-- AGENT -->
+  <div class="sec">
+    <div class="sh"><div class="dot" style="background:var(--blue)"></div><h2>Agent</h2></div>
+    <div class="cb"><span class="kw">class</span> my_agent <span class="kw">extends</span> uvm_agent;
+  my_driver    m_drv;
+  my_monitor   m_mon;
+  my_sequencer m_seqr;
+  uvm_active_passive_enum
+    is_active = UVM_ACTIVE;
+
+  <span class="kw">function void</span> build_phase(..);
+    m_mon = my_monitor::
+      type_id::create(<span class="str">"m_mon"</span>,this);
+    <span class="kw">if</span>(is_active==UVM_ACTIVE) begin
+      m_drv  = my_driver::
+        type_id::create(<span class="str">"m_drv"</span>,this);
+      m_seqr = my_sequencer::
+        type_id::create(<span class="str">"m_seqr"</span>,this);
+    <span class="kw">end</span>
+  <span class="kw">endfunction</span>
+
+  <span class="kw">function void</span> connect_phase(..);
+    <span class="kw">if</span>(is_active==UVM_ACTIVE)
+      m_drv.seq_item_port.connect(
+        m_seqr.seq_item_export);
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></div>
+  </div>
+
+  <!-- SCOREBOARD -->
+  <div class="sec">
+    <div class="sh"><div class="dot" style="background:var(--pink)"></div><h2>Scoreboard + TLM FIFO</h2></div>
+    <div class="cb"><span class="kw">class</span> my_scb <span class="kw">extends</span> uvm_scoreboard;
+  uvm_tlm_analysis_fifo
+    #(my_item) exp_fifo, act_fifo;
+
+  <span class="kw">function void</span> build_phase(..);
+    exp_fifo=<span class="kw">new</span>(<span class="str">"exp_fifo"</span>,this);
+    act_fifo=<span class="kw">new</span>(<span class="str">"act_fifo"</span>,this);
+  <span class="kw">endfunction</span>
+
+  <span class="kw">task</span> run_phase(..);
+    my_item e,a;
+    forever begin
+      exp_fifo.get(e);
+      act_fifo.get(a);
+      <span class="kw">if</span>(!e.compare(a))
+        <span class="kw">`uvm_error</span>(<span class="str">"SCB"</span>,
+          <span class="str">"MISMATCH"</span>)
+    <span class="kw">end</span>
+  <span class="kw">endtask</span>
+<span class="kw">endclass</span>
+<span class="cm">// In env connect_phase:</span>
+mon.ap.connect(
+  m_scb.act_fifo.analysis_export);
+refmdl.ap.connect(
+  m_scb.exp_fifo.analysis_export);</div>
+  </div>
+
+  <!-- FACTORY + LOGGING -->
+  <div class="sec">
+    <div class="sh"><div class="dot" style="background:var(--amber)"></div><h2>Factory & Logging</h2></div>
+    <div class="cb"><span class="cm">// Registration</span>
+<span class="kw">`uvm_component_utils</span>(my_driver)
+<span class="kw">`uvm_object_utils</span>(my_item)
+
+<span class="cm">// Creation — always via factory</span>
+my_driver d =
+  my_driver::type_id::create(
+    <span class="str">"d"</span>, this);
+
+<span class="cm">// Override in test build_phase</span>
+<span class="cm">// (before super.build_phase!)</span>
+my_drv::type_id::
+  set_type_override(
+    err_drv::get_type());
+
+<span class="cm">// Logging macros</span>
+<span class="kw">`uvm_info</span>(get_type_name(),
+  <span class="str">"msg"</span>, UVM_MEDIUM)
+<span class="kw">`uvm_warning</span>(get_type_name(),<span class="str">"w"</span>)
+<span class="kw">`uvm_error</span>(get_type_name(), <span class="str">"e"</span>)
+<span class="kw">`uvm_fatal</span>(get_type_name(), <span class="str">"f"</span>)
+
+<span class="cm">// Verbosity flag:</span>
+<span class="cm">// +UVM_VERBOSITY=UVM_HIGH</span>
+<span class="cm">// Levels: NONE LOW MEDIUM HIGH</span>
+<span class="cm">//         FULL DEBUG</span></div>
+  </div>
+
+  <!-- SEQUENCES ADVANCED -->
+  <div class="sec">
+    <div class="sh"><div class="dot" style="background:var(--teal)"></div><h2>Sequence Macros & Virtual Seq</h2></div>
+    <div class="cb"><span class="cm">// Macro family</span>
+<span class="kw">`uvm_do</span>(item)
+<span class="kw">`uvm_do_with</span>(item,{item.w==1;})
+<span class="kw">`uvm_do_on</span>(item, p_sequencer)
+<span class="kw">`uvm_create</span>(item)
+<span class="kw">`uvm_rand_send</span>(item)
+
+<span class="cm">// Arbitration modes</span>
+m_seqr.set_arbitration(
+  UVM_SEQ_ARB_FIFO);     <span class="cm">// default</span>
+m_seqr.set_arbitration(
+  UVM_SEQ_ARB_RANDOM);
+m_seqr.set_arbitration(
+  UVM_SEQ_ARB_WEIGHTED);
+
+<span class="cm">// Virtual sequence — parallel</span>
+<span class="kw">task</span> body();
+  fork
+    seq1.start(apb_seqr);
+    seq2.start(axi_seqr);
+  join
+<span class="kw">endtask</span>
+
+<span class="cm">// Lock / unlock sequencer</span>
+seq.grab(m_seqr);
+<span class="cm">// exclusive access</span>
+seq.ungrab(m_seqr);</div>
+  </div>
+
+</div><!-- /g4 -->
+
+<!-- ROW 4: 3 columns (TLM, Callbacks, RAL) -->
+<div class="g3" style="margin-top:10px">
+
+  <!-- TLM -->
+  <div class="sec">
+    <div class="sh"><div class="dot" style="background:var(--coral)"></div><h2>TLM Ports & Analysis</h2></div>
+    <table>
+      <tr><th>Port type</th><th>Direction</th><th>Use case</th></tr>
+      <tr><td>uvm_analysis_port</td><td>→ N subscribers</td><td>Monitor broadcast (1:many)</td></tr>
+      <tr><td>uvm_analysis_export</td><td>subscriber</td><td>Scoreboard/coverage input</td></tr>
+      <tr><td>uvm_tlm_analysis_fifo</td><td>buffer</td><td>Decouple producer/consumer</td></tr>
+      <tr><td>uvm_get_port/export</td><td>pull</td><td>Consumer pulls from producer</td></tr>
+      <tr><td>uvm_put_port/export</td><td>push</td><td>Producer pushes to consumer</td></tr>
+      <tr><td>seq_item_port/export</td><td>driver↔seqr</td><td>Specialised get port</td></tr>
+    </table>
+    <div class="cb"><span class="cm">// Fan-out: 1 monitor → 2 subscribers</span>
+mon.ap.connect(scb.mon_export);
+mon.ap.connect(cov.ap_export);
+
+<span class="cm">// FIFO connect pattern</span>
+mon.ap.connect(fifo.analysis_export);
+fifo.get(item);  <span class="cm">// blocking pull</span>
+
+<span class="cm">// Driver↔Sequencer (in agent)</span>
+m_drv.seq_item_port.connect(
+  m_seqr.seq_item_export);</div>
+  </div>
+
+  <!-- CALLBACKS + EVENTS -->
+  <div class="sec">
+    <div class="sh"><div class="dot" style="background:var(--green)"></div><h2>Callbacks · Events · Barrier</h2></div>
+    <div class="cb"><span class="cm">// Callback — hook in component</span>
+<span class="kw">class</span> drv_cbs <span class="kw">extends</span> uvm_callback;
+  <span class="kw">virtual task</span> pre_drive(
+    my_driver d, my_item i); <span class="kw">endtask</span>
+<span class="kw">endclass</span>
+<span class="cm">// In component:</span>
+<span class="kw">`uvm_register_cb</span>(my_driver,drv_cbs)
+<span class="kw">`uvm_do_callbacks</span>(my_driver,drv_cbs,
+  pre_drive(this,item))
+<span class="cm">// Add in test:</span>
+uvm_callbacks#(my_driver,drv_cbs)::
+  add(m_drv, err_cb);
+
+<span class="cm">// Events — synchronise processes</span>
+uvm_event e =
+  uvm_event_pool::get_global(<span class="str">"done"</span>);
+e.trigger();          <span class="cm">// fire</span>
+e.wait_trigger();     <span class="cm">// block until fire</span>
+
+<span class="cm">// Barrier — sync N parallel procs</span>
+uvm_barrier bar = <span class="kw">new</span>(<span class="str">"bar"</span>);
+bar.set_threshold(3);
+bar.wait_for();  <span class="cm">// all 3 release together</span>
+
+<span class="cm">// Heartbeat — detect stuck components</span>
+uvm_heartbeat hb;
+hb.add(m_driver);
+hb.start(hb_event);</div>
+  </div>
+
+  <!-- RAL -->
+  <div class="sec">
+    <div class="sh"><div class="dot" style="background:var(--blue)"></div><h2>RAL — Register Abstraction Layer</h2></div>
+    <div class="cb"><span class="cm">// Register field access types (RW/RO/WO/W1C…)</span>
+<span class="kw">class</span> ctrl_reg <span class="kw">extends</span> uvm_reg;
+  uvm_reg_field enable, mode;
+  <span class="kw">function void</span> build();
+    enable = uvm_reg_field::
+      type_id::create(<span class="str">"enable"</span>);
+    <span class="cm">// configure(parent,size,lsb,"RW",</span>
+    <span class="cm">//   volatile,reset,has_reset)</span>
+    enable.configure(this,1,0,
+      <span class="str">"RW"</span>,0,1'b0,1);
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span>
+
+<span class="cm">// Register block map</span>
+default_map = create_map(
+  <span class="str">"map"</span>, 32'h4000_0000, 4,
+  UVM_LITTLE_ENDIAN);
+default_map.add_reg(ctrl,32'h00,<span class="str">"RW"</span>);
+lock_model();
+
+<span class="cm">// Test — frontdoor read/write</span>
+uvm_status_e status;
+reg_model.ctrl.write(
+  status, 32'h3);
+reg_model.ctrl.read(
+  status, rd_data);
+
+<span class="cm">// Field-level access</span>
+reg_model.ctrl.enable.write(
+  status, 1'b1);
+
+<span class="cm">// Backdoor (no bus traffic)</span>
+reg_model.ctrl.write(
+  status, 32'h7, UVM_BACKDOOR);
+
+<span class="cm">// Sync model ↔ DUT</span>
+reg_model.ctrl.mirror(
+  status, UVM_CHECK);
+reg_model.ctrl.update(status);
+
+<span class="cm">// Built-in register tests:</span>
+<span class="cm">// +UVM_TESTNAME=uvm_reg_hw_reset_seq</span>
+<span class="cm">// +UVM_TESTNAME=uvm_reg_bit_bash_seq</span>
+<span class="cm">// +UVM_TESTNAME=uvm_reg_access_seq</span></div>
+  </div>
+
+</div><!-- /g3 -->
+
+<!-- FOOTER -->
+<div class="ftr">
+  <span>UVM Cheat Sheet · Universal Verification Methodology · IEEE 1800.2</span>
+  <span>Sources: verificationguide.com/uvm-topics · Accellera UVM 1.2 Class Reference</span>
+</div>
+
+</div>
+</body>
+</html>
