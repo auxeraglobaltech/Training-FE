@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SVA Micro-Course — SystemVerilog Assertions for ASIC Engineers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f1117;
+  --bg2: #161b27;
+  --bg3: #1e2435;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.14);
+  --text: #e8eaf0;
+  --text2: #8b91a8;
+  --text3: #555c72;
+  --teal: #1fc490;
+  --teal-dim: rgba(31,196,144,0.12);
+  --teal-dim2: rgba(31,196,144,0.07);
+  --purple: #7c6df0;
+  --purple-dim: rgba(124,109,240,0.12);
+  --amber: #f0a430;
+  --amber-dim: rgba(240,164,48,0.12);
+  --coral: #f0634a;
+  --coral-dim: rgba(240,99,74,0.10);
+  --green: #4cc46a;
+  --green-dim: rgba(76,196,106,0.10);
+  --blue: #5aa8f0;
+  --blue-dim: rgba(90,168,240,0.12);
+  --pink: #d966a8;
+  --pink-dim: rgba(217,102,168,0.12);
+  --ff: 'DM Sans', sans-serif;
+  --fm: 'JetBrains Mono', monospace;
+}
+
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); font-family: var(--ff); font-size: 15px; line-height: 1.7; min-height: 100vh; }
+
+/* LAYOUT */
+.app { display: flex; min-height: 100vh; }
+.sidebar { width: 240px; flex-shrink: 0; background: var(--bg2); border-right: 1px solid var(--border); padding: 2rem 0; position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto; z-index: 100; }
+.main { margin-left: 240px; flex: 1; max-width: 900px; padding: 3rem 3rem 5rem; }
+
+/* SIDEBAR */
+.sidebar-logo { padding: 0 1.5rem 2rem; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+.sidebar-logo .logo-tag { font-family: var(--fm); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--teal); display: block; margin-bottom: 6px; }
+.sidebar-logo .logo-title { font-size: 14px; font-weight: 500; color: var(--text); line-height: 1.4; }
+
+.sidebar-nav { list-style: none; padding: 0 0.75rem; }
+.sidebar-nav li { margin-bottom: 2px; }
+.sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; font-size: 13px; color: var(--text2); text-decoration: none; transition: all 0.15s; }
+.sidebar-nav a:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.sidebar-nav a.active { background: var(--teal-dim); color: var(--teal); }
+.sidebar-nav .nav-num { font-family: var(--fm); font-size: 11px; width: 20px; height: 20px; border-radius: 50%; border: 1px solid currentColor; display: flex; align-items: center; justify-content: center; flex-shrink: 0; opacity: 0.7; }
+
+.progress-wrap { padding: 1.5rem 1.5rem 0; }
+.progress-label { font-size: 11px; font-family: var(--fm); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 6px; }
+.progress-track { background: var(--bg3); border-radius: 20px; height: 3px; }
+.progress-fill { height: 3px; background: var(--teal); border-radius: 20px; transition: width 0.4s ease; width: 0%; }
+
+/* HERO */
+.hero { margin-bottom: 3rem; padding-bottom: 2.5rem; border-bottom: 1px solid var(--border); }
+.hero-eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; }
+.tag { font-family: var(--fm); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; padding: 3px 9px; border-radius: 4px; }
+.tag.teal { background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(31,196,144,0.25); }
+.tag.purple { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(124,109,240,0.25); }
+.tag.amber { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(240,164,48,0.25); }
+.tag.green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(76,196,106,0.25); }
+.tag.coral { background: var(--coral-dim); color: var(--coral); border: 1px solid rgba(240,99,74,0.25); }
+
+.hero h1 { font-size: 2rem; font-weight: 600; line-height: 1.25; margin-bottom: 0.75rem; color: var(--text); }
+.hero h1 span { color: var(--teal); }
+.hero p { font-size: 15px; color: var(--text2); line-height: 1.7; max-width: 580px; margin-bottom: 1.5rem; }
+.meta-row { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+.meta-item { font-size: 13px; color: var(--text3); display: flex; align-items: center; gap: 6px; }
+.meta-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+
+/* MODULES */
+.module { display: none; animation: fadeIn 0.25s ease; }
+.module.visible { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* MODULE HEADER */
+.mod-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 1.5rem; }
+.mod-badge { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-family: var(--fm); font-size: 13px; font-weight: 500; flex-shrink: 0; }
+.mod-badge.m1 { background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(31,196,144,0.2); }
+.mod-badge.m2 { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(124,109,240,0.2); }
+.mod-badge.m3 { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(240,164,48,0.2); }
+.mod-badge.m4 { background: var(--green-dim); color: var(--green); border: 1px solid rgba(76,196,106,0.2); }
+.mod-badge.m5 { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(90,168,240,0.2); }
+.mod-badge.m6 { background: var(--pink-dim); color: var(--pink); border: 1px solid rgba(217,102,168,0.2); }
+.mod-badge.m7 { background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(31,196,144,0.2); }
+.mod-header h2 { font-size: 1.4rem; font-weight: 500; line-height: 1.3; color: var(--text); }
+.mod-header .sub { font-size: 12px; color: var(--text3); font-family: var(--fm); margin-top: 4px; }
+
+/* OBJECTIVE */
+.objective { background: var(--teal-dim2); border: 1px solid rgba(31,196,144,0.2); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: var(--teal); line-height: 1.6; margin-bottom: 1.75rem; }
+.objective.purple { background: var(--purple-dim); border-color: rgba(124,109,240,0.2); color: var(--purple); }
+.objective.amber { background: var(--amber-dim); border-color: rgba(240,164,48,0.2); color: var(--amber); }
+.objective.green { background: var(--green-dim); border-color: rgba(76,196,106,0.2); color: var(--green); }
+.objective.blue { background: var(--blue-dim); border-color: rgba(90,168,240,0.2); color: var(--blue); }
+.objective.pink { background: var(--pink-dim); border-color: rgba(217,102,168,0.2); color: var(--pink); }
+
+/* PROSE */
+.prose { font-size: 15px; line-height: 1.8; color: var(--text2); margin-bottom: 1rem; }
+.prose strong { color: var(--text); font-weight: 500; }
+code { font-family: var(--fm); font-size: 12.5px; background: var(--bg3); padding: 2px 6px; border-radius: 4px; color: var(--purple); }
+
+/* SECTION LABEL */
+.section-label { font-family: var(--fm); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text3); margin: 2rem 0 0.75rem; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+/* CARDS */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 0.75rem 0 1.5rem; }
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.card .c-tag { font-family: var(--fm); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 8px; }
+.card .c-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 5px; }
+.card .c-desc { font-size: 13px; color: var(--text2); line-height: 1.55; }
+
+/* CODE BLOCKS */
+.code-wrap { background: #0a0d14; border: 1px solid var(--border2); border-radius: 10px; margin: 0.75rem 0 1.5rem; overflow: hidden; }
+.code-bar { background: var(--bg3); border-bottom: 1px solid var(--border); padding: 8px 14px; display: flex; align-items: center; gap: 6px; }
+.code-dot { width: 10px; height: 10px; border-radius: 50%; }
+.code-bar span { font-family: var(--fm); font-size: 11px; color: var(--text3); margin-left: 6px; }
+pre { padding: 16px 18px; overflow-x: auto; font-family: var(--fm); font-size: 13px; line-height: 1.75; }
+.kw { color: #79b8ff; }
+.cm { color: #4a5270; font-style: italic; }
+.str { color: var(--teal); }
+.op { color: var(--coral); font-weight: 500; }
+.fn { color: var(--amber); }
+
+/* TABLE */
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin: 0.75rem 0 1.5rem; }
+.tbl th { background: var(--bg3); color: var(--text2); font-weight: 500; padding: 9px 14px; text-align: left; border: 1px solid var(--border); font-family: var(--fm); font-size: 12px; }
+.tbl td { padding: 9px 14px; border: 1px solid var(--border); color: var(--text2); vertical-align: top; }
+.tbl code { font-size: 12px; }
+.pill { display: inline-block; font-family: var(--fm); font-size: 11px; padding: 2px 8px; border-radius: 4px; }
+.pill.o { background: var(--purple-dim); color: var(--purple); }
+.pill.n { background: var(--amber-dim); color: var(--amber); }
+
+/* REP CARDS */
+.rep-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin: 0.75rem 0 1.5rem; }
+.rep-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.rep-card .syn { font-family: var(--fm); font-size: 15px; font-weight: 500; color: var(--purple); margin-bottom: 6px; }
+.rep-card .rn { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.rep-card .rd { font-size: 12px; color: var(--text2); line-height: 1.5; }
+
+/* METHOD GRID */
+.method-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; margin: 0.75rem 0 1.5rem; }
+.method-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.method-card .mn { font-family: var(--fm); font-size: 13px; font-weight: 500; color: var(--amber); margin-bottom: 5px; }
+.method-card .md { font-size: 12px; color: var(--text2); line-height: 1.5; }
+
+/* WARNING */
+.warning { background: var(--coral-dim); border-left: 3px solid var(--coral); border-radius: 0 6px 6px 0; padding: 10px 14px; font-size: 13px; color: #f09080; line-height: 1.6; margin: 0.75rem 0 1.25rem; }
+.warning strong { color: var(--coral); }
+
+/* KEY TAKEAWAY */
+.takeaway { background: var(--bg3); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: var(--text2); line-height: 1.6; margin: 1rem 0 1.5rem; border-left: 3px solid var(--border2); }
+.takeaway strong { color: var(--text); font-weight: 500; }
+
+/* EXERCISE */
+.exercise { background: var(--bg2); border: 1px solid rgba(240,164,48,0.25); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; }
+.ex-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.ex-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--amber-dim); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.ex-head h3 { font-size: 14px; font-weight: 500; color: var(--text); }
+.ex-head .timer { font-family: var(--fm); font-size: 12px; color: var(--amber); margin-left: auto; }
+.ex-context { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; background: var(--bg3); border-radius: 6px; padding: 10px 12px; }
+.ex-steps { list-style: none; counter-reset: step; }
+.ex-steps li { counter-increment: step; font-size: 14px; line-height: 1.65; padding: 7px 0 7px 32px; position: relative; color: var(--text2); border-bottom: 1px solid var(--border); }
+.ex-steps li:last-child { border-bottom: none; }
+.ex-steps li::before { content: counter(step); position: absolute; left: 0; top: 9px; width: 20px; height: 20px; border-radius: 50%; background: var(--amber); color: #000; font-size: 11px; font-family: var(--fm); font-weight: 500; display: flex; align-items: center; justify-content: center; }
+.toggle-answer { font-family: var(--fm); font-size: 12px; background: none; border: 1px solid var(--border2); border-radius: 6px; padding: 6px 14px; cursor: pointer; color: var(--text3); margin-top: 14px; transition: all 0.15s; }
+.toggle-answer:hover { color: var(--text); border-color: var(--text3); }
+.answer-reveal { display: none; margin-top: 14px; border-top: 1px solid var(--border); padding-top: 14px; }
+.answer-reveal .ans-tag { font-family: var(--fm); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--teal); margin-bottom: 8px; }
+
+/* COMPLETION */
+.completion { text-align: center; padding: 2.5rem 2rem; background: var(--teal-dim2); border: 1px solid rgba(31,196,144,0.2); border-radius: 12px; margin: 2rem 0; }
+.completion .check { font-size: 3rem; color: var(--teal); display: block; margin-bottom: 1rem; }
+.completion h2 { font-size: 1.4rem; font-weight: 500; color: var(--teal); margin-bottom: 0.6rem; }
+.completion p { font-size: 14px; color: var(--text2); max-width: 460px; margin: 0 auto 1.5rem; line-height: 1.7; }
+.ref-links { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.ref-link { font-family: var(--fm); font-size: 11px; padding: 4px 10px; background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px; color: var(--teal); text-decoration: none; }
+.ref-link:hover { background: var(--teal-dim); }
+
+/* MODULE FOOTER */
+.mod-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+.btn-nav { font-family: var(--ff); font-size: 13px; padding: 8px 18px; border-radius: 7px; border: 1px solid var(--border2); background: var(--bg2); color: var(--text2); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
+.btn-nav:hover { background: var(--bg3); color: var(--text); }
+.btn-nav.primary { background: var(--teal); color: #000; border-color: var(--teal); font-weight: 500; }
+.btn-nav.primary:hover { background: #17a87a; }
+.btn-nav:disabled { opacity: 0.25; cursor: default; pointer-events: none; }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .main { margin-left: 0; padding: 1.5rem 1.25rem 4rem; }
+  .mobile-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .mob-btn { font-size: 12px; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border2); background: var(--bg2); color: var(--text2); cursor: pointer; }
+  .mob-btn.active { background: var(--teal); color: #000; border-color: var(--teal); }
+}
+@media (min-width: 769px) { .mobile-nav { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <span class="logo-tag">Micro-course · SVA</span>
+    <div class="logo-title">SystemVerilog<br>Assertions</div>
+  </div>
+  <ul class="sidebar-nav">
+    <li><a href="#" class="active" onclick="goTo(0,this); return false;"><span class="nav-num">1</span> Hook — Why SVA?</a></li>
+    <li><a href="#" onclick="goTo(1,this); return false;"><span class="nav-num">2</span> SVA Fundamentals</a></li>
+    <li><a href="#" onclick="goTo(2,this); return false;"><span class="nav-num">3</span> Operators & Methods</a></li>
+    <li><a href="#" onclick="goTo(3,this); return false;"><span class="nav-num">4</span> Advanced & Apply</a></li>
+    <li><a href="#" onclick="goTo(4,this); return false;"><span class="nav-num">5</span> APB Assertions</a></li>
+    <li><a href="#" onclick="goTo(5,this); return false;"><span class="nav-num">6</span> AXI Assertions</a></li>
+    <li><a href="#" onclick="goTo(6,this); return false;"><span class="nav-num">7</span> Binding SVA</a></li>
+  </ul>
+  <div class="progress-wrap">
+    <div class="progress-label">Progress</div>
+    <div class="progress-track"><div class="progress-fill" id="pbar" style="width:25%"></div></div>
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+  <!-- MOBILE NAV -->
+  <div class="mobile-nav" id="mobnav">
+    <button class="mob-btn active" onclick="goTo(0)">1 · Hook</button>
+    <button class="mob-btn" onclick="goTo(1)">2 · Fundamentals</button>
+    <button class="mob-btn" onclick="goTo(2)">3 · Operators</button>
+    <button class="mob-btn" onclick="goTo(3)">4 · Apply</button>
+    <button class="mob-btn" onclick="goTo(4)">5 · APB</button>
+    <button class="mob-btn" onclick="goTo(5)">6 · AXI</button>
+    <button class="mob-btn" onclick="goTo(6)">7 · Bind</button>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-eyebrow">
+      <span class="tag teal">Micro-course</span>
+      <span class="tag purple">ASIC Verification</span>
+      <span class="tag amber">~25 min</span>
+    </div>
+    <h1>Mastering <span>SystemVerilog</span><br>Assertions (SVA)</h1>
+    <p>A focused course for verification engineers. Write correct, expressive assertions from your first session — covering both immediate and concurrent SVA, all major operators, built-in methods, and advanced constructs.</p>
+    <div class="meta-row">
+      <span class="meta-item"><span class="meta-dot"></span> 7 modules</span>
+      <span class="meta-item"><span class="meta-dot"></span> SystemVerilog · RTL verification</span>
+      <span class="meta-item"><span class="meta-dot"></span> APB · AXI · bind construct included</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODULE 1 ═══════════════ -->
+  <div class="module visible" id="mod-0">
+    <div class="mod-header">
+      <div class="mod-badge m1">01</div>
+      <div>
+        <h2>Why assertions catch bugs RTL simulation misses</h2>
+        <div class="sub">Module 1 · ~2.5 min · Hook</div>
+      </div>
+    </div>
+    <div class="objective">
+      <strong>Outcome:</strong> Understand the exact gap that SVA fills — and why protocol checkers built without assertions tend to fail silently on corner-case violations.
+    </div>
+
+    <p class="prose">Imagine a 5-stage pipeline. At cycle 100 of your sim, a response arrives on a bus with no matching request. The transaction silently corrupts a register. Your testbench <code>$display</code> never fires — nothing looks wrong. Three weeks later, tape-out readiness review. A static timing tool flags an impossible state. That violation was seeded at cycle 100.</p>
+    <p class="prose">This is the gap SVA closes. Assertions are <strong>always-on monitors</strong> embedded in or bound to your DUT. They sample the design at every clock edge and immediately flag protocol deviations — while you still have a waveform to debug.</p>
+
+    <div class="section-label">Two types of assertions</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="c-tag">Immediate</div>
+        <div class="c-title">Point-in-time check</div>
+        <div class="c-desc">Lives inside a procedural block. Evaluates a Boolean expression right now. Equivalent to <code>if (!expr) $error()</code> but wired into the simulator assertion framework.</div>
+      </div>
+      <div class="card">
+        <div class="c-tag">Concurrent</div>
+        <div class="c-title">Multi-cycle protocol check</div>
+        <div class="c-desc">Evaluated only at clock edges using <em>sampled</em> values. Can span dozens of cycles. This is where SVA's real power lives — protocol sequences, handshakes, timing windows.</div>
+      </div>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>immediate vs concurrent</span></div>
+      <pre><span class="cm">// Immediate — inside always block, checks right now</span>
+<span class="kw">always</span> @(<span class="kw">posedge</span> clk)
+  <span class="kw">assert</span> (a && b) <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"a and b must both be high"</span>);
+
+<span class="cm">// Concurrent — clock-driven, sampled values, multi-cycle capable</span>
+<span class="cm">// The keyword 'property' marks it as concurrent</span>
+c_assert: <span class="kw">assert property</span>(@(<span class="kw">posedge</span> clk) <span class="kw">not</span>(a && b));</pre>
+    </div>
+
+    <div class="takeaway"><strong>Key takeaway:</strong> Use immediate assertions for sanity checks inside testbench tasks. Use concurrent assertions for any multi-cycle protocol behaviour in the DUT — handshakes, acknowledge latency, bus arbitration, FSM transitions.</div>
+
+    <div class="mod-footer">
+      <button class="btn-nav" disabled>← Previous</button>
+      <button class="btn-nav primary" onclick="goTo(1)">SVA Fundamentals →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODULE 2 ═══════════════ -->
+  <div class="module" id="mod-1">
+    <div class="mod-header">
+      <div class="mod-badge m2">02</div>
+      <div>
+        <h2>SVA building blocks — sequence, property, assert</h2>
+        <div class="sub">Module 2 · ~10 min · Core concept + examples</div>
+      </div>
+    </div>
+    <div class="objective purple">
+      <strong>Outcome:</strong> Construct a complete concurrent assertion from scratch using the three-layer SVA architecture. Apply timing delays, implication operators, and sequence reuse.
+    </div>
+
+    <div class="section-label">The three-layer architecture</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="c-tag">Boolean → Sequence</div>
+        <div class="c-title">Events over time</div>
+        <div class="c-desc">A <code>sequence</code> is a named Boolean timeline. The <code>##N</code> operator says "N clock cycles later." Sequences can be parameterised and reused.</div>
+      </div>
+      <div class="card">
+        <div class="c-tag">Sequence → Property</div>
+        <div class="c-title">Logical rule</div>
+        <div class="c-desc">A <code>property</code> wraps sequences using implication (<code>|-></code> / <code>|=></code>), <code>not</code>, <code>disable iff</code>. The clock lives here for clean reuse.</div>
+      </div>
+      <div class="card">
+        <div class="c-tag">Property → Assert</div>
+        <div class="c-title">Activation</div>
+        <div class="c-desc"><code>assert property(p)</code> activates the check in simulation. Without this line, the property is defined but completely silent.</div>
+      </div>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>full 3-layer example</span></div>
+      <pre><span class="cm">// Goal: req must be followed by ack within 2 cycles</span>
+
+<span class="kw">sequence</span> seq_req_ack;
+  req ##[1:2] ack;    <span class="cm">// ack arrives 1 OR 2 cycles after req</span>
+<span class="kw">endsequence</span>
+
+<span class="kw">property</span> p_req_ack;
+  @(<span class="kw">posedge</span> clk) req <span class="op">|-></span> ##[1:2] ack;
+<span class="kw">endproperty</span>
+
+chk_req_ack: <span class="kw">assert property</span>(p_req_ack)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"ACK not received within 2 cycles of REQ"</span>);</pre>
+    </div>
+
+    <div class="section-label">The ## timing operator</div>
+    <table class="tbl">
+      <tr><th>Syntax</th><th>Meaning</th></tr>
+      <tr><td><code>a ##2 b</code></td><td>b must be high exactly 2 cycles after a</td></tr>
+      <tr><td><code>a ##[1:4] b</code></td><td>b must be high somewhere in cycles 1–4 after a</td></tr>
+      <tr><td><code>a ##[0:4] b</code></td><td>b high same cycle as a, or within 4 cycles (overlapping window)</td></tr>
+      <tr><td><code>a ##[1:$] b</code></td><td>b will eventually be high — unbounded eventuality operator</td></tr>
+    </table>
+
+    <div class="section-label">Implication operators</div>
+    <p class="prose">Implication makes assertions conditional: only evaluate the consequent <em>if</em> the antecedent matched. Without implication, the checker fires at every clock edge — thousands of false failures on idle cycles.</p>
+    <table class="tbl">
+      <tr><th>Operator</th><th>Name</th><th>Consequent starts</th><th>Example</th></tr>
+      <tr>
+        <td><span class="pill o">|-></span></td>
+        <td>Overlapped</td>
+        <td>Same clock cycle as antecedent</td>
+        <td><code>a |-> b</code> — a high ⟹ b high same cycle</td>
+      </tr>
+      <tr>
+        <td><span class="pill n">|=></span></td>
+        <td>Non-overlapped</td>
+        <td>Next clock cycle after antecedent</td>
+        <td><code>a |=> b</code> — a high ⟹ b high next cycle</td>
+      </tr>
+    </table>
+
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>implication examples</span></div>
+      <pre><span class="cm">// Overlapped: grant arrives in same cycle as request</span>
+<span class="kw">property</span> p_same_cycle;
+  @(<span class="kw">posedge</span> clk) req <span class="op">|-></span> grant;
+<span class="kw">endproperty</span>
+
+<span class="cm">// Non-overlapped: read_data valid one cycle after read_en</span>
+<span class="kw">property</span> p_read_latency;
+  @(<span class="kw">posedge</span> clk) read_en <span class="op">|=></span> data_valid;
+<span class="kw">endproperty</span>
+
+<span class="cm">// Fixed delay on consequent: b high 2 cycles after a</span>
+<span class="kw">property</span> p_fixed;
+  @(<span class="kw">posedge</span> clk) a <span class="op">|-></span> ##2 b;
+<span class="kw">endproperty</span>
+
+<span class="cm">// Sequence antecedent: addr_phase complete before data_phase</span>
+<span class="kw">sequence</span> s_addr;
+  (addr_valid && addr_ready) ##1 !addr_valid;
+<span class="kw">endsequence</span>
+<span class="kw">property</span> p_axi_addr;
+  @(<span class="kw">posedge</span> clk) s_addr <span class="op">|-></span> ##[1:4] data_valid;
+<span class="kw">endproperty</span></pre>
+    </div>
+
+    <div class="warning"><strong>Best practice:</strong> Define clocks in the <code>property</code>, not in the <code>sequence</code>. Clock-free sequences can be reused across different clock domains — the property binds them to a clock at assertion time.</div>
+
+    <div class="takeaway"><strong>Key takeaway:</strong> Every concurrent SVA follows Boolean → sequence → property → assert property. Implication is the gating mechanism that keeps assertions silent when the trigger condition is absent.</div>
+
+    <div class="mod-footer">
+      <button class="btn-nav" onclick="goTo(0)">← Hook</button>
+      <button class="btn-nav primary" onclick="goTo(2)">Operators & Methods →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODULE 3 ═══════════════ -->
+  <div class="module" id="mod-2">
+    <div class="mod-header">
+      <div class="mod-badge m3">03</div>
+      <div>
+        <h2>Repetition operators, built-in methods & signal sampling</h2>
+        <div class="sub">Module 3 · ~9 min · Core concept + examples</div>
+      </div>
+    </div>
+    <div class="objective amber">
+      <strong>Outcome:</strong> Express burst patterns with repetition, detect signal transitions with <code>$rose</code>/<code>$fell</code>/<code>$stable</code>, look back in time with <code>$past</code>, and use system functions for one-hot and unknown checks.
+    </div>
+
+    <div class="section-label">Repetition operators — three flavours</div>
+    <div class="rep-grid">
+      <div class="rep-card">
+        <div class="syn">[*n]</div>
+        <div class="rn">Consecutive</div>
+        <div class="rd">Signal high for exactly n back-to-back cycles. <code>b[*3]</code> = b high cycles 1, 2, 3 consecutively.</div>
+      </div>
+      <div class="rep-card">
+        <div class="syn">[->n]</div>
+        <div class="rn">Go-to</div>
+        <div class="rd">Signal high n times, not necessarily consecutive. Last repetition must immediately precede the next element.</div>
+      </div>
+      <div class="rep-card">
+        <div class="syn">[=n]</div>
+        <div class="rn">Non-consecutive</div>
+        <div class="rd">Like go-to but last repetition does NOT need to immediately precede the next element. Sequence continues freely after.</div>
+      </div>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>repetition examples</span></div>
+      <pre><span class="cm">// Consecutive: burst of exactly 3 data beats</span>
+<span class="kw">property</span> p_burst3;
+  @(<span class="kw">posedge</span> clk) burst_start <span class="op">|-></span> ##1 data_valid[<span class="op">*3</span>];
+<span class="kw">endproperty</span>
+
+<span class="cm">// Go-to: ack fires exactly 3 times, then done goes high</span>
+<span class="kw">property</span> p_ack3;
+  @(<span class="kw">posedge</span> clk) start <span class="op">|-></span> ##1 ack[<span class="op">->3</span>] ##1 done;
+<span class="kw">endproperty</span>
+
+<span class="cm">// Consecutive range: between 2 and 4 valid beats</span>
+<span class="kw">property</span> p_burst_range;
+  @(<span class="kw">posedge</span> clk) burst_start <span class="op">|-></span> ##1 data_valid[<span class="op">*2:4</span>];
+<span class="kw">endproperty</span></pre>
+    </div>
+
+    <div class="section-label">Built-in sampling methods</div>
+    <div class="method-grid">
+      <div class="method-card"><div class="mn">$rose(sig)</div><div class="md">True if LSB changed to 1. Detects rising edge inside a sequence without sensitivity list complexity.</div></div>
+      <div class="method-card"><div class="mn">$fell(sig)</div><div class="md">True if LSB changed to 0. Detects falling edge — useful for frame-end or de-assertion checks.</div></div>
+      <div class="method-card"><div class="mn">$stable(sig)</div><div class="md">True if signal value did not change. Check data stability during a hold period.</div></div>
+      <div class="method-card"><div class="mn">$past(sig, N)</div><div class="md">Returns value of sig N clock cycles ago. Check cause-before-effect: was req high 2 cycles before ack?</div></div>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>$rose, $fell, $stable, $past examples</span></div>
+      <pre><span class="cm">// $rose: no irq for 2 cycles after rising edge of enable</span>
+<span class="kw">property</span> p_irq_guard;
+  @(<span class="kw">posedge</span> clk) <span class="fn">$rose</span>(enable) <span class="op">|-></span> ##[1:2] !irq;
+<span class="kw">endproperty</span>
+
+<span class="cm">// $past: if ack is high now, req must have been high 2 cycles ago</span>
+<span class="kw">property</span> p_ack_preceded;
+  @(<span class="kw">posedge</span> clk) ack <span class="op">|-></span> (<span class="fn">$past</span>(req,2) == 1);
+<span class="kw">endproperty</span>
+
+<span class="cm">// $past with clock gating: only check if 'c' was active</span>
+<span class="kw">property</span> p_gated;
+  @(<span class="kw">posedge</span> clk) ack <span class="op">|-></span> (<span class="fn">$past</span>(req,2,c) == 1);
+<span class="kw">endproperty</span>
+
+<span class="cm">// $stable: data must not change while valid is asserted</span>
+<span class="kw">property</span> p_data_stable;
+  @(<span class="kw">posedge</span> clk) (valid && !ready) <span class="op">|-></span> <span class="fn">$stable</span>(data);
+<span class="kw">endproperty</span></pre>
+    </div>
+
+    <div class="section-label">System functions — structural monitors</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>$onehot, $isunknown, $countones</span></div>
+      <pre><span class="cm">// One-hot FSM: exactly one state bit high at all times</span>
+a_onehot:  <span class="kw">assert property</span>(@(<span class="kw">posedge</span> clk) <span class="fn">$onehot</span>(state));
+
+<span class="cm">// Zero one-hot: zero or one bit high (includes idle = 0)</span>
+a_onehot0: <span class="kw">assert property</span>(@(<span class="kw">posedge</span> clk) <span class="fn">$onehot0</span>(arb_grant));
+
+<span class="cm">// No X/Z on critical data bus</span>
+a_no_x:    <span class="kw">assert property</span>(@(<span class="kw">posedge</span> clk) !<span class="fn">$isunknown</span>(data_bus));
+
+<span class="cm">// At least 2 bits set — redundancy / voting check</span>
+a_redund:  <span class="kw">assert property</span>(@(<span class="kw">posedge</span> clk) <span class="fn">$countones</span>(vote_bus) >= 2);</pre>
+    </div>
+
+    <div class="takeaway"><strong>Key takeaway:</strong> Use <code>[*n]</code> for burst enforcement, <code>[->n]</code> for counted non-consecutive events, <code>$rose/$fell</code> for edge-triggered rules, <code>$past</code> for cause-before-effect, and <code>$onehot</code>/<code>$isunknown</code> as always-on structural monitors.</div>
+
+    <div class="mod-footer">
+      <button class="btn-nav" onclick="goTo(1)">← SVA Fundamentals</button>
+      <button class="btn-nav primary" onclick="goTo(3)">Advanced & Apply →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODULE 4 ═══════════════ -->
+  <div class="module" id="mod-3">
+    <div class="mod-header">
+      <div class="mod-badge m4">04</div>
+      <div>
+        <h2>Advanced constructs + hands-on exercise</h2>
+        <div class="sub">Module 4 · ~8 min · Apply + bridge</div>
+      </div>
+    </div>
+    <div class="objective green">
+      <strong>Outcome:</strong> Write a complete assertion suite for a simplified AHB-lite bus using <code>disable iff</code>, <code>.ended</code>, and a variable delay workaround. Walk away with a reusable template.
+    </div>
+
+    <div class="section-label">disable iff — resettable assertions</div>
+    <p class="prose">Real designs have resets. Without <code>disable iff</code>, your assertion suite generates a flood of spurious failures during the reset sequence — noise that buries real bugs.</p>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>disable iff</span></div>
+      <pre><span class="cm">// Checker silenced whenever reset is asserted — clean reset handling</span>
+<span class="kw">property</span> p_no_spurious;
+  @(<span class="kw">posedge</span> clk)
+  <span class="kw">disable iff</span> (reset)
+  req <span class="op">|-></span> ##1 ack[<span class="op">->3</span>] ##1 done;
+<span class="kw">endproperty</span>
+chk: <span class="kw">assert property</span>(p_no_spurious);</pre>
+    </div>
+
+    <div class="section-label">.ended — synchronising sequence endpoints</div>
+    <p class="prose">When two sequences must align at their <em>endpoints</em> rather than their start points, attach <code>.ended</code> to the sequence name. The property checks that both sequences finish with a specified inter-sequence delay.</p>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>.ended construct</span></div>
+      <pre><span class="kw">sequence</span> s_cmd;
+  (cmd_valid && cmd_ready) ##1 !cmd_valid;
+<span class="kw">endsequence</span>
+
+<span class="kw">sequence</span> s_resp;
+  resp_valid ##[1:3] resp_ready;
+<span class="kw">endsequence</span>
+
+<span class="cm">// Response must END exactly 2 cycles after command sequence ends</span>
+<span class="kw">property</span> p_cmd_resp_align;
+  @(<span class="kw">posedge</span> clk) s_cmd.ended <span class="op">|-></span> ##2 s_resp.ended;
+<span class="kw">endproperty</span></pre>
+    </div>
+
+    <div class="section-label">Variable delay — the workaround pattern</div>
+    <div class="warning"><strong>Common pitfall:</strong> <code>a ##cfg_delay b</code> causes a compile-time error — SVA delay values must be elaboration-time constants. Use the sequence pattern below for configurable delays driven by DUT parameters or testbench variables.</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>variable delay workaround</span></div>
+      <pre><span class="cm">// Reusable variable-delay sequence — works like a countdown loop</span>
+<span class="kw">sequence</span> delay_seq(v_delay);
+  <span class="kw">int</span> delay;
+  (1, delay=v_delay) ##0
+  first_match((1, delay=delay-1) [<span class="op">*0:$</span>] ##0 delay <= 0);
+<span class="kw">endsequence</span>
+
+<span class="kw">int</span> cfg_latency;  <span class="cm">// set by testbench, e.g. cfg_latency = 4</span>
+
+<span class="kw">property</span> p_configurable_latency;
+  @(<span class="kw">posedge</span> clk)
+  <span class="kw">disable iff</span> (reset)
+  req <span class="op">|-></span> delay_seq(cfg_latency) <span class="op">|-></span> ack;
+<span class="kw">endproperty</span>
+chk_lat: <span class="kw">assert property</span>(p_configurable_latency);</pre>
+    </div>
+
+    <div class="section-label">Hands-on exercise — AHB-lite assertion suite</div>
+    <div class="exercise">
+      <div class="ex-head">
+        <div class="ex-icon">✏️</div>
+        <h3>Write 4 assertions for an AHB-lite simplified bus</h3>
+        <span class="timer">⏱ ~6 min</span>
+      </div>
+      <div class="ex-context">
+        Signals: <code>clk</code>, <code>hresetn</code> (active-low), <code>htrans[1:0]</code>, <code>hready</code>, <code>hrdata[31:0]</code>, <code>hresp</code>
+      </div>
+      <ol class="ex-steps">
+        <li>When <code>htrans == 2'b10</code> (NONSEQ transfer), <code>hready</code> must go high within 1 to 4 cycles. Use overlapped implication and a timing window.</li>
+        <li>If <code>hresp == 1</code> (ERROR response), <code>hready</code> must be low on the same cycle. Use overlapped implication.</li>
+        <li>After reset de-assertion (<code>$rose(hresetn)</code>), <code>hrdata</code> must not contain X or Z for the next 2 cycles. Use <code>$isunknown</code>.</li>
+        <li>Wrap assertion 1 in a <code>disable iff</code> so it is silent while <code>!hresetn</code>.</li>
+      </ol>
+      <button class="toggle-answer" onclick="toggleAnswer()">▶ Show reference answer</button>
+      <div class="answer-reveal" id="ex-ans">
+        <div class="ans-tag">Reference answer</div>
+        <div class="code-wrap" style="margin-top:0">
+          <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>AHB-lite assertion suite</span></div>
+          <pre><span class="cm">// 1 + 4: NONSEQ → hready within 1-4 cycles, reset-safe</span>
+<span class="kw">property</span> p_hready_window;
+  @(<span class="kw">posedge</span> clk)
+  <span class="kw">disable iff</span> (!hresetn)
+  (htrans == 2'b10) <span class="op">|-></span> ##[1:4] hready;
+<span class="kw">endproperty</span>
+chk1: <span class="kw">assert property</span>(p_hready_window);
+
+<span class="cm">// 2: ERROR response → hready low same cycle (overlapped)</span>
+<span class="kw">property</span> p_err_no_ready;
+  @(<span class="kw">posedge</span> clk)
+  <span class="kw">disable iff</span> (!hresetn)
+  hresp <span class="op">|-></span> !hready;
+<span class="kw">endproperty</span>
+chk2: <span class="kw">assert property</span>(p_err_no_ready);
+
+<span class="cm">// 3: Post-reset hrdata must not contain X/Z for 2 cycles</span>
+<span class="kw">property</span> p_no_x_post_reset;
+  @(<span class="kw">posedge</span> clk)
+  <span class="fn">$rose</span>(hresetn) <span class="op">|-></span> ##1 (!<span class="fn">$isunknown</span>(hrdata))[<span class="op">*2</span>];
+<span class="kw">endproperty</span>
+chk3: <span class="kw">assert property</span>(p_no_x_post_reset);</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="completion">
+      <span class="check">✓</span>
+      <h2>Course complete — you've built the skills</h2>
+      <p>You can now write immediate and concurrent assertions, construct multi-cycle sequences, apply all repetition and implication operators, use built-in sampling methods, handle reset correctly, and implement variable delay workarounds.</p>
+      <div class="ref-links">
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-assertions/" target="_blank">SVA Basics</a>
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-assettions-building-blocks/" target="_blank">Building Blocks</a>
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-assertion-sequence/" target="_blank">Sequences</a>
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-implication-operator/" target="_blank">Implication</a>
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-repetition-operators/" target="_blank">Repetition</a>
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-sva-built-in-methods/" target="_blank">Built-in Methods</a>
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-disable-iff-ended/" target="_blank">disable iff / ended</a>
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-variable-delay-in-sva/" target="_blank">Variable Delay</a>
+      </div>
+    </div>
+
+    <div class="mod-footer">
+      <button class="btn-nav" onclick="goTo(2)">← Operators & Methods</button>
+      <button class="btn-nav primary" onclick="goTo(4)">APB Assertions →</button>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════ MODULE 5: APB ═══════════════ -->
+  <div class="module" id="mod-4">
+    <div class="mod-header">
+      <div class="mod-badge m5">05</div>
+      <div>
+        <h2>APB Protocol Assertions</h2>
+        <div class="sub">Module 5 · ~10 min · Protocol-specific examples</div>
+      </div>
+    </div>
+    <div class="objective blue">
+      <strong>Outcome:</strong> Write a complete SVA checker for the AMBA APB3/APB4 protocol — covering setup phase, access phase, wait states, error response, and signal stability rules.
+    </div>
+
+    <div class="section-label">APB signal overview</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="c-tag">Master → Slave</div>
+        <div class="c-title">Request signals</div>
+        <div class="c-desc"><code>PSEL</code> selects the slave. <code>PENABLE</code> qualifies the access phase. <code>PWRITE</code> indicates direction. <code>PADDR</code> carries address. <code>PWDATA</code> carries write data.</div>
+      </div>
+      <div class="card">
+        <div class="c-tag">Slave → Master</div>
+        <div class="c-title">Response signals</div>
+        <div class="c-desc"><code>PREADY</code> extends the access phase (wait states). <code>PRDATA</code> carries read data. <code>PSLVERR</code> signals a transfer error (APB4).</div>
+      </div>
+      <div class="card">
+        <div class="c-tag">Two-phase handshake</div>
+        <div class="c-title">Setup → Access</div>
+        <div class="c-desc">Phase 1 (Setup): <code>PSEL=1, PENABLE=0</code>. Phase 2 (Access): <code>PSEL=1, PENABLE=1</code>. Transfer completes when <code>PREADY=1</code> in access phase.</div>
+      </div>
+    </div>
+
+    <div class="section-label">Core APB assertions — setup and access phase sequencing</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>APB phase sequencing</span></div>
+      <pre><span class="cm">// ── Rule 1: PENABLE must follow PSEL by exactly 1 cycle (setup phase = 1 cycle)</span>
+<span class="kw">property</span> p_apb_setup_phase;
+  @(<span class="kw">posedge</span> PCLK)
+  <span class="kw">disable iff</span> (!PRESETn)
+  (<span class="fn">$rose</span>(PSEL)) <span class="op">|-></span> ##1 PENABLE;
+<span class="kw">endproperty</span>
+apb_setup: <span class="kw">assert property</span>(p_apb_setup_phase)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"APB: PENABLE must assert exactly 1 cycle after PSEL"</span>);
+
+<span class="cm">// ── Rule 2: PENABLE must not assert without PSEL being high</span>
+<span class="kw">property</span> p_apb_penable_requires_psel;
+  @(<span class="kw">posedge</span> PCLK)
+  <span class="kw">disable iff</span> (!PRESETn)
+  PENABLE <span class="op">|-></span> PSEL;
+<span class="kw">endproperty</span>
+apb_penable_psel: <span class="kw">assert property</span>(p_apb_penable_requires_psel)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"APB: PENABLE high without PSEL — protocol violation"</span>);
+
+<span class="cm">// ── Rule 3: Transfer completes when PREADY=1 in access phase</span>
+<span class="cm">//           PSEL and PENABLE must deassert the cycle after PREADY</span>
+<span class="kw">property</span> p_apb_transfer_end;
+  @(<span class="kw">posedge</span> PCLK)
+  <span class="kw">disable iff</span> (!PRESETn)
+  (PSEL && PENABLE && PREADY) <span class="op">|-></span> ##1 !PENABLE;
+<span class="kw">endproperty</span>
+apb_xfer_end: <span class="kw">assert property</span>(p_apb_transfer_end)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"APB: PENABLE must deassert the cycle after PREADY"</span>);</pre>
+    </div>
+
+    <div class="section-label">APB signal stability assertions</div>
+    <div class="prose">During the access phase (while <code>PSEL=1, PENABLE=1, PREADY=0</code>), all master-driven signals must remain stable — address, write data, and write-enable must not glitch mid-transfer.</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>APB signal stability during wait states</span></div>
+      <pre><span class="cm">// ── Rule 4: PADDR stable during entire access phase (wait states)</span>
+<span class="kw">property</span> p_apb_addr_stable;
+  @(<span class="kw">posedge</span> PCLK)
+  <span class="kw">disable iff</span> (!PRESETn)
+  (PSEL && PENABLE && !PREADY) <span class="op">|-></span> <span class="fn">$stable</span>(PADDR);
+<span class="kw">endproperty</span>
+apb_addr_stable: <span class="kw">assert property</span>(p_apb_addr_stable)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"APB: PADDR must not change during access phase wait states"</span>);
+
+<span class="cm">// ── Rule 5: PWDATA stable during write access phase</span>
+<span class="kw">property</span> p_apb_wdata_stable;
+  @(<span class="kw">posedge</span> PCLK)
+  <span class="kw">disable iff</span> (!PRESETn)
+  (PSEL && PENABLE && PWRITE && !PREADY) <span class="op">|-></span> <span class="fn">$stable</span>(PWDATA);
+<span class="kw">endproperty</span>
+apb_wdata_stable: <span class="kw">assert property</span>(p_apb_wdata_stable)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"APB: PWDATA must not change during write access phase"</span>);
+
+<span class="cm">// ── Rule 6: PWRITE stable for entire transfer duration</span>
+<span class="kw">property</span> p_apb_pwrite_stable;
+  @(<span class="kw">posedge</span> PCLK)
+  <span class="kw">disable iff</span> (!PRESETn)
+  (PSEL && !PREADY) <span class="op">|-></span> <span class="fn">$stable</span>(PWRITE);
+<span class="kw">endproperty</span>
+apb_pwrite_stable: <span class="kw">assert property</span>(p_apb_pwrite_stable);</pre>
+    </div>
+
+    <div class="section-label">APB4 error response and read data validity</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>APB4 PSLVERR and PRDATA</span></div>
+      <pre><span class="cm">// ── Rule 7: PSLVERR only valid when PREADY is high (APB4)</span>
+<span class="kw">property</span> p_apb_slverr_requires_pready;
+  @(<span class="kw">posedge</span> PCLK)
+  <span class="kw">disable iff</span> (!PRESETn)
+  PSLVERR <span class="op">|-></span> (PSEL && PENABLE && PREADY);
+<span class="kw">endproperty</span>
+apb_slverr: <span class="kw">assert property</span>(p_apb_slverr_requires_pready)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"APB4: PSLVERR must only assert when PREADY is high"</span>);
+
+<span class="cm">// ── Rule 8: PRDATA must be valid (no X/Z) on read transfer completion</span>
+<span class="kw">property</span> p_apb_rdata_valid;
+  @(<span class="kw">posedge</span> PCLK)
+  <span class="kw">disable iff</span> (!PRESETn)
+  (PSEL && PENABLE && !PWRITE && PREADY && !PSLVERR)
+  <span class="op">|-></span> !<span class="fn">$isunknown</span>(PRDATA);
+<span class="kw">endproperty</span>
+apb_rdata_valid: <span class="kw">assert property</span>(p_apb_rdata_valid)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"APB: PRDATA contains X/Z on read completion"</span>);
+
+<span class="cm">// ── Rule 9: No X/Z on PADDR or PSEL during active transfer</span>
+<span class="kw">assert property</span>(@(<span class="kw">posedge</span> PCLK) <span class="kw">disable iff</span>(!PRESETn)
+  PSEL <span class="op">|-></span> !<span class="fn">$isunknown</span>(PADDR));
+
+<span class="cm">// ── Rule 10: Max wait-state limit — PREADY must assert within N cycles</span>
+<span class="cm">//            Catches a slave that hangs and never responds</span>
+<span class="kw">property</span> p_apb_max_wait;
+  @(<span class="kw">posedge</span> PCLK)
+  <span class="kw">disable iff</span> (!PRESETn)
+  (PSEL && PENABLE && !PREADY) <span class="op">|-></span> ##[1:16] PREADY;
+<span class="kw">endproperty</span>
+apb_max_wait: <span class="kw">assert property</span>(p_apb_max_wait)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"APB: slave held PREADY low for more than 16 cycles"</span>);</pre>
+    </div>
+
+    <div class="section-label">Reset behaviour</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>APB reset state checks</span></div>
+      <pre><span class="cm">// ── Rule 11: PSEL and PENABLE must both be low during reset</span>
+<span class="kw">property</span> p_apb_reset_state;
+  @(<span class="kw">posedge</span> PCLK)
+  !PRESETn <span class="op">|-></span> (!PSEL && !PENABLE);
+<span class="kw">endproperty</span>
+apb_reset: <span class="kw">assert property</span>(p_apb_reset_state)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"APB: PSEL/PENABLE must be deasserted during reset"</span>);
+
+<span class="cm">// ── Rule 12: First transfer setup only starts after reset deasserts</span>
+<span class="kw">property</span> p_apb_post_reset_idle;
+  @(<span class="kw">posedge</span> PCLK)
+  <span class="fn">$rose</span>(PRESETn) <span class="op">|-></span> ##1 !PENABLE;
+<span class="kw">endproperty</span>
+apb_post_reset: <span class="kw">assert property</span>(p_apb_post_reset_idle);</pre>
+    </div>
+
+    <div class="takeaway"><strong>Key takeaway:</strong> APB assertions break into four groups — phase sequencing (PSEL→PENABLE ordering), signal stability during wait states, APB4 error/data validity, and reset state correctness. Always pair <code>disable iff (!PRESETn)</code> on all checks except the reset state assertion itself.</div>
+
+    <div class="mod-footer">
+      <button class="btn-nav" onclick="goTo(3)">← Advanced & Apply</button>
+      <button class="btn-nav primary" onclick="goTo(5)">AXI Assertions →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODULE 6: AXI ═══════════════ -->
+  <div class="module" id="mod-5">
+    <div class="mod-header">
+      <div class="mod-badge m6">06</div>
+      <div>
+        <h2>AXI4 Protocol Assertions</h2>
+        <div class="sub">Module 6 · ~12 min · Protocol-specific examples</div>
+      </div>
+    </div>
+    <div class="objective pink">
+      <strong>Outcome:</strong> Write SVA checkers for AXI4 Write Address, Write Data, Write Response, Read Address, and Read Data channels — covering valid/ready handshake stability, ordering rules, ID matching, and burst constraints.
+    </div>
+
+    <div class="section-label">AXI4 channel overview</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="c-tag">Write path</div>
+        <div class="c-title">AW · W · B channels</div>
+        <div class="c-desc">Write Address (AW): <code>AWVALID/AWREADY</code>, <code>AWID</code>, <code>AWLEN</code>, <code>AWBURST</code>. Write Data (W): <code>WVALID/WREADY</code>, <code>WDATA</code>, <code>WSTRB</code>, <code>WLAST</code>. Write Response (B): <code>BVALID/BREADY</code>, <code>BID</code>, <code>BRESP</code>.</div>
+      </div>
+      <div class="card">
+        <div class="c-tag">Read path</div>
+        <div class="c-title">AR · R channels</div>
+        <div class="c-desc">Read Address (AR): <code>ARVALID/ARREADY</code>, <code>ARID</code>, <code>ARLEN</code>, <code>ARBURST</code>. Read Data (R): <code>RVALID/RREADY</code>, <code>RDATA</code>, <code>RID</code>, <code>RLAST</code>, <code>RRESP</code>.</div>
+      </div>
+      <div class="card">
+        <div class="c-tag">Handshake rule</div>
+        <div class="c-title">valid/ready protocol</div>
+        <div class="c-desc">Transfer occurs when both <code>VALID</code> and <code>READY</code> are high on the same rising clock edge. Once <code>VALID</code> asserts, it must stay high and the payload must stay stable until handshake completes.</div>
+      </div>
+    </div>
+
+    <div class="section-label">Fundamental AXI handshake rule — valid stability</div>
+    <div class="prose">This is the most important AXI rule: once a source asserts VALID, it <strong>must not deassert VALID</strong> until the handshake completes (READY goes high). This applies to all five channels identically.</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>AXI valid stability — applies to all 5 channels</span></div>
+      <pre><span class="cm">// ── VALID must stay high once asserted until READY handshake</span>
+<span class="cm">// ── Template: replicate for AWVALID, WVALID, BVALID, ARVALID, RVALID</span>
+
+<span class="kw">property</span> p_axi_awvalid_stable;
+  @(<span class="kw">posedge</span> ACLK)
+  <span class="kw">disable iff</span> (!ARESETn)
+  (AWVALID && !AWREADY) <span class="op">|-></span> ##1 AWVALID;
+<span class="kw">endproperty</span>
+axi_awvalid_stable: <span class="kw">assert property</span>(p_axi_awvalid_stable)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"AXI: AWVALID deasserted before AWREADY — protocol violation"</span>);
+
+<span class="cm">// ── Write data WDATA/WSTRB must stay stable while WVALID && !WREADY</span>
+<span class="kw">property</span> p_axi_wdata_stable;
+  @(<span class="kw">posedge</span> ACLK)
+  <span class="kw">disable iff</span> (!ARESETn)
+  (WVALID && !WREADY) <span class="op">|-></span> (<span class="fn">$stable</span>(WDATA) && <span class="fn">$stable</span>(WSTRB));
+<span class="kw">endproperty</span>
+axi_wdata_stable: <span class="kw">assert property</span>(p_axi_wdata_stable)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"AXI: WDATA/WSTRB changed while WVALID waiting for WREADY"</span>);
+
+<span class="cm">// ── AWADDR must not change while AWVALID and waiting for AWREADY</span>
+<span class="kw">property</span> p_axi_awaddr_stable;
+  @(<span class="kw">posedge</span> ACLK)
+  <span class="kw">disable iff</span> (!ARESETn)
+  (AWVALID && !AWREADY) <span class="op">|-></span> <span class="fn">$stable</span>(AWADDR);
+<span class="kw">endproperty</span>
+axi_awaddr_stable: <span class="kw">assert property</span>(p_axi_awaddr_stable);</pre>
+    </div>
+
+    <div class="section-label">Write channel — WLAST and burst count</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>AXI write data channel — WLAST rules</span></div>
+      <pre><span class="cm">// ── WLAST must assert on the last beat of a write burst</span>
+<span class="cm">// ── After WLAST handshake, WVALID must deassert (no extra beats)</span>
+<span class="kw">property</span> p_axi_wlast_deassert;
+  @(<span class="kw">posedge</span> ACLK)
+  <span class="kw">disable iff</span> (!ARESETn)
+  (WVALID && WREADY && WLAST) <span class="op">|-></span> ##1 !WVALID;
+<span class="kw">endproperty</span>
+axi_wlast: <span class="kw">assert property</span>(p_axi_wlast_deassert)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"AXI: WVALID must deassert cycle after WLAST handshake"</span>);
+
+<span class="cm">// ── WSTRB must not be all-zero during a valid write beat</span>
+<span class="cm">// ── All zeros means no bytes written — likely a master bug</span>
+<span class="kw">property</span> p_axi_wstrb_nonzero;
+  @(<span class="kw">posedge</span> ACLK)
+  <span class="kw">disable iff</span> (!ARESETn)
+  (WVALID && WREADY) <span class="op">|-></span> (WSTRB != 0);
+<span class="kw">endproperty</span>
+axi_wstrb: <span class="kw">assert property</span>(p_axi_wstrb_nonzero)
+  <span class="kw">else</span> <span class="fn">$warning</span>(<span class="str">"AXI: WSTRB all-zero on write beat — no bytes enabled"</span>);
+
+<span class="cm">// ── Write response channel: BRESP must not be X/Z</span>
+<span class="kw">property</span> p_axi_bresp_valid;
+  @(<span class="kw">posedge</span> ACLK)
+  <span class="kw">disable iff</span> (!ARESETn)
+  (BVALID && BREADY) <span class="op">|-></span> !<span class="fn">$isunknown</span>(BRESP);
+<span class="kw">endproperty</span>
+axi_bresp: <span class="kw">assert property</span>(p_axi_bresp_valid);</pre>
+    </div>
+
+    <div class="section-label">Read channel assertions</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>AXI read address and read data channels</span></div>
+      <pre><span class="cm">// ── ARVALID stability: once asserted, hold until ARREADY</span>
+<span class="kw">property</span> p_axi_arvalid_stable;
+  @(<span class="kw">posedge</span> ACLK)
+  <span class="kw">disable iff</span> (!ARESETn)
+  (ARVALID && !ARREADY) <span class="op">|-></span> ##1 ARVALID;
+<span class="kw">endproperty</span>
+axi_arvalid: <span class="kw">assert property</span>(p_axi_arvalid_stable);
+
+<span class="cm">// ── RDATA must not be X/Z on a valid read data beat</span>
+<span class="kw">property</span> p_axi_rdata_valid;
+  @(<span class="kw">posedge</span> ACLK)
+  <span class="kw">disable iff</span> (!ARESETn)
+  (RVALID && RREADY && RRESP == 2'b00) <span class="op">|-></span> !<span class="fn">$isunknown</span>(RDATA);
+<span class="kw">endproperty</span>
+axi_rdata: <span class="kw">assert property</span>(p_axi_rdata_valid)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"AXI: RDATA contains X/Z on OKAY read beat"</span>);
+
+<span class="cm">// ── RLAST must assert on the last read data beat</span>
+<span class="cm">// ── After RLAST, RVALID must deassert (slave must not send extra beats)</span>
+<span class="kw">property</span> p_axi_rlast_deassert;
+  @(<span class="kw">posedge</span> ACLK)
+  <span class="kw">disable iff</span> (!ARESETn)
+  (RVALID && RREADY && RLAST) <span class="op">|-></span> ##1 !RVALID;
+<span class="kw">endproperty</span>
+axi_rlast: <span class="kw">assert property</span>(p_axi_rlast_deassert)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"AXI: RVALID must deassert cycle after RLAST handshake"</span>);
+
+<span class="cm">// ── RRESP must be valid (no X/Z) when RVALID is asserted</span>
+<span class="kw">property</span> p_axi_rresp_valid;
+  @(<span class="kw">posedge</span> ACLK)
+  <span class="kw">disable iff</span> (!ARESETn)
+  RVALID <span class="op">|-></span> !<span class="fn">$isunknown</span>(RRESP);
+<span class="kw">endproperty</span>
+axi_rresp: <span class="kw">assert property</span>(p_axi_rresp_valid);</pre>
+    </div>
+
+    <div class="section-label">Reset state — all VALID signals must be deasserted</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>AXI reset state assertions</span></div>
+      <pre><span class="cm">// ── During reset: master-side VALID signals must all be low</span>
+<span class="kw">property</span> p_axi_master_reset;
+  @(<span class="kw">posedge</span> ACLK)
+  !ARESETn <span class="op">|-></span> (!AWVALID && !WVALID && !ARVALID);
+<span class="kw">endproperty</span>
+axi_reset_master: <span class="kw">assert property</span>(p_axi_master_reset)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"AXI: master VALID signals must be 0 during reset"</span>);
+
+<span class="cm">// ── During reset: slave-side VALID signals must all be low</span>
+<span class="kw">property</span> p_axi_slave_reset;
+  @(<span class="kw">posedge</span> ACLK)
+  !ARESETn <span class="op">|-></span> (!BVALID && !RVALID);
+<span class="kw">endproperty</span>
+axi_reset_slave: <span class="kw">assert property</span>(p_axi_slave_reset)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"AXI: slave VALID signals must be 0 during reset"</span>);</pre>
+    </div>
+
+    <div class="section-label">AXI4-Lite — simplified subset assertions</div>
+    <div class="prose">AXI4-Lite drops burst support. Burst length is always 1, so <code>WLAST</code> is always tied high. These additional assertions validate the lite constraints.</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>AXI4-Lite specific checks</span></div>
+      <pre><span class="cm">// ── AXI4-Lite: AWLEN must always be 0 (single-beat only)</span>
+<span class="kw">property</span> p_axilite_awlen_zero;
+  @(<span class="kw">posedge</span> ACLK)
+  <span class="kw">disable iff</span> (!ARESETn)
+  AWVALID <span class="op">|-></span> (AWLEN == 8'h00);
+<span class="kw">endproperty</span>
+axilite_awlen: <span class="kw">assert property</span>(p_axilite_awlen_zero)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"AXI4-Lite: AWLEN must be 0 — bursts not supported"</span>);
+
+<span class="cm">// ── AXI4-Lite: WLAST must always be high with WVALID</span>
+<span class="kw">property</span> p_axilite_wlast_always;
+  @(<span class="kw">posedge</span> ACLK)
+  <span class="kw">disable iff</span> (!ARESETn)
+  WVALID <span class="op">|-></span> WLAST;
+<span class="kw">endproperty</span>
+axilite_wlast: <span class="kw">assert property</span>(p_axilite_wlast_always);
+
+<span class="cm">// ── AXI4-Lite: BRESP must be OKAY(00) or SLVERR(10) — no EXOKAY or DECERR</span>
+<span class="kw">property</span> p_axilite_bresp;
+  @(<span class="kw">posedge</span> ACLK)
+  <span class="kw">disable iff</span> (!ARESETn)
+  (BVALID && BREADY) <span class="op">|-></span> (BRESP == 2'b00 || BRESP == 2'b10);
+<span class="kw">endproperty</span>
+axilite_bresp: <span class="kw">assert property</span>(p_axilite_bresp)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"AXI4-Lite: BRESP illegal — only OKAY or SLVERR allowed"</span>);</pre>
+    </div>
+
+    <div class="takeaway"><strong>Key takeaway:</strong> AXI assertions divide by channel. The universal rule — VALID must not deassert before READY — is the most critical and applies identically to all five channels. Layer on top: payload stability checks, LAST signal rules, X/Z guards, and reset state requirements. Use the AXI4-Lite extras when AWLEN/ARLEN must be zero.</div>
+
+    <div class="mod-footer">
+      <button class="btn-nav" onclick="goTo(4)">← APB Assertions</button>
+      <button class="btn-nav primary" onclick="goTo(6)">Binding SVA →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODULE 7: BIND ═══════════════ -->
+  <div class="module" id="mod-6">
+    <div class="mod-header">
+      <div class="mod-badge m7">07</div>
+      <div>
+        <h2>Binding SVA to your DUT from the Testbench</h2>
+        <div class="sub">Module 7 · ~8 min · Testbench integration</div>
+      </div>
+    </div>
+    <div class="objective">
+      <strong>Outcome:</strong> Attach assertion modules non-intrusively to any DUT using the <code>bind</code> construct — without modifying RTL source. Understand the four bind forms, hierarchical access, interface-based binding, and UVM integration patterns.
+    </div>
+
+    <div class="section-label">Why use bind instead of embedding assertions in RTL?</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="c-tag">Problem with RTL embedding</div>
+        <div class="c-title">Modifies production code</div>
+        <div class="c-desc">Assertions inside the RTL module get synthesised unless carefully guarded. Any mistake contaminates the golden design and requires RTL sign-off re-approval.</div>
+      </div>
+      <div class="card">
+        <div class="c-tag">Bind advantage</div>
+        <div class="c-title">Zero RTL changes</div>
+        <div class="c-desc">The <code>bind</code> construct instantiates a checker module <em>inside</em> the target scope at elaboration time — the DUT source is never touched. Synthesis tools ignore bound modules by default.</div>
+      </div>
+      <div class="card">
+        <div class="c-tag">Scope access</div>
+        <div class="c-title">Full signal visibility</div>
+        <div class="c-desc">The bound module sees all signals of the target scope — including internal nets, registers, and sub-module outputs — exactly as if the checker were written inside the RTL module itself.</div>
+      </div>
+    </div>
+
+    <div class="section-label">Form 1 — bind to a module type (all instances)</div>
+    <div class="prose">Binding to a module type applies the checker to <strong>every instance</strong> of that module in the design hierarchy. Use this for protocol checkers that must cover all slave instances of a common interface.</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>bind to module type</span></div>
+      <pre><span class="cm">// Step 1: Define the checker module — ports match DUT signal names</span>
+<span class="kw">module</span> apb_checker (
+  <span class="kw">input</span> logic PCLK, PRESETn,
+  <span class="kw">input</span> logic PSEL, PENABLE, PWRITE, PREADY, PSLVERR,
+  <span class="kw">input</span> logic [31:0] PADDR, PWDATA, PRDATA
+);
+  <span class="cm">// All your SVA properties live here</span>
+  <span class="kw">property</span> p_setup_phase;
+    @(<span class="kw">posedge</span> PCLK) <span class="kw">disable iff</span>(!PRESETn)
+    <span class="fn">$rose</span>(PSEL) <span class="op">|-></span> ##1 PENABLE;
+  <span class="kw">endproperty</span>
+  chk_setup: <span class="kw">assert property</span>(p_setup_phase);
+  <span class="cm">// ... more assertions ...</span>
+<span class="kw">endmodule</span>
+
+<span class="cm">// Step 2: bind to every instance of 'apb_slave' in the design</span>
+<span class="cm">// Port connections use .checker_port(dut_signal) syntax</span>
+<span class="kw">bind</span> apb_slave apb_checker u_apb_chk (
+  .PCLK    (PCLK),
+  .PRESETn (PRESETn),
+  .PSEL    (PSEL),
+  .PENABLE (PENABLE),
+  .PWRITE  (PWRITE),
+  .PREADY  (PREADY),
+  .PSLVERR (PSLVERR),
+  .PADDR   (PADDR),
+  .PWDATA  (PWDATA),
+  .PRDATA  (PRDATA)
+);</pre>
+    </div>
+
+    <div class="section-label">Form 2 — bind to a specific instance only</div>
+    <div class="prose">Use hierarchical dot-notation to target one specific instance. All other instances of the same module are left unchecked. Useful when only one slave has a known timing requirement.</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>bind to specific instance</span></div>
+      <pre><span class="cm">// Target only tb_top.dut.u_apb_slave0, not u_apb_slave1</span>
+<span class="kw">bind</span> tb_top.dut.u_apb_slave0 apb_checker u_apb_chk (
+  .PCLK    (PCLK),
+  .PRESETn (PRESETn),
+  .PSEL    (PSEL),
+  .PENABLE (PENABLE),
+  .PWRITE  (PWRITE),
+  .PREADY  (PREADY),
+  .PSLVERR (PSLVERR),
+  .PADDR   (PADDR),
+  .PWDATA  (PWDATA),
+  .PRDATA  (PRDATA)
+);</pre>
+    </div>
+
+    <div class="section-label">Form 3 — bind using an interface</div>
+    <div class="prose">When your DUT connects via a SystemVerilog interface, the checker can accept the interface directly — cleaner than listing every individual signal port by port. The checker accesses all signals through the virtual interface handle.</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>bind with interface port</span></div>
+      <pre><span class="cm">// Interface definition (shared between DUT and checker)</span>
+<span class="kw">interface</span> axi4_if (
+  <span class="kw">input</span> logic ACLK,
+  <span class="kw">input</span> logic ARESETn
+);
+  <span class="kw">logic</span>        AWVALID, AWREADY;
+  <span class="kw">logic</span> [31:0] AWADDR;
+  <span class="kw">logic</span> [7:0]  AWLEN;
+  <span class="kw">logic</span>        WVALID, WREADY, WLAST;
+  <span class="kw">logic</span> [63:0] WDATA;
+  <span class="kw">logic</span> [7:0]  WSTRB;
+  <span class="kw">logic</span>        BVALID, BREADY;
+  <span class="kw">logic</span> [1:0]  BRESP;
+  <span class="cm">// ... AR and R channel signals ...</span>
+<span class="kw">endinterface</span>
+
+<span class="cm">// Checker module takes the interface directly</span>
+<span class="kw">module</span> axi4_checker (axi4_if axi);
+  <span class="kw">property</span> p_awvalid_stable;
+    @(<span class="kw">posedge</span> axi.ACLK) <span class="kw">disable iff</span>(!axi.ARESETn)
+    (axi.AWVALID && !axi.AWREADY) <span class="op">|-></span> ##1 axi.AWVALID;
+  <span class="kw">endproperty</span>
+  chk: <span class="kw">assert property</span>(p_awvalid_stable);
+<span class="kw">endmodule</span>
+
+<span class="cm">// Bind — pass the interface handle directly</span>
+<span class="kw">bind</span> axi4_master axi4_checker u_axi_chk (.axi(m_axi_port));</pre>
+    </div>
+
+    <div class="section-label">Form 4 — bind inside a UVM testbench</div>
+    <div class="prose">In a UVM environment, the <code>bind</code> statement lives in the top-level testbench module — <em>not</em> inside a class. The virtual interface is then passed into the UVM hierarchy through the config DB so the checker can also report through the UVM reporting mechanism if desired.</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>bind in UVM top-level testbench</span></div>
+      <pre><span class="cm">// tb_top.sv — static elaboration context, UVM test runs inside</span>
+<span class="kw">module</span> tb_top;
+  <span class="kw">import</span> uvm_pkg::*;
+
+  <span class="cm">// DUT instantiation</span>
+  axi4_master dut (
+    .ACLK    (clk),
+    .ARESETn (resetn),
+    .m_axi   (axi_bus)
+  );
+
+  <span class="cm">// ── bind the checker non-intrusively ──────────────────────</span>
+  <span class="kw">bind</span> axi4_master axi4_checker u_axi_chk (
+    .ACLK    (ACLK),
+    .ARESETn (ARESETn),
+    .AWVALID (AWVALID),
+    .AWREADY (AWREADY),
+    .AWADDR  (AWADDR),
+    .AWLEN   (AWLEN),
+    .WVALID  (WVALID),
+    .WREADY  (WREADY),
+    .WDATA   (WDATA),
+    .WSTRB   (WSTRB),
+    .WLAST   (WLAST),
+    .BVALID  (BVALID),
+    .BREADY  (BREADY),
+    .BRESP   (BRESP)
+  );
+
+  <span class="cm">// Pass virtual interface into UVM config DB for monitor/scoreboard</span>
+  <span class="kw">initial</span> begin
+    uvm_config_db #(<span class="kw">virtual</span> axi4_if)::set(
+      <span class="kw">null</span>, <span class="str">"uvm_test_top.*"</span>, <span class="str">"axi_vif"</span>, axi_bus);
+    run_test();
+  <span class="kw">end</span>
+<span class="kw">endmodule</span></pre>
+    </div>
+
+    <div class="section-label">Accessing internal DUT signals through bind</div>
+    <div class="prose">One of the most powerful features of <code>bind</code> is that the checker has full access to internal DUT signals — FIFOs, FSM state registers, pipeline stage signals — without those ever appearing on the DUT's port list. The bound module lives in the target scope.</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>accessing internal signals via bind</span></div>
+      <pre><span class="cm">// DUT module has internal signal 'state_reg' — not on port list</span>
+<span class="kw">module</span> axi_slave_checker (
+  <span class="kw">input</span> logic        ACLK, ARESETn,
+  <span class="kw">input</span> logic [2:0]  state_reg,    <span class="cm">// internal FSM state — visible via bind</span>
+  <span class="kw">input</span> logic        AWVALID, AWREADY,
+  <span class="kw">input</span> logic [31:0] AWADDR
+);
+  <span class="cm">// Check that FSM never enters illegal state 3'b111</span>
+  <span class="kw">property</span> p_no_illegal_state;
+    @(<span class="kw">posedge</span> ACLK) <span class="kw">disable iff</span>(!ARESETn)
+    state_reg != 3'b111;
+  <span class="kw">endproperty</span>
+  chk_state: <span class="kw">assert property</span>(p_no_illegal_state)
+    <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"FSM entered illegal state 7"</span>);
+<span class="kw">endmodule</span>
+
+<span class="cm">// In bind: 'state_reg' maps to DUT's internal net directly</span>
+<span class="kw">bind</span> axi_slave axi_slave_checker u_slv_chk (
+  .ACLK      (ACLK),
+  .ARESETn   (ARESETn),
+  .state_reg (state_reg),   <span class="cm">// internal DUT net — no RTL change needed</span>
+  .AWVALID   (AWVALID),
+  .AWREADY   (AWREADY),
+  .AWADDR    (AWADDR)
+);</pre>
+    </div>
+
+    <div class="section-label">Where does the bind statement go?</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="c-tag">Recommended</div>
+        <div class="c-title">Separate bind file</div>
+        <div class="c-desc">Create <code>apb_bind.sv</code> or <code>axi_bind.sv</code>. Add it to the filelist only for simulation, not synthesis. This keeps the RTL filelist completely clean.</div>
+      </div>
+      <div class="card">
+        <div class="c-tag">Alternative</div>
+        <div class="c-title">tb_top module</div>
+        <div class="c-desc">Place inside the top-level testbench module at the same level as DUT instantiation. Works well for UVM environments. Must be in module context — not inside a class or task.</div>
+      </div>
+      <div class="card">
+        <div class="c-tag">Never here</div>
+        <div class="c-title">Inside UVM classes</div>
+        <div class="c-desc"><code>bind</code> is a static elaboration construct. It cannot appear inside <code>class</code>, <code>function</code>, <code>task</code>, or <code>initial</code> blocks. It must be at module scope.</div>
+      </div>
+    </div>
+
+    <div class="section-label">Simulation filelist setup</div>
+    <div class="code-wrap">
+      <div class="code-bar"><div class="code-dot" style="background:#f75f5f"></div><div class="code-dot" style="background:#f7c948"></div><div class="code-dot" style="background:#40c463"></div><span>filelist.f — sim only, not in synth filelist</span></div>
+      <pre><span class="cm">// RTL files (shared with synthesis)</span>
++incdir+./rtl
+./rtl/apb_slave.sv
+./rtl/axi_master.sv
+
+<span class="cm">// Verification only — excluded from synthesis filelist</span>
+./tb/tb_top.sv
+./tb/sva/apb_checker.sv     <span class="cm">// checker module definition</span>
+./tb/sva/axi4_checker.sv    <span class="cm">// checker module definition</span>
+./tb/sva/apb_bind.sv        <span class="cm">// bind statement for APB</span>
+./tb/sva/axi4_bind.sv       <span class="cm">// bind statement for AXI4</span>
+
+<span class="cm">// Simulator compile command (VCS example)</span>
+<span class="cm">// vcs -sverilog -f filelist.f -assert enable_diag ...</span></pre>
+    </div>
+
+    <div class="takeaway"><strong>Key takeaway:</strong> Use <code>bind</code> to keep assertion code 100% separate from RTL. Four forms: module-type (all instances), specific instance (hierarchy path), interface-port, and UVM top-level. The bound module lives in the target scope and sees all internal signals. Always put bind statements in dedicated <code>_bind.sv</code> files excluded from the synthesis filelist.</div>
+
+    <div class="completion">
+      <span class="check">✓</span>
+      <h2>Course complete — full SVA mastery achieved</h2>
+      <p>You can now write assertions for any protocol, build complete APB and AXI4 checker suites, and non-intrusively bind them to any DUT from your UVM testbench — without touching a single line of RTL.</p>
+      <div class="ref-links">
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-assertions/" target="_blank">SVA Basics</a>
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-assettions-building-blocks/" target="_blank">Building Blocks</a>
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-assertion-sequence/" target="_blank">Sequences</a>
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-implication-operator/" target="_blank">Implication</a>
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-repetition-operators/" target="_blank">Repetition</a>
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-sva-built-in-methods/" target="_blank">Built-in Methods</a>
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-disable-iff-ended/" target="_blank">disable iff / ended</a>
+        <a class="ref-link" href="https://verificationguide.com/systemverilog/systemverilog-variable-delay-in-sva/" target="_blank">Variable Delay</a>
+      </div>
+    </div>
+
+    <div class="mod-footer">
+      <button class="btn-nav" onclick="goTo(5)">← AXI Assertions</button>
+      <button class="btn-nav primary" onclick="goTo(0)">↺ Restart Course</button>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<script>
+let current = 0;
+const pct = ['14%','28%','43%','57%','71%','85%','100%'];
+
+function goTo(idx, linkEl) {
+  document.getElementById('mod-' + current).classList.remove('visible');
+  current = idx;
+  document.getElementById('mod-' + current).classList.add('visible');
+  document.getElementById('pbar').style.width = pct[current];
+
+  document.querySelectorAll('.sidebar-nav a').forEach((a,i) => a.classList.toggle('active', i===current));
+  const mob = document.querySelectorAll('.mob-btn');
+  mob.forEach((b,i) => b.classList.toggle('active', i===current));
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function toggleAnswer() {
+  const el = document.getElementById('ex-ans');
+  const btn = document.querySelector('.toggle-answer');
+  const showing = el.style.display === 'block';
+  el.style.display = showing ? 'none' : 'block';
+  btn.textContent = showing ? '▶ Show reference answer' : '▼ Hide reference answer';
+}
+</script>
+</body>
+</html>
