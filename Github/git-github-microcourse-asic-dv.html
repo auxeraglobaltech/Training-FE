@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Git & GitHub on Linux — ASIC DV Field Guide</title>
+<style>
+:root {
+  --accent: #1D9E75;
+  --accent-light: #E1F5EE;
+  --accent-mid: #0F6E56;
+  --accent-dark: #085041;
+  --warn: #BA7517;
+  --warn-light: #FAEEDA;
+  --danger: #A32D2D;
+  --danger-light: #FCEBEB;
+  --info: #185FA5;
+  --info-light: #E6F1FB;
+  --bg: #ffffff;
+  --bg-secondary: #f7f7f5;
+  --bg-tertiary: #f0f0ec;
+  --text: #1a1a18;
+  --text-muted: #6b6b66;
+  --border: rgba(0,0,0,0.11);
+  --border-strong: rgba(0,0,0,0.20);
+  --code-bg: #0f1117;
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Liberation Sans', sans-serif;
+  background: var(--bg-tertiary);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ── HEADER ── */
+.page-header {
+  background: var(--accent-dark);
+  color: white;
+  padding: 2rem 2rem 1.5rem;
+}
+.page-header .badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.9);
+  font-size: 11px; font-weight: 600;
+  padding: 3px 10px; border-radius: 100px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.page-header h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; line-height: 1.25; }
+.page-header .meta {
+  display: flex; gap: 18px; flex-wrap: wrap;
+  font-size: 13px; color: rgba(255,255,255,0.7); margin-top: 10px;
+}
+
+/* ── LAYOUT ── */
+.layout { display: flex; max-width: 1020px; margin: 0 auto; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 210px; flex-shrink: 0;
+  padding: 1.25rem 0.75rem;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+}
+.sidebar-label {
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-muted); margin-bottom: 6px; padding: 0 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px; border-radius: var(--radius);
+  font-size: 12.5px; color: var(--text-muted);
+  cursor: pointer; border: none; background: none;
+  width: 100%; text-align: left;
+  transition: all 0.12s; margin-bottom: 1px;
+  line-height: 1.3;
+}
+.nav-item:hover { background: var(--bg-secondary); color: var(--text); }
+.nav-item.active { background: var(--accent-light); color: var(--accent-mid); font-weight: 500; }
+.nav-item.done { color: var(--accent); }
+.nav-dot {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--bg-secondary); border: 1.5px solid var(--border-strong);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; flex-shrink: 0; transition: all 0.12s;
+}
+.nav-item.active .nav-dot { background: var(--accent); border-color: var(--accent); color: white; }
+.nav-item.done .nav-dot { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+.progress-wrap { margin: 1.25rem 6px 0; padding-top: 1rem; border-top: 1px solid var(--border); }
+.progress-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
+.progress-track { background: var(--bg-secondary); border-radius: 100px; height: 5px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 100px; transition: width 0.4s ease; width: 0%; }
+
+/* ── MAIN ── */
+.main { flex: 1; padding: 2rem 2rem 4rem; min-width: 0; }
+.module-panel { display: none; }
+.module-panel.visible { display: block; }
+
+/* ── MODULE HEADER ── */
+.module-eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 0.9rem; flex-wrap: wrap; }
+.module-tag {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--accent);
+  background: var(--accent-light); padding: 3px 10px; border-radius: 100px;
+}
+.module-time { font-size: 12px; color: var(--text-muted); }
+.module-title { font-size: 21px; font-weight: 600; color: var(--text); margin-bottom: 1.25rem; line-height: 1.3; }
+
+/* ── TYPOGRAPHY ── */
+.prose { font-size: 15px; line-height: 1.75; color: var(--text); margin-bottom: 0.9rem; }
+.section-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-muted);
+  margin: 1.6rem 0 0.55rem;
+}
+.inline-code {
+  font-family: 'SF Mono','Fira Code','Cascadia Code','Liberation Mono',monospace;
+  font-size: 12px; background: var(--bg-secondary);
+  padding: 1px 6px; border-radius: 4px; color: var(--accent-mid);
+  border: 1px solid var(--border);
+}
+
+/* ── CODE BLOCKS ── */
+.code-block {
+  background: var(--code-bg); border-radius: var(--radius);
+  padding: 1rem 1.2rem; margin: 0.65rem 0;
+  overflow-x: auto; border: 1px solid #222;
+}
+.code-block pre {
+  font-family: 'SF Mono','Fira Code','Cascadia Code','Liberation Mono',monospace;
+  font-size: 12.5px; line-height: 1.85; color: #9FE1CB; white-space: pre;
+}
+.code-block .comment { color: #445a50; font-style: italic; }
+.code-block .flag { color: #FAC775; }
+.code-block .path { color: #85B7EB; }
+.code-block .output { color: #666; }
+.code-block .conflict { color: #F09595; }
+.code-block .resolved { color: #9FE1CB; }
+.code-block .warn { color: #EF9F27; }
+
+/* ── CALLOUT CARDS ── */
+.tip-card {
+  background: var(--accent-light); border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 0.8rem 1rem; margin: 0.9rem 0;
+  font-size: 14px; color: var(--accent-mid); line-height: 1.65;
+}
+.warn-card {
+  background: var(--warn-light); border-left: 3px solid var(--warn);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 0.8rem 1rem; margin: 0.9rem 0;
+  font-size: 14px; color: var(--warn); line-height: 1.65;
+}
+.danger-card {
+  background: var(--danger-light); border-left: 3px solid var(--danger);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 0.8rem 1rem; margin: 0.9rem 0;
+  font-size: 14px; color: var(--danger); line-height: 1.65;
+}
+.info-card {
+  background: var(--info-light); border-left: 3px solid var(--info);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 0.8rem 1rem; margin: 0.9rem 0;
+  font-size: 14px; color: var(--info); line-height: 1.65;
+}
+.tip-card strong, .warn-card strong, .danger-card strong, .info-card strong { font-weight: 600; }
+
+/* ── STEPS ── */
+.step-list { margin: 0.65rem 0; }
+.step-item { display: flex; gap: 12px; margin-bottom: 1rem; font-size: 14px; line-height: 1.65; color: var(--text); }
+.step-num {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--accent); color: white;
+  font-size: 11px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 2px;
+}
+
+/* ── EXERCISE BOX ── */
+.exercise-box {
+  border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+  padding: 1.2rem; margin: 1.25rem 0; background: var(--bg);
+}
+.exercise-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-muted);
+  margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+}
+.exercise-label::before { content: '⚡'; font-size: 14px; }
+.check-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-bottom: 9px; font-size: 14px; line-height: 1.5;
+  cursor: pointer; color: var(--text);
+  padding: 5px 7px; border-radius: var(--radius);
+  transition: background 0.1s;
+}
+.check-item:hover { background: var(--bg-secondary); }
+.check-box {
+  width: 18px; height: 18px; border-radius: 4px;
+  border: 1.5px solid var(--border-strong);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 1px; transition: all 0.15s; background: var(--bg);
+}
+.check-item.checked .check-box { background: var(--accent); border-color: var(--accent); }
+.check-item.checked .check-box::after { content: '✓'; color: white; font-size: 11px; font-weight: 700; }
+.check-item.checked .check-text { text-decoration: line-through; color: var(--text-muted); }
+.done-example {
+  background: var(--bg-secondary); border-radius: var(--radius);
+  padding: 0.8rem 1rem; margin-top: 0.9rem;
+  font-size: 13px; color: var(--text-muted); border: 1px solid var(--border); line-height: 1.6;
+}
+.done-example strong { color: var(--text); font-weight: 600; }
+
+/* ── TAKEAWAY ── */
+.takeaway {
+  background: var(--bg-secondary); border-radius: var(--radius);
+  padding: 0.8rem 1rem; margin-top: 1.25rem;
+  font-size: 14px; color: var(--text);
+  display: flex; align-items: flex-start; gap: 10px; border: 1px solid var(--border);
+}
+.takeaway::before { content: '💡'; font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── GRIDS ── */
+.ref-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(185px,1fr));
+  gap: 9px; margin: 0.9rem 0;
+}
+.ref-card {
+  background: var(--bg); border-radius: var(--radius);
+  padding: 0.8rem 1rem; border: 1px solid var(--border);
+  font-size: 13px; line-height: 1.5;
+}
+.ref-card strong { display: block; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.ref-card span { color: var(--text-muted); }
+
+/* ── TWO-COL ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0.9rem 0; }
+.two-col .ref-card { margin: 0; }
+
+/* ── CONFLICT VISUALISER ── */
+.conflict-visual {
+  background: var(--code-bg); border-radius: var(--radius);
+  padding: 1rem 1.2rem; margin: 0.65rem 0; border: 1px solid #222;
+  font-family: 'SF Mono','Fira Code','Cascadia Code','Liberation Mono',monospace;
+  font-size: 12.5px; line-height: 1.85;
+}
+.cf-marker { color: #F09595; }
+.cf-yours { color: #FAC775; }
+.cf-sep { color: #888; }
+.cf-theirs { color: #85B7EB; }
+.cf-end { color: #F09595; }
+.cf-comment { color: #445a50; font-style: italic; }
+
+/* ── FOOTER BUTTONS ── */
+.module-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 2rem; padding-top: 1.1rem; border-top: 1px solid var(--border);
+  gap: 12px; flex-wrap: wrap;
+}
+.btn-primary {
+  background: var(--accent); color: white; border: none;
+  border-radius: var(--radius); padding: 9px 20px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; transition: background 0.15s;
+}
+.btn-primary:hover { background: var(--accent-mid); }
+.btn-ghost {
+  background: transparent; color: var(--text-muted);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius); padding: 9px 16px;
+  font-size: 14px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s;
+}
+.btn-ghost:hover { background: var(--bg-secondary); color: var(--text); }
+
+/* ── COMPLETION ── */
+.completion-screen { display: none; text-align: center; padding: 3rem 1rem; }
+.completion-screen.visible { display: block; }
+.completion-icon {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: var(--accent-light);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 1.5rem; font-size: 36px;
+}
+
+@media (max-width: 640px) {
+  .sidebar { display: none; }
+  .main { padding: 1.2rem; }
+  .page-header { padding: 1.2rem; }
+  .page-header h1 { font-size: 19px; }
+  .two-col { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="badge">Field Guide · ASIC DV Team · 7 Modules</div>
+  <h1>Git &amp; GitHub on Linux — ASIC Design Verification</h1>
+  <div class="meta">
+    <span>👥 DV Engineers</span>
+    <span>🕐 7 modules · ~45 min</span>
+    <span>🖥️ Linux terminal + GitHub</span>
+    <span>🎯 Clone → branch → conflict → recover → ship</span>
+  </div>
+</div>
+
+<div class="layout">
+
+<!-- ═══ SIDEBAR ═══ -->
+<nav class="sidebar" aria-label="Course modules">
+  <div class="sidebar-label">Modules</div>
+  <button class="nav-item active" onclick="goTo(0)" id="nav-0"><div class="nav-dot" id="dot-0">1</div>Why Git matters</button>
+  <button class="nav-item" onclick="goTo(1)" id="nav-1"><div class="nav-dot" id="dot-1">2</div>Setup &amp; daily loop</button>
+  <button class="nav-item" onclick="goTo(2)" id="nav-2"><div class="nav-dot" id="dot-2">3</div>Branches &amp; PRs</button>
+  <button class="nav-item" onclick="goTo(3)" id="nav-3"><div class="nav-dot" id="dot-3">4</div>Merge conflicts</button>
+  <button class="nav-item" onclick="goTo(4)" id="nav-4"><div class="nav-dot" id="dot-4">5</div>Undo &amp; recover</button>
+  <button class="nav-item" onclick="goTo(5)" id="nav-5"><div class="nav-dot" id="dot-5">6</div>Team ops toolkit</button>
+  <button class="nav-item" onclick="goTo(6)" id="nav-6"><div class="nav-dot" id="dot-6">7</div>Next steps</button>
+  <div class="progress-wrap">
+    <div class="progress-label"><span>Progress</span><span id="progress-pct">0%</span></div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+</nav>
+
+<!-- ═══ MAIN ═══ -->
+<main class="main">
+
+<!-- ══════════════════════════════════════
+     MODULE 0 — WHY IT MATTERS
+     ══════════════════════════════════════ -->
+<div class="module-panel visible" id="panel-0">
+  <div class="module-eyebrow">
+    <span class="module-tag">Module 1 · Hook</span>
+    <span class="module-time">⏱ 2–3 min</span>
+  </div>
+  <h2 class="module-title">Why Git matters on a shared DV project</h2>
+
+  <p class="prose">ASIC DV projects are large, long, and team-based. A single repo might contain UVM testbenches, SystemVerilog IPs, Makefiles, simulation scripts, and regression suites touched by 5–20 engineers simultaneously.</p>
+  <p class="prose">Without version control: overwritten testbench files, lost coverage closure progress, and no audit trail when a regression drops the night before tapeout.</p>
+
+  <div class="tip-card">
+    <strong>Real cost of no version control:</strong> engineer A overwrites engineer B's UVM sequence changes — regression drops from 94% to 61%. Two hours to debug, two more to restore. Git prevents this in seconds.
+  </div>
+
+  <p class="prose">Git gives your team a shared, immutable history of every change — who touched <span class="inline-code">tb_top.sv</span>, which commit broke the AXI scoreboard, and how to roll it back instantly.</p>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> Git is your team's single source of truth for the entire DV environment — testbenches, scripts, coverage models, and all.</div>
+
+  <div class="module-footer">
+    <span></span>
+    <button class="btn-primary" onclick="advance(0)">Next: Setup &amp; daily loop →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODULE 1 — SETUP & DAILY LOOP
+     ══════════════════════════════════════ -->
+<div class="module-panel" id="panel-1">
+  <div class="module-eyebrow">
+    <span class="module-tag">Module 2 · Core Skills</span>
+    <span class="module-time">⏱ ~8 min</span>
+  </div>
+  <h2 class="module-title">First-time setup and the daily loop</h2>
+
+  <div class="section-label">One-time setup on your Linux machine</div>
+  <div class="code-block"><pre><span class="comment"># Identity — appears in every commit you make</span>
+git config --global user.name  "Your Name"
+git config --global user.email "you@company.com"
+
+<span class="comment"># Editor used when git needs you to write a message</span>
+git config --global core.editor "vim"
+
+<span class="comment"># Avoid retyping credentials on every push</span>
+git config --global credential.helper store
+
+<span class="comment"># Make rebase the default pull strategy (cleaner history)</span>
+git config --global pull.rebase true</pre></div>
+
+  <div class="section-label">Clone the project repo</div>
+  <div class="code-block"><pre><span class="comment"># SSH clone (preferred on company servers)</span>
+git clone git@github.com:your-org/asic-dv-project.git
+cd asic-dv-project
+git status
+<span class="output">On branch main
+nothing to commit, working tree clean</span></pre></div>
+
+  <div class="section-label">The daily loop — 5 steps, every day</div>
+  <div class="step-list">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div><strong>Pull</strong> — always start here. Never work on stale code.
+        <div class="code-block" style="margin-top:7px"><pre>git pull origin main</pre></div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div><strong>Edit</strong> — open your testbench, UVM sequence, Makefile, coverage model in your editor.</div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div><strong>Stage</strong> — choose which changed files go into your commit.
+        <div class="code-block" style="margin-top:7px"><pre>git add tb/sequences/axi_wr_seq.sv   <span class="comment"># specific file</span>
+git add <span class="flag">-A</span>                           <span class="comment"># all changes</span>
+git status                           <span class="comment"># confirm what is staged</span></pre></div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">4</div>
+      <div><strong>Commit</strong> — snapshot with a meaningful message.
+        <div class="code-block" style="margin-top:7px"><pre>git commit <span class="flag">-m</span> <span class="path">"feat(axi): add back-to-back write stress sequence"</span></pre></div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">5</div>
+      <div><strong>Push</strong> — upload to GitHub so teammates can see your work.
+        <div class="code-block" style="margin-top:7px"><pre>git push origin your-branch-name</pre></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Handy inspection commands</div>
+  <div class="ref-grid">
+    <div class="ref-card"><strong><span class="inline-code">git log --oneline</span></strong><span>Compact recent commit history</span></div>
+    <div class="ref-card"><strong><span class="inline-code">git diff</span></strong><span>Unstaged changes in working tree</span></div>
+    <div class="ref-card"><strong><span class="inline-code">git diff --staged</span></strong><span>What is staged vs last commit</span></div>
+    <div class="ref-card"><strong><span class="inline-code">git show &lt;hash&gt;</span></strong><span>Full diff of a specific commit</span></div>
+  </div>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> Every day starts with <span class="inline-code">git pull</span> and ends with <span class="inline-code">git push</span>. The 5-step loop is your core rhythm.</div>
+
+  <div class="module-footer">
+    <button class="btn-ghost" onclick="goTo(0)">← Back</button>
+    <button class="btn-primary" onclick="advance(1)">Next: Branches &amp; PRs →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODULE 2 — BRANCHES & PRs
+     ══════════════════════════════════════ -->
+<div class="module-panel" id="panel-2">
+  <div class="module-eyebrow">
+    <span class="module-tag">Module 3 · Core Skills</span>
+    <span class="module-time">⏱ ~8 min</span>
+  </div>
+  <h2 class="module-title">Creating branches and opening pull requests</h2>
+
+  <p class="prose">On a shared DV project, you <strong>never</strong> commit directly to <span class="inline-code">main</span>. Every change — new sequence, scoreboard fix, coverage model — lives on its own branch so CI can validate it before it touches the golden baseline.</p>
+
+  <div class="section-label">Branch naming convention</div>
+  <div class="code-block"><pre><span class="comment"># Pattern: type/your-initials-short-description</span>
+<span class="path">feat/rs-axi-stress-seq</span>           <span class="comment"># new test or feature</span>
+<span class="path">fix/rs-scoreboard-overflow</span>       <span class="comment"># testbench bug fix</span>
+<span class="path">cov/rs-apb-func-coverage</span>         <span class="comment"># coverage model work</span>
+<span class="path">refactor/rs-uvm-agent-cleanup</span>    <span class="comment"># cleanup, no behaviour change</span>
+<span class="path">chore/rs-update-gitignore</span>        <span class="comment"># build/config changes</span></pre></div>
+
+  <div class="section-label">Create, verify, and switch branches</div>
+  <div class="code-block"><pre><span class="comment"># Create a new branch and switch to it immediately</span>
+git checkout <span class="flag">-b</span> feat/rs-axi-stress-seq
+<span class="output">Switched to a new branch 'feat/rs-axi-stress-seq'</span>
+
+<span class="comment"># Confirm you are on the right branch before editing</span>
+git branch
+<span class="output">  main
+* feat/rs-axi-stress-seq</span>
+
+<span class="comment"># Switch between existing branches</span>
+git checkout main
+git checkout feat/rs-axi-stress-seq
+
+<span class="comment"># List all branches including remote ones</span>
+git branch <span class="flag">-a</span></pre></div>
+
+  <div class="section-label">Keep your branch up to date with main</div>
+  <div class="code-block"><pre><span class="comment"># Fetch latest from remote, then rebase your commits on top</span>
+git fetch origin
+git rebase origin/main
+
+<span class="comment"># If teammates pushed while you were working, this replays
+# your commits cleanly on top of their changes</span></pre></div>
+
+  <div class="tip-card"><strong>DV tip:</strong> Use <span class="inline-code">git rebase</span> (not merge) before raising a PR — it produces a clean linear history that makes <span class="inline-code">git bisect</span> much faster when hunting a broken regression.</div>
+
+  <div class="section-label">Push branch and open a pull request</div>
+  <div class="code-block"><pre><span class="comment"># Push your branch to GitHub</span>
+git push origin feat/rs-axi-stress-seq
+
+<span class="comment"># GitHub prints a direct URL to open the PR — click it</span>
+<span class="output">remote: Create a pull request for 'feat/rs-axi-stress-seq':
+remote:   https://github.com/your-org/asic-dv-project/pull/new/feat/rs-axi-stress-seq</span>
+
+<span class="comment"># If you add commits after pushing, update the remote branch</span>
+git push origin feat/rs-axi-stress-seq</pre></div>
+
+  <div class="section-label">Delete a branch after it is merged</div>
+  <div class="code-block"><pre><span class="comment"># Delete local branch</span>
+git branch <span class="flag">-d</span> feat/rs-axi-stress-seq
+
+<span class="comment"># Delete remote branch</span>
+git push origin <span class="flag">--delete</span> feat/rs-axi-stress-seq</pre></div>
+
+  <div class="section-label">Hands-on exercise</div>
+  <div class="exercise-box">
+    <div class="exercise-label">Do this now on your Linux machine</div>
+    <div class="checklist">
+      <div class="check-item" onclick="toggleCheck(this)"><div class="check-box"></div><span class="check-text">Pull latest: <span class="inline-code">git pull origin main</span></span></div>
+      <div class="check-item" onclick="toggleCheck(this)"><div class="check-box"></div><span class="check-text">Create branch: <span class="inline-code">git checkout -b feat/your-initials-test-branch</span></span></div>
+      <div class="check-item" onclick="toggleCheck(this)"><div class="check-box"></div><span class="check-text">Edit a <span class="inline-code">.sv</span> file (add a comment), then save</span></div>
+      <div class="check-item" onclick="toggleCheck(this)"><div class="check-box"></div><span class="check-text">Stage + commit: <span class="inline-code">git add -A && git commit -m "chore: test branch from micro-course"</span></span></div>
+      <div class="check-item" onclick="toggleCheck(this)"><div class="check-box"></div><span class="check-text">Push: <span class="inline-code">git push origin feat/your-initials-test-branch</span></span></div>
+      <div class="check-item" onclick="toggleCheck(this)"><div class="check-box"></div><span class="check-text">Click the GitHub URL that appears in the terminal output</span></div>
+    </div>
+    <div class="done-example"><strong>Success:</strong> GitHub shows your branch with a green "Open pull request" button. <span class="inline-code">git log --oneline</span> shows your commit at the top.</div>
+  </div>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> Branch → commit → push → PR. Never commit directly to <span class="inline-code">main</span>. That rule protects every engineer on the project.</div>
+
+  <div class="module-footer">
+    <button class="btn-ghost" onclick="goTo(1)">← Back</button>
+    <button class="btn-primary" onclick="advance(2)">Next: Merge conflicts →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODULE 3 — MERGE CONFLICTS
+     ══════════════════════════════════════ -->
+<div class="module-panel" id="panel-3">
+  <div class="module-eyebrow">
+    <span class="module-tag">Module 4 · Conflict Resolution</span>
+    <span class="module-time">⏱ ~10 min</span>
+  </div>
+  <h2 class="module-title">Solving merge conflicts — the DV way</h2>
+
+  <p class="prose">Merge conflicts happen when two engineers edit the <strong>same lines</strong> of the same file on different branches. They look scary the first time. They are completely routine once you know the pattern.</p>
+
+  <div class="section-label">When do conflicts happen?</div>
+  <div class="ref-grid">
+    <div class="ref-card"><strong>git merge</strong><span>Merging a teammate's branch that touched the same files</span></div>
+    <div class="ref-card"><strong>git rebase</strong><span>Replaying your commits on an updated main</span></div>
+    <div class="ref-card"><strong>git pull</strong><span>Pulling while you have local uncommitted changes (if not stashed)</span></div>
+    <div class="ref-card"><strong>git cherry-pick</strong><span>Applying a commit that conflicts with your current branch</span></div>
+  </div>
+
+  <div class="section-label">What a conflict looks like in the file</div>
+  <p class="prose">Git inserts conflict markers directly into the file. Open it in your editor and you will see:</p>
+  <div class="conflict-visual">
+<span class="cf-marker">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span>  <span class="cf-comment">← your current branch changes start here</span>
+<span class="cf-yours">  // AXI write latency check — version from your branch
+  if (latency > AXI_MAX_LATENCY) `uvm_error(...)</span>
+<span class="cf-sep">=======</span>  <span class="cf-comment">← divider between the two versions</span>
+<span class="cf-theirs">  // AXI write latency check — version from incoming branch
+  if (latency > AXI_MAX_LATENCY) `uvm_fatal(...)</span>
+<span class="cf-end">&gt;&gt;&gt;&gt;&gt;&gt;&gt; feat/rs-axi-latency-fix</span>  <span class="cf-comment">← incoming branch ends here</span></div>
+
+  <div class="warn-card"><strong>Rule:</strong> You must remove ALL four marker lines (<span class="inline-code">&lt;&lt;&lt;&lt;&lt;&lt;&lt;</span>, <span class="inline-code">=======</span>, <span class="inline-code">&gt;&gt;&gt;&gt;&gt;&gt;&gt;</span>) and keep only the final, correct code.</div>
+
+  <div class="section-label">Step-by-step conflict resolution</div>
+  <div class="step-list">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div><strong>See which files conflict</strong>
+        <div class="code-block" style="margin-top:7px"><pre>git status
+<span class="output">both modified:   tb/scoreboard/axi_sb.sv
+both modified:   tb/sequences/axi_wr_seq.sv</span></pre></div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div><strong>Open each conflicted file in your editor</strong> — search for <span class="inline-code">&lt;&lt;&lt;&lt;&lt;&lt;&lt;</span> to jump to every conflict marker.</div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div><strong>Decide: keep yours, keep theirs, or merge both</strong>
+        <div class="conflict-visual" style="margin-top:8px">
+<span class="cf-comment">// After editing — conflict markers removed, correct code kept:</span>
+<span class="cf-resolved">  // AXI write latency check — use fatal so simulation stops immediately
+  if (latency > AXI_MAX_LATENCY) `uvm_fatal(...)</span></div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">4</div>
+      <div><strong>Verify no markers remain</strong>
+        <div class="code-block" style="margin-top:7px"><pre><span class="comment"># Quick check — should return nothing if all conflicts resolved</span>
+grep <span class="flag">-rn</span> "<<<<<<" tb/</pre></div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">5</div>
+      <div><strong>Stage the resolved files and continue</strong>
+        <div class="code-block" style="margin-top:7px"><pre>git add tb/scoreboard/axi_sb.sv
+git add tb/sequences/axi_wr_seq.sv
+
+<span class="comment"># If you were doing a merge:</span>
+git commit <span class="flag">-m</span> <span class="path">"fix: resolve conflict between axi-sb and latency-fix branches"</span>
+
+<span class="comment"># If you were doing a rebase:</span>
+git rebase <span class="flag">--continue</span></pre></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Abort if things go wrong</div>
+  <div class="code-block"><pre><span class="comment"># Abort a merge in progress — returns to pre-merge state</span>
+git merge <span class="flag">--abort</span>
+
+<span class="comment"># Abort a rebase in progress — returns to pre-rebase state</span>
+git rebase <span class="flag">--abort</span></pre></div>
+
+  <div class="section-label">Use a visual merge tool (optional but faster)</div>
+  <div class="code-block"><pre><span class="comment"># Configure vimdiff or VS Code as your merge tool</span>
+git config --global merge.tool vimdiff
+git config --global merge.tool vscode
+
+<span class="comment"># Launch it on all conflicted files at once</span>
+git mergetool</pre></div>
+
+  <div class="section-label">Preventing conflicts before they happen</div>
+  <div class="ref-grid">
+    <div class="ref-card"><strong>Pull often</strong><span>Run <span class="inline-code">git pull</span> at the start of every session — reduces drift</span></div>
+    <div class="ref-card"><strong>Small PRs</strong><span>Merge small changes quickly; large long-lived branches conflict more</span></div>
+    <div class="ref-card"><strong>Communicate</strong><span>Tell teammates before editing shared files like <span class="inline-code">tb_top.sv</span></span></div>
+    <div class="ref-card"><strong>Rebase often</strong><span>Rebase on main before a PR so conflicts surface early</span></div>
+  </div>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> A conflict is just two edits to the same line. Open the file, remove the markers, keep the right code, stage it, and continue. Done in 2 minutes once you know the pattern.</div>
+
+  <div class="module-footer">
+    <button class="btn-ghost" onclick="goTo(2)">← Back</button>
+    <button class="btn-primary" onclick="advance(3)">Next: Undo &amp; recover →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODULE 4 — UNDO & RECOVER
+     ══════════════════════════════════════ -->
+<div class="module-panel" id="panel-4">
+  <div class="module-eyebrow">
+    <span class="module-tag">Module 5 · Recovery</span>
+    <span class="module-time">⏱ ~8 min</span>
+  </div>
+  <h2 class="module-title">Undoing things and recovering from mistakes</h2>
+
+  <p class="prose">Git almost never loses data permanently. The key is choosing the right undo command for the situation — some are safe, some rewrite history.</p>
+
+  <div class="danger-card"><strong>Safe to use anytime:</strong> <span class="inline-code">git revert</span>, <span class="inline-code">git reset --soft</span>, <span class="inline-code">git restore</span>. &nbsp; <strong>Dangerous on shared branches:</strong> <span class="inline-code">git reset --hard</span>, <span class="inline-code">git push --force</span> — these rewrite history and can break teammates' repos.</div>
+
+  <div class="section-label">Scenario 1 — discard unstaged changes in a file</div>
+  <div class="code-block"><pre><span class="comment"># Throw away edits to a file (not yet staged)</span>
+git restore tb/sequences/axi_wr_seq.sv
+
+<span class="comment"># Discard ALL unstaged changes in the whole working tree</span>
+git restore .</pre></div>
+
+  <div class="section-label">Scenario 2 — unstage a file you accidentally staged</div>
+  <div class="code-block"><pre><span class="comment"># Remove from staging area, keep the file edits</span>
+git restore <span class="flag">--staged</span> tb/sequences/axi_wr_seq.sv</pre></div>
+
+  <div class="section-label">Scenario 3 — fix the last commit message or add a missed file</div>
+  <div class="code-block"><pre><span class="comment"># Fix the commit message (before pushing)</span>
+git commit <span class="flag">--amend</span> <span class="flag">-m</span> <span class="path">"feat(axi): correct commit message"</span>
+
+<span class="comment"># Add a forgotten file to the last commit (before pushing)</span>
+git add tb/sequences/missed_file.sv
+git commit <span class="flag">--amend</span> <span class="flag">--no-edit</span></pre></div>
+  <div class="warn-card"><strong>Only amend commits that have NOT been pushed.</strong> Amending a pushed commit requires a force-push and breaks your teammates.</div>
+
+  <div class="section-label">Scenario 4 — undo the last commit, keep the file changes</div>
+  <div class="code-block"><pre><span class="comment"># Move HEAD back one commit, leave files as staged</span>
+git reset <span class="flag">--soft</span> HEAD~1
+
+<span class="comment"># Move HEAD back one commit, leave files as unstaged edits</span>
+git reset HEAD~1</pre></div>
+
+  <div class="section-label">Scenario 5 — safely undo a commit that is already merged to main</div>
+  <div class="code-block"><pre><span class="comment"># Creates a NEW commit that reverses the changes — safe on shared branches</span>
+git revert &lt;commit-hash&gt;
+git push origin main</pre></div>
+
+  <div class="section-label">Scenario 6 — stash work-in-progress before switching branches</div>
+  <div class="code-block"><pre><span class="comment"># Save current uncommitted changes to a temporary stack</span>
+git stash push <span class="flag">-m</span> <span class="path">"wip: axi stress seq half done"</span>
+
+<span class="comment"># List everything in the stash</span>
+git stash list
+<span class="output">stash@{0}: On feat/rs-axi-stress-seq: wip: axi stress seq half done</span>
+
+<span class="comment"># Restore the latest stash and remove it from the stack</span>
+git stash pop
+
+<span class="comment"># Restore a specific stash entry</span>
+git stash apply stash@{0}</pre></div>
+
+  <div class="section-label">Scenario 7 — find a lost commit with reflog</div>
+  <div class="code-block"><pre><span class="comment"># Git records every HEAD movement — use this to find "lost" commits</span>
+git reflog
+<span class="output">a3f1c2d HEAD@{0}: reset: moving to HEAD~1
+9b2e8aa HEAD@{1}: commit: feat(axi): add stress sequence   ← your "lost" commit</span>
+
+<span class="comment"># Restore it by checking out that hash</span>
+git checkout 9b2e8aa
+<span class="comment"># Or create a new branch from it</span>
+git checkout <span class="flag">-b</span> recovery/rs-restore-stress-seq 9b2e8aa</pre></div>
+
+  <div class="tip-card"><strong>Golden rule:</strong> If you are unsure which undo command to use, always reach for <span class="inline-code">git revert</span> — it adds a new commit and never rewrites history.</div>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> Git almost never loses your work permanently. <span class="inline-code">git reflog</span> is your safety net. Choose <span class="inline-code">revert</span> for shared branches; <span class="inline-code">reset</span> only for local, unpushed commits.</div>
+
+  <div class="module-footer">
+    <button class="btn-ghost" onclick="goTo(3)">← Back</button>
+    <button class="btn-primary" onclick="advance(4)">Next: Team ops toolkit →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODULE 5 — TEAM OPS TOOLKIT
+     ══════════════════════════════════════ -->
+<div class="module-panel" id="panel-5">
+  <div class="module-eyebrow">
+    <span class="module-tag">Module 6 · Team Ops</span>
+    <span class="module-time">⏱ ~8 min</span>
+  </div>
+  <h2 class="module-title">Day-to-day team operations toolkit</h2>
+
+  <div class="section-label">git blame — find who changed a line and when</div>
+  <p class="prose">Regression broke? Before filing a bug, check who last touched the relevant file.</p>
+  <div class="code-block"><pre><span class="comment"># Show author and commit hash for each line of a file</span>
+git blame tb/scoreboard/axi_sb.sv
+
+<span class="comment"># Show a specific line range only</span>
+git blame <span class="flag">-L</span> 45,60 tb/scoreboard/axi_sb.sv
+<span class="output">9b2e8aa (R. Sharma  2024-03-12) if (rdata !== exp_data) `uvm_error(...)</span>
+
+<span class="comment"># Then inspect that commit in full</span>
+git show 9b2e8aa</pre></div>
+
+  <div class="section-label">git bisect — binary-search for a broken commit</div>
+  <p class="prose">Regression was passing on Monday, failing on Friday. There are 40 commits in between. <span class="inline-code">git bisect</span> finds the culprit in ~6 steps instead of 40.</p>
+  <div class="code-block"><pre>git bisect start
+git bisect bad                        <span class="comment"># current state is broken</span>
+git bisect good v2.4-release          <span class="comment"># last known good tag or hash</span>
+
+<span class="comment"># Git checks out a midpoint commit — run your regression, then mark it:</span>
+git bisect bad    <span class="comment"># or</span>
+git bisect good
+
+<span class="comment"># Repeat ~6 times. Git announces the first bad commit:</span>
+<span class="output">a3f1c2d is the first bad commit
+Author: J. Patel — feat(apb): added timeout override in scoreboard</span>
+
+git bisect reset                      <span class="comment"># return to your original branch</span></pre></div>
+
+  <div class="section-label">git cherry-pick — apply a single commit to another branch</div>
+  <p class="prose">A teammate fixed a critical bug on their feature branch and you need it on yours right now — without merging everything else they have.</p>
+  <div class="code-block"><pre><span class="comment"># Find the commit hash you want</span>
+git log --oneline feat/rs-apb-fix
+<span class="output">c7d9e12 fix(apb): correct timeout calculation in monitor</span>
+
+<span class="comment"># Apply that commit to your current branch</span>
+git cherry-pick c7d9e12
+
+<span class="comment"># If it conflicts, resolve normally then:</span>
+git cherry-pick <span class="flag">--continue</span></pre></div>
+
+  <div class="section-label">git tags — mark release or tapeout milestones</div>
+  <div class="code-block"><pre><span class="comment"># Create an annotated tag for a tapeout milestone</span>
+git tag <span class="flag">-a</span> v1.0-tapeout-freeze <span class="flag">-m</span> <span class="path">"Regression at 98.3% — tapeout freeze"</span>
+
+<span class="comment"># Push tags to GitHub (not pushed automatically with commits)</span>
+git push origin <span class="flag">--tags</span>
+
+<span class="comment"># List all tags</span>
+git tag
+
+<span class="comment"># Check out the state of the repo at a tag</span>
+git checkout v1.0-tapeout-freeze</pre></div>
+
+  <div class="section-label">git log — search commit history</div>
+  <div class="code-block"><pre><span class="comment"># Search commit messages for a keyword</span>
+git log <span class="flag">--grep</span>="scoreboard" <span class="flag">--oneline</span>
+
+<span class="comment"># Show commits by a specific author</span>
+git log <span class="flag">--author</span>="R. Sharma" <span class="flag">--oneline</span>
+
+<span class="comment"># Show commits that changed a specific file</span>
+git log <span class="flag">--oneline</span> -- tb/scoreboard/axi_sb.sv
+
+<span class="comment"># Show a visual branch graph in the terminal</span>
+git log <span class="flag">--oneline --graph --all --decorate</span></pre></div>
+
+  <div class="section-label">Recommended .gitignore for DV repos</div>
+  <div class="code-block"><pre><span class="comment"># Simulation outputs — never commit these</span>
+<span class="path">*.vcd</span>
+<span class="path">*.fsdb</span>
+<span class="path">simv</span>
+<span class="path">simv.daidir/</span>
+<span class="path">csrc/</span>
+<span class="path">DVEfiles/</span>
+<span class="path">ucli.key</span>
+<span class="path">*.log</span>
+<span class="path">regression_results/</span>
+<span class="path">coverage_reports/</span></pre></div>
+
+  <div class="section-label">Commit message format the whole team should use</div>
+  <div class="code-block"><pre><span class="comment"># type(scope): short description ≤72 chars</span>
+<span class="path">feat(axi):     </span>add back-to-back write stress sequence
+<span class="path">fix(sb):       </span>correct latency calculation in AXI scoreboard
+<span class="path">cov(apb):      </span>add functional coverage for error responses
+<span class="path">refactor(uvm): </span>split monolithic agent into sub-components
+<span class="path">chore(ci):     </span>add smoke regression to PR checks
+<span class="path">docs:          </span>update README with simulation setup steps</pre></div>
+
+  <div class="takeaway"><strong>Key takeaway:</strong> <span class="inline-code">blame</span> to find who changed what, <span class="inline-code">bisect</span> to find what broke the regression, <span class="inline-code">cherry-pick</span> to move individual fixes, <span class="inline-code">tags</span> to mark milestones. These four commands will save you hours every week.</div>
+
+  <div class="module-footer">
+    <button class="btn-ghost" onclick="goTo(4)">← Back</button>
+    <button class="btn-primary" onclick="advance(5)">Next: Next steps →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODULE 6 — NEXT STEPS
+     ══════════════════════════════════════ -->
+<div class="module-panel" id="panel-6">
+  <div class="module-eyebrow">
+    <span class="module-tag">Module 7 · Bridge</span>
+    <span class="module-time">⏱ 2–3 min</span>
+  </div>
+  <h2 class="module-title">What you can now do — and what to tackle next</h2>
+
+  <p class="prose">Here is everything you have covered across all 7 modules:</p>
+
+  <div class="ref-grid">
+    <div class="ref-card"><strong>✅ Setup</strong><span>Configure git identity, editor, and credentials on Linux</span></div>
+    <div class="ref-card"><strong>✅ Daily loop</strong><span>Pull → edit → stage → commit → push every day</span></div>
+    <div class="ref-card"><strong>✅ Branches</strong><span>Create, switch, rebase, push, and delete branches</span></div>
+    <div class="ref-card"><strong>✅ Pull requests</strong><span>Push a branch and open a PR directly from the terminal</span></div>
+    <div class="ref-card"><strong>✅ Merge conflicts</strong><span>Read conflict markers, resolve them, and continue</span></div>
+    <div class="ref-card"><strong>✅ Undo &amp; recover</strong><span>Restore, reset, revert, stash, reflog — right tool for each scenario</span></div>
+    <div class="ref-card"><strong>✅ Team ops</strong><span>blame, bisect, cherry-pick, tags, commit message convention</span></div>
+  </div>
+
+  <div class="section-label">Your action item this week</div>
+  <div class="tip-card">
+    Do your next real DV task on a proper branch. When you hit your first conflict — and you will — resolve it using the Module 4 steps instead of asking a teammate to fix it for you. That is the moment this course becomes muscle memory.
+  </div>
+
+  <div class="section-label">Topics to explore next</div>
+  <div class="ref-grid">
+    <div class="ref-card"><strong>GitHub Actions CI</strong><span>Auto-run lint and smoke regression on every PR push</span></div>
+    <div class="ref-card"><strong>Protected branches</strong><span>Require passing CI + review before anything merges to main</span></div>
+    <div class="ref-card"><strong>git submodules</strong><span>Embed shared IP or UVM libraries as versioned submodules</span></div>
+    <div class="ref-card"><strong>git worktree</strong><span>Check out multiple branches simultaneously on the same machine</span></div>
+    <div class="ref-card"><strong>SSH keys</strong><span>Set up key-based auth so you never type a password on the DV server</span></div>
+    <div class="ref-card"><strong>git hooks</strong><span>Run lint checks automatically before every commit</span></div>
+  </div>
+
+  <div class="module-footer">
+    <button class="btn-ghost" onclick="goTo(5)">← Back</button>
+    <button class="btn-primary" onclick="complete()">✓ Complete course</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     COMPLETION
+     ══════════════════════════════════════ -->
+<div class="completion-screen" id="completion">
+  <div class="completion-icon">✅</div>
+  <h2 style="font-size:22px;font-weight:600;margin-bottom:10px;">Course complete!</h2>
+  <p style="font-size:15px;color:var(--text-muted);max-width:460px;margin:0 auto 1.5rem;line-height:1.75;">
+    You can now clone the repo, work on branches, resolve merge conflicts, recover from mistakes, and use the team ops commands that make DV work faster — all from the Linux terminal.
+  </p>
+  <p style="font-size:13px;color:var(--text-muted);">Use the sidebar to revisit any module at any time.</p>
+</div>
+
+</main>
+</div>
+
+<script>
+const TOTAL = 7;
+let completed = [];
+
+function goTo(idx) {
+  document.querySelectorAll('.module-panel').forEach((p,i) => p.classList.toggle('visible', i===idx));
+  document.getElementById('completion').classList.remove('visible');
+  for (let i = 0; i < TOTAL; i++) {
+    const btn = document.getElementById('nav-'+i);
+    const dot = document.getElementById('dot-'+i);
+    btn.classList.remove('active','done');
+    if (i===idx) { btn.classList.add('active'); dot.textContent = i+1; }
+    else if (completed.includes(i)) { btn.classList.add('done'); dot.textContent = '✓'; }
+    else { dot.textContent = i+1; }
+  }
+  updateProgress();
+  window.scrollTo(0,0);
+}
+
+function advance(fromIdx) {
+  if (!completed.includes(fromIdx)) completed.push(fromIdx);
+  updateProgress();
+  const next = fromIdx + 1;
+  if (next < TOTAL) goTo(next);
+}
+
+function complete() {
+  if (!completed.includes(6)) completed.push(6);
+  document.querySelectorAll('.module-panel').forEach(p => p.classList.remove('visible'));
+  document.getElementById('completion').classList.add('visible');
+  for (let i = 0; i < TOTAL; i++) {
+    const btn = document.getElementById('nav-'+i);
+    const dot = document.getElementById('dot-'+i);
+    btn.classList.remove('active');
+    if (completed.includes(i)) { btn.classList.add('done'); dot.textContent='✓'; }
+  }
+  updateProgress();
+}
+
+function updateProgress() {
+  const pct = Math.round((completed.length / TOTAL) * 100);
+  document.getElementById('progress-fill').style.width = pct+'%';
+  document.getElementById('progress-pct').textContent = pct+'%';
+}
+
+function toggleCheck(el) { el.classList.toggle('checked'); }
+</script>
+</body>
+</html>
