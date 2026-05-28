@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SVA Cheat Sheet — SystemVerilog Assertions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0d14;
+  --bg2: #111520;
+  --bg3: #171c2c;
+  --border: rgba(255,255,255,0.09);
+  --text: #dde2f0;
+  --text2: #7a82a0;
+  --text3: #3e4560;
+  --teal: #1fc490;
+  --purple: #8b7ef5;
+  --amber: #f0a430;
+  --coral: #f0634a;
+  --green: #4cc46a;
+  --blue: #5aa8f0;
+  --ff: 'DM Sans', sans-serif;
+  --fm: 'JetBrains Mono', monospace;
+}
+
+html, body { width: 100%; font-family: var(--ff); background: var(--bg); color: var(--text); font-size: 12px; line-height: 1.5; }
+
+.page { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1.5rem 2rem; }
+
+/* HEADER */
+.sheet-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--teal); padding-bottom: 10px; margin-bottom: 1.25rem; }
+.sheet-header h1 { font-size: 1.35rem; font-weight: 600; color: var(--text); letter-spacing: -0.02em; }
+.sheet-header h1 span { color: var(--teal); }
+.sheet-header .meta { font-family: var(--fm); font-size: 10px; color: var(--text3); text-align: right; line-height: 1.6; }
+
+/* GRID */
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.grid-2col { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 12px; }
+.span2 { grid-column: span 2; }
+
+/* SECTION */
+.section { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+.section-head { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; padding-bottom: 7px; border-bottom: 1px solid var(--border); }
+.section-head .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.section-head h2 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text2); }
+
+/* TABLE */
+table { width: 100%; border-collapse: collapse; }
+th { font-family: var(--fm); font-size: 10px; color: var(--text3); font-weight: 400; padding: 4px 8px; background: var(--bg3); text-align: left; border: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.07em; }
+td { padding: 5px 8px; border: 1px solid var(--border); font-size: 11.5px; color: var(--text2); vertical-align: top; }
+td:first-child { font-family: var(--fm); font-size: 11px; color: var(--purple); white-space: nowrap; }
+
+/* CODE BLOCK */
+.cb { background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 8px 10px; font-family: var(--fm); font-size: 11px; line-height: 1.7; overflow-x: auto; white-space: pre; margin: 6px 0 0; color: var(--text); }
+.kw { color: #79b8ff; }
+.cm { color: #3a4060; }
+.str { color: var(--teal); }
+.op { color: var(--coral); }
+.fn { color: var(--amber); }
+
+/* PILL */
+.pill { display: inline-block; font-family: var(--fm); font-size: 10px; padding: 1px 6px; border-radius: 3px; }
+.pt { background: rgba(31,196,144,0.12); color: var(--teal); }
+.pp { background: rgba(139,126,245,0.12); color: var(--purple); }
+.pa { background: rgba(240,164,48,0.12); color: var(--amber); }
+.pc { background: rgba(240,99,74,0.12); color: var(--coral); }
+.pg { background: rgba(76,196,106,0.12); color: var(--green); }
+.pb { background: rgba(90,168,240,0.12); color: var(--blue); }
+
+/* RULE CARDS */
+.rules { display: flex; flex-direction: column; gap: 6px; }
+.rule { display: flex; align-items: flex-start; gap: 8px; font-size: 11.5px; color: var(--text2); padding: 5px 7px; background: var(--bg3); border-radius: 4px; }
+.rule .ri { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+
+/* FOOTER */
+.sheet-footer { margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; font-family: var(--fm); font-size: 10px; color: var(--text3); }
+
+/* PRINT */
+@media print {
+  body { background: #fff; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { padding: 0.5rem; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="sheet-header">
+    <h1>SystemVerilog <span>Assertions</span> — Quick Reference</h1>
+    <div class="meta">ASIC Design Verification · SVA Cheat Sheet<br>verificationguide.com</div>
+  </div>
+
+  <!-- ROW 1: 3 columns -->
+  <div class="grid">
+
+    <!-- BUILDING BLOCKS -->
+    <div class="section">
+      <div class="section-head"><div class="dot" style="background:var(--teal)"></div><h2>Building Blocks</h2></div>
+      <div class="cb"><span class="kw">sequence</span> seq_name;
+  <span class="cm">// Boolean events over time</span>
+  a ##2 b;
+<span class="kw">endsequence</span>
+
+<span class="kw">property</span> prop_name;
+  <span class="cm">// Clock + implication live here</span>
+  @(<span class="kw">posedge</span> clk) a <span class="op">|-></span> ##2 b;
+<span class="kw">endproperty</span>
+
+lbl: <span class="kw">assert property</span>(prop_name)
+  <span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"msg"</span>);</div>
+      <div style="margin-top:8px">
+        <table>
+          <tr><th>Layer</th><th>Role</th></tr>
+          <tr><td>sequence</td><td>Named Boolean timeline</td></tr>
+          <tr><td>property</td><td>Rule + clock + implication</td></tr>
+          <tr><td>assert property</td><td>Activates the checker</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- TIMING ## OPERATOR -->
+    <div class="section">
+      <div class="section-head"><div class="dot" style="background:var(--purple)"></div><h2>Timing — ## Operator</h2></div>
+      <table>
+        <tr><th>Syntax</th><th>Meaning</th></tr>
+        <tr><td>a ##1 b</td><td>b exactly 1 cycle after a</td></tr>
+        <tr><td>a ##2 b</td><td>b exactly 2 cycles after a</td></tr>
+        <tr><td>a ##[1:4] b</td><td>b within 1–4 cycles after a</td></tr>
+        <tr><td>a ##[0:4] b</td><td>b same cycle or within 4</td></tr>
+        <tr><td>a ##[1:$] b</td><td>b eventually (unbounded)</td></tr>
+        <tr><td>a ##0 b</td><td>a and b same clock edge</td></tr>
+      </table>
+      <div style="margin-top:8px; font-size:11px; color:var(--text2)">
+        ⚑ Clock best practice: define the clock in <span style="font-family:var(--fm);color:var(--purple)">property</span>, not inside <span style="font-family:var(--fm);color:var(--purple)">sequence</span> — enables sequence reuse across clock domains.
+      </div>
+    </div>
+
+    <!-- IMPLICATION -->
+    <div class="section">
+      <div class="section-head"><div class="dot" style="background:var(--amber)"></div><h2>Implication Operators</h2></div>
+      <table>
+        <tr><th>Op</th><th>Name</th><th>Consequent starts</th></tr>
+        <tr><td><span class="pill pa">|-></span></td><td>Overlapped</td><td>Same cycle as antecedent</td></tr>
+        <tr><td><span class="pill pc">|=></span></td><td>Non-overlapped</td><td>Next cycle after antecedent</td></tr>
+      </table>
+      <div class="cb"><span class="cm">// Same cycle check</span>
+a <span class="op">|-></span> b
+
+<span class="cm">// Next cycle check</span>
+a <span class="op">|=></span> b
+
+<span class="cm">// Fixed delay on consequent</span>
+a <span class="op">|-></span> ##2 b
+
+<span class="cm">// Timing window</span>
+a <span class="op">|-></span> ##[1:4] b
+
+<span class="cm">// Sequence antecedent</span>
+seq1 <span class="op">|-></span> seq2</div>
+    </div>
+
+  </div>
+
+  <!-- ROW 2: 2+1 layout -->
+  <div class="grid-2col">
+
+    <!-- LEFT: REPETITION + METHODS -->
+    <div style="display:flex; flex-direction:column; gap:12px;">
+
+      <!-- REPETITION -->
+      <div class="section">
+        <div class="section-head"><div class="dot" style="background:var(--coral)"></div><h2>Repetition Operators</h2></div>
+        <table>
+          <tr><th>Syntax</th><th>Type</th><th>Description</th></tr>
+          <tr><td>b[*3]</td><td><span class="pill pt">Consecutive</span></td><td>b high for exactly 3 back-to-back cycles</td></tr>
+          <tr><td>b[*2:4]</td><td><span class="pill pt">Consecutive range</span></td><td>b high 2 to 4 consecutive cycles</td></tr>
+          <tr><td>b[->3]</td><td><span class="pill pa">Go-to</span></td><td>b high 3 times (not necessarily consecutive); last match immediately before next element</td></tr>
+          <tr><td>b[=3]</td><td><span class="pill pb">Non-consec</span></td><td>b high 3 times; last match may be followed by any cycles before next element</td></tr>
+          <tr><td>b[*0:$]</td><td><span class="pill pc">Unbounded</span></td><td>b high zero or more cycles (used in variable-delay pattern)</td></tr>
+        </table>
+        <div class="cb"><span class="cm">// Burst of 3 → done high</span>
+burst_start <span class="op">|-></span> ##1 data[<span class="op">*3</span>] ##1 done
+
+<span class="cm">// ack fires 3 times then done high</span>
+start <span class="op">|-></span> ##1 ack[<span class="op">->3</span>] ##1 done</div>
+      </div>
+
+      <!-- IMMEDIATE -->
+      <div class="section">
+        <div class="section-head"><div class="dot" style="background:var(--blue)"></div><h2>Immediate Assertions</h2></div>
+        <div class="cb"><span class="cm">// Basic — $error by default on fail</span>
+<span class="kw">assert</span>(expr);
+
+<span class="cm">// With pass/fail actions</span>
+<span class="kw">assert</span>(expr)
+  <span class="fn">$display</span>(<span class="str">"pass"</span>);
+<span class="kw">else</span> <span class="fn">$error</span>(<span class="str">"fail"</span>);
+
+<span class="cm">// With label</span>
+lbl: <span class="kw">assert</span>(a && b) <span class="kw">else</span> <span class="fn">$fatal</span>(<span class="str">"msg"</span>);</div>
+        <table style="margin-top:6px">
+          <tr><th>Severity</th><th>Effect</th></tr>
+          <tr><td>$fatal</td><td>Terminates simulation immediately</td></tr>
+          <tr><td>$error</td><td>Runtime error (default on fail)</td></tr>
+          <tr><td>$warning</td><td>Suppressible warning</td></tr>
+          <tr><td>$info</td><td>No severity — info only</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT: METHODS + ADVANCED -->
+    <div style="display:flex; flex-direction:column; gap:12px;">
+
+      <!-- BUILT-IN METHODS -->
+      <div class="section">
+        <div class="section-head"><div class="dot" style="background:var(--green)"></div><h2>Built-in Methods &amp; System Functions</h2></div>
+        <table>
+          <tr><th>Function</th><th>Returns true when…</th></tr>
+          <tr><td>$rose(sig)</td><td>LSB of sig changed to 1</td></tr>
+          <tr><td>$fell(sig)</td><td>LSB of sig changed to 0</td></tr>
+          <tr><td>$stable(sig)</td><td>sig value did not change</td></tr>
+          <tr><td>$past(sig,N)</td><td>Value of sig N cycles ago</td></tr>
+          <tr><td>$past(s,N,gate)</td><td>$past with clock gating signal</td></tr>
+          <tr><td>$onehot(expr)</td><td>Exactly one bit is high</td></tr>
+          <tr><td>$onehot0(expr)</td><td>Zero or one bit is high</td></tr>
+          <tr><td>$isunknown(expr)</td><td>Any bit is X or Z</td></tr>
+          <tr><td>$countones(expr)</td><td>Count of high bits (use in condition)</td></tr>
+        </table>
+        <div class="cb"><span class="cm">// Structural monitors — always-on</span>
+<span class="kw">assert property</span>(@(<span class="kw">posedge</span> clk) <span class="fn">$onehot</span>(state));
+<span class="kw">assert property</span>(@(<span class="kw">posedge</span> clk) !<span class="fn">$isunknown</span>(bus));
+<span class="kw">assert property</span>(@(<span class="kw">posedge</span> clk) <span class="fn">$rose</span>(en) <span class="op">|-></span> ##1 !irq);</div>
+      </div>
+
+      <!-- ADVANCED CONSTRUCTS -->
+      <div class="section">
+        <div class="section-head"><div class="dot" style="background:var(--amber)"></div><h2>Advanced Constructs</h2></div>
+        <div class="cb"><span class="cm">// disable iff — reset-safe assertions</span>
+<span class="kw">property</span> p;
+  @(<span class="kw">posedge</span> clk)
+  <span class="kw">disable iff</span> (reset)
+  req <span class="op">|-></span> ##[1:4] ack;
+<span class="kw">endproperty</span>
+
+<span class="cm">// .ended — synchronise sequence endpoints</span>
+seq1.ended <span class="op">|-></span> ##2 seq2.ended;
+
+<span class="cm">// Variable delay workaround</span>
+<span class="kw">sequence</span> delay_seq(v);
+  <span class="kw">int</span> d;
+  (1,d=v) ##0
+  first_match((1,d=d-1)[<span class="op">*0:$</span>] ##0 d<=0);
+<span class="kw">endsequence</span>
+req <span class="op">|-></span> delay_seq(cfg_lat) <span class="op">|-></span> ack;</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ROW 3: FULL WIDTH — COMMON PATTERNS -->
+  <div style="margin-top:12px">
+    <div class="section">
+      <div class="section-head"><div class="dot" style="background:var(--teal)"></div><h2>Common Verification Patterns</h2></div>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:2px">
+
+        <div>
+          <div style="font-family:var(--fm);font-size:10px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.08em">Handshake / REQ-ACK</div>
+          <div class="cb"><span class="kw">property</span> p_req_ack;
+  @(<span class="kw">posedge</span> clk)
+  <span class="kw">disable iff</span> (rst)
+  req <span class="op">|-></span> ##[1:4] ack;
+<span class="kw">endproperty</span></div>
+        </div>
+
+        <div>
+          <div style="font-family:var(--fm);font-size:10px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.08em">AXI-style valid/ready</div>
+          <div class="cb"><span class="kw">property</span> p_valid_stable;
+  @(<span class="kw">posedge</span> clk)
+  (valid && !ready)
+  <span class="op">|-></span> <span class="fn">$stable</span>(data) &&
+       valid;
+<span class="kw">endproperty</span></div>
+        </div>
+
+        <div>
+          <div style="font-family:var(--fm);font-size:10px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.08em">One-hot FSM guard</div>
+          <div class="cb"><span class="kw">assert property</span>(
+  @(<span class="kw">posedge</span> clk)
+  <span class="fn">$onehot</span>(state)
+);</div>
+        </div>
+
+        <div>
+          <div style="font-family:var(--fm);font-size:10px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.08em">Post-reset clean bus</div>
+          <div class="cb"><span class="kw">property</span> p_no_x;
+  @(<span class="kw">posedge</span> clk)
+  <span class="fn">$rose</span>(rstn) <span class="op">|-></span>
+  ##1 (!<span class="fn">$isunknown</span>(data))[<span class="op">*2</span>];
+<span class="kw">endproperty</span></div>
+        </div>
+
+        <div>
+          <div style="font-family:var(--fm);font-size:10px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.08em">Data burst (N beats)</div>
+          <div class="cb"><span class="kw">property</span> p_burst;
+  @(<span class="kw">posedge</span> clk)
+  <span class="kw">disable iff</span> (rst)
+  start <span class="op">|-></span> ##1
+  data_valid[<span class="op">*4</span>] ##1 done;
+<span class="kw">endproperty</span></div>
+        </div>
+
+        <div>
+          <div style="font-family:var(--fm);font-size:10px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.08em">Cause-before-effect ($past)</div>
+          <div class="cb"><span class="kw">property</span> p_causality;
+  @(<span class="kw">posedge</span> clk)
+  ack <span class="op">|-></span>
+  (<span class="fn">$past</span>(req, 2) == 1);
+<span class="kw">endproperty</span></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="sheet-footer">
+    <span>SVA Cheat Sheet · SystemVerilog Assertions for ASIC Verification Engineers</span>
+    <span>Sources: verificationguide.com/systemverilog — IEEE Std 1800</span>
+  </div>
+
+</div>
+</body>
+</html>
