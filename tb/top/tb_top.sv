@@ -190,13 +190,10 @@ module tb_top;
   // Path set by +SHM_PATH=<dir>/waves.shm  (default: waves.shm)
   // -------------------------------------------------------
   initial begin
-    string shm_path;
     if ($test$plusargs("DUMP_WAVES")) begin
-      if (!$value$plusargs("SHM_PATH=%s", shm_path))
-        shm_path = "waves.shm";
-      $shm_open(shm_path);
-      $shm_probe("AS");
-      `uvm_info("WAVES", {"Dumping waves to: ", shm_path}, UVM_NONE)
+      $shm_open("waves.shm");
+      $shm_probe("ACTMF");
+      `uvm_info("WAVES", "Dumping waves to: waves.shm", UVM_NONE)
     end
   end
 

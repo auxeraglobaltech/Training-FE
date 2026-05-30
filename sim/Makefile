@@ -66,6 +66,9 @@ sim: sw
 	echo "--- Copying artefacts to $${RUN_DIR} ---"; \
 	cp -f $(REPO_ABS)/sim/$(TEST).vmem $${RUN_DIR}/ 2>/dev/null && echo "  vmem: $(TEST).vmem" || true; \
 	cp -f $(REPO_ABS)/sim/$(TEST).dis  $${RUN_DIR}/ 2>/dev/null && echo "  dis : $(TEST).dis"  || true; \
+	if [ "$(WAVES)" = "1" ] && [ -e $(REPO_ABS)/waves.shm ]; then \
+	  mv $(REPO_ABS)/waves.shm $${RUN_DIR}/waves.shm && echo "  shm : waves.shm"; \
+	fi; \
 	echo ""; \
 	echo "--- Results ---"; \
 	grep -E "PASSED|FAILED|UVM_ERROR|UVM_FATAL" $${RUN_DIR}/xrun.log | tail -10 || true; \
