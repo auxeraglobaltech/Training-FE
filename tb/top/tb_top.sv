@@ -13,15 +13,23 @@ module tb_top;
   // Interface
   ibex_if u_if(.clk(clk));
 
-  // SRAM: 16 KB instruction / data memory
-  logic [31:0] mem [0:16383];
-  initial $readmemh("sim/hello_world.vmem", mem);
+  // Byte-addressed SRAM: 192 KB covers ROM (0x0-0xFFFF) and RAM (0x10000-0x3FFFF)
+  logic [7:0] mem_b [0:196607];
+  initial $readmemh("sim/hello_world.vmem", mem_b);
+
+  // Assemble little-endian word from byte array
+  function automatic logic [31:0] read_word(input logic [31:0] addr);
+    logic [31:0] word_addr;
+    word_addr = {addr[31:2], 2'b00};  // align to word boundary
+    return {mem_b[word_addr+3], mem_b[word_addr+2],
+            mem_b[word_addr+1], mem_b[word_addr+0]};
+  endfunction
 
   // Instruction memory model
   always @(posedge clk) begin
     u_if.instr_gnt    = u_if.instr_req;
     u_if.instr_rvalid = u_if.instr_gnt;
-    u_if.instr_rdata  = mem[u_if.instr_addr[15:2]];
+    u_if.instr_rdata  = read_word(u_if.instr_addr);
     u_if.instr_err    = 1'b0;
   end
 
@@ -31,12 +39,12 @@ module tb_top;
     u_if.data_rvalid = u_if.data_gnt;
     u_if.data_err    = 1'b0;
     if (u_if.data_req && u_if.data_we) begin
-      if (u_if.data_be[0]) mem[u_if.data_addr[15:2]][ 7: 0] = u_if.data_wdata[ 7: 0];
-      if (u_if.data_be[1]) mem[u_if.data_addr[15:2]][15: 8] = u_if.data_wdata[15: 8];
-      if (u_if.data_be[2]) mem[u_if.data_addr[15:2]][23:16] = u_if.data_wdata[23:16];
-      if (u_if.data_be[3]) mem[u_if.data_addr[15:2]][31:24] = u_if.data_wdata[31:24];
+      if (u_if.data_be[0]) mem_b[u_if.data_addr+0] = u_if.data_wdata[ 7: 0];
+      if (u_if.data_be[1]) mem_b[u_if.data_addr+1] = u_if.data_wdata[15: 8];
+      if (u_if.data_be[2]) mem_b[u_if.data_addr+2] = u_if.data_wdata[23:16];
+      if (u_if.data_be[3]) mem_b[u_if.data_addr+3] = u_if.data_wdata[31:24];
     end
-    u_if.data_rdata = mem[u_if.data_addr[15:2]];
+    u_if.data_rdata = read_word(u_if.data_addr);
   end
 
   // DUT
