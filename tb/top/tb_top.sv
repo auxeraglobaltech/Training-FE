@@ -185,6 +185,21 @@ module tb_top;
     end
   end
 
+  // -------------------------------------------------------
+  // Wave dumping  (enabled with +DUMP_WAVES on xrun command line)
+  // Path set by +SHM_PATH=<dir>/waves.shm  (default: waves.shm)
+  // -------------------------------------------------------
+  initial begin
+    string shm_path;
+    if ($test$plusargs("DUMP_WAVES")) begin
+      if (!$value$plusargs("SHM_PATH=%s", shm_path))
+        shm_path = "waves.shm";
+      $shm_open(shm_path);
+      $shm_probe("AS");
+      `uvm_info("WAVES", {"Dumping waves to: ", shm_path}, UVM_NONE)
+    end
+  end
+
   initial begin
     uvm_config_db#(virtual ibex_if)::set(null, "*", "vif", u_if);
     run_test();
