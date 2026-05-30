@@ -1,11 +1,13 @@
 // ============================================================
-// Include paths for prim_assert.sv (included via `include)
+// Include paths for .svh files
 // ============================================================
 +incdir+RTL/ibex/vendor/lowrisc_ip/ip/prim/rtl
++incdir+RTL/ibex/vendor/lowrisc_ip/dv/sv/dv_utils
 
 // ============================================================
-// Primitive packages (must come first)
+// Primitive packages (must come before everything else)
 // ============================================================
+RTL/ibex/vendor/lowrisc_ip/ip/prim_generic/rtl/prim_pkg.sv
 RTL/ibex/vendor/lowrisc_ip/ip/prim/rtl/prim_util_pkg.sv
 RTL/ibex/vendor/lowrisc_ip/ip/prim/rtl/prim_mubi_pkg.sv
 RTL/ibex/vendor/lowrisc_ip/ip/prim/rtl/prim_secded_pkg.sv
@@ -19,15 +21,23 @@ RTL/ibex/vendor/lowrisc_ip/ip/prim_generic/rtl/prim_ram_1p_pkg.sv
 RTL/ibex/rtl/ibex_pkg.sv
 
 // ============================================================
-// Primitive generic implementations
+// Primitive generic implementations (technology-independent)
 // ============================================================
 RTL/ibex/vendor/lowrisc_ip/ip/prim_generic/rtl/prim_buf.sv
 RTL/ibex/vendor/lowrisc_ip/ip/prim_generic/rtl/prim_flop.sv
+RTL/ibex/vendor/lowrisc_ip/ip/prim_generic/rtl/prim_flop_2sync.sv
 RTL/ibex/vendor/lowrisc_ip/ip/prim_generic/rtl/prim_clock_gating.sv
+RTL/ibex/vendor/lowrisc_ip/ip/prim_generic/rtl/prim_clock_mux2.sv
 RTL/ibex/vendor/lowrisc_ip/ip/prim_generic/rtl/prim_ram_1p.sv
 
-// prim_flop_macros needed by some ibex RTL
+// Primitive RTL implementations
 RTL/ibex/vendor/lowrisc_ip/ip/prim/rtl/prim_flop_macros.sv
+RTL/ibex/vendor/lowrisc_ip/ip/prim/rtl/prim_lfsr.sv
+RTL/ibex/vendor/lowrisc_ip/ip/prim/rtl/prim_count.sv
+RTL/ibex/vendor/lowrisc_ip/ip/prim/rtl/prim_secded_inv_28_22_enc.sv
+RTL/ibex/vendor/lowrisc_ip/ip/prim/rtl/prim_secded_inv_28_22_dec.sv
+RTL/ibex/vendor/lowrisc_ip/ip/prim/rtl/prim_secded_inv_39_32_enc.sv
+RTL/ibex/vendor/lowrisc_ip/ip/prim/rtl/prim_secded_inv_39_32_dec.sv
 
 // ============================================================
 // ibex RTL files
@@ -60,7 +70,7 @@ RTL/ibex/rtl/ibex_wb_stage.sv
 RTL/ibex/rtl/ibex_top.sv
 
 // ============================================================
-// Testbench files (order matters: interface -> pkg -> top)
+// Testbench files (order: interface -> pkg -> top)
 // ============================================================
 tb/top/ibex_if.sv
 tb/tests/ibex_pkg.sv
