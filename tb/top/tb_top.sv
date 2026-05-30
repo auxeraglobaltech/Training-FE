@@ -18,25 +18,25 @@ module tb_top;
   initial $readmemh("sim/hello_world.vmem", mem);
 
   // Instruction memory model
-  always_ff @(posedge clk) begin
-    u_if.instr_gnt    <= u_if.instr_req;
-    u_if.instr_rvalid <= u_if.instr_gnt;
-    u_if.instr_rdata  <= mem[u_if.instr_addr[15:2]];
-    u_if.instr_err    <= 1'b0;
+  always @(posedge clk) begin
+    u_if.instr_gnt    = u_if.instr_req;
+    u_if.instr_rvalid = u_if.instr_gnt;
+    u_if.instr_rdata  = mem[u_if.instr_addr[15:2]];
+    u_if.instr_err    = 1'b0;
   end
 
   // Data memory model
-  always_ff @(posedge clk) begin
-    u_if.data_gnt    <= u_if.data_req;
-    u_if.data_rvalid <= u_if.data_gnt;
-    u_if.data_err    <= 1'b0;
+  always @(posedge clk) begin
+    u_if.data_gnt    = u_if.data_req;
+    u_if.data_rvalid = u_if.data_gnt;
+    u_if.data_err    = 1'b0;
     if (u_if.data_req && u_if.data_we) begin
-      if (u_if.data_be[0]) mem[u_if.data_addr[15:2]][ 7: 0] <= u_if.data_wdata[ 7: 0];
-      if (u_if.data_be[1]) mem[u_if.data_addr[15:2]][15: 8] <= u_if.data_wdata[15: 8];
-      if (u_if.data_be[2]) mem[u_if.data_addr[15:2]][23:16] <= u_if.data_wdata[23:16];
-      if (u_if.data_be[3]) mem[u_if.data_addr[15:2]][31:24] <= u_if.data_wdata[31:24];
+      if (u_if.data_be[0]) mem[u_if.data_addr[15:2]][ 7: 0] = u_if.data_wdata[ 7: 0];
+      if (u_if.data_be[1]) mem[u_if.data_addr[15:2]][15: 8] = u_if.data_wdata[15: 8];
+      if (u_if.data_be[2]) mem[u_if.data_addr[15:2]][23:16] = u_if.data_wdata[23:16];
+      if (u_if.data_be[3]) mem[u_if.data_addr[15:2]][31:24] = u_if.data_wdata[31:24];
     end
-    u_if.data_rdata <= mem[u_if.data_addr[15:2]];
+    u_if.data_rdata = mem[u_if.data_addr[15:2]];
   end
 
   // DUT
@@ -123,15 +123,16 @@ module tb_top;
     .instr_addr_shadow_o     ()
   );
 
-  // tohost monitor
-  always_ff @(posedge clk) begin
+  // tohost monitor — use always + fork to allow delay and $finish outside always_ff
+  always @(posedge clk) begin
     if (u_if.data_req && u_if.data_we && u_if.data_addr == 32'h00010000) begin
       if (u_if.data_wdata == 32'h1)
         `uvm_info("TOHOST", "TEST PASSED", UVM_NONE)
       else
         `uvm_error("TOHOST", "TEST FAILED")
-      #100;
-      $finish;
+      fork
+        begin #100; $finish; end
+      join_none
     end
   end
 
