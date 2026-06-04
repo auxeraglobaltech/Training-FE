@@ -1,0 +1,1988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AXI In Depth — A Verification Engineer's Deep Dive</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#f9f8f6;--surface:#ffffff;--border:#e2e0db;--primary:#1a4fa0;--accent:#0e7d6e;--code-bg:#f4f3ef;
+  --text-main:#1c1c1e;--text-muted:#5c5c66;--good-bg:#e8f5e9;--good-border:#2e7d32;--bad-bg:#fdecea;
+  --bad-border:#c62828;--hint-bg:#fff8e1;--quiz-right:#e8f5e9;--quiz-wrong:#fdecea;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text-main);font-family:'Source Serif 4',serif;line-height:1.6;font-size:16px;}
+.topbar{position:fixed;top:0;left:0;right:0;height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;z-index:100;gap:16px;}
+.topbar h1{font-family:'IBM Plex Sans',sans-serif;font-size:16px;font-weight:600;color:var(--primary);flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hamburger{display:none;font-size:22px;background:none;border:none;cursor:pointer;color:var(--primary);}
+.progress-wrap{flex:1;max-width:340px;margin-left:auto;display:flex;align-items:center;gap:10px;}
+.progress-track{flex:1;height:8px;background:var(--code-bg);border-radius:4px;overflow:hidden;}
+.progress-fill{height:100%;width:0;background:var(--accent);transition:width .3s ease;}
+.progress-label{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);white-space:nowrap;}
+.layout{display:flex;margin-top:56px;}
+.sidebar{position:fixed;top:56px;bottom:0;left:0;width:260px;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:16px 0;}
+.sidebar a{display:block;padding:9px 20px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text-muted);text-decoration:none;border-left:3px solid transparent;cursor:pointer;transition:all .15s;}
+.sidebar a:hover{background:var(--code-bg);color:var(--text-main);}
+.sidebar a.active{color:var(--primary);border-left-color:var(--primary);background:#eef3fb;font-weight:600;}
+.sidebar a .vbadge{color:var(--good-border);font-weight:700;margin-left:6px;}
+.sidebar .grp{font-family:'IBM Plex Sans',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);padding:14px 20px 6px;font-weight:600;}
+.content{margin-left:260px;flex:1;padding:36px 48px 120px;max-width:1000px;}
+section.module{display:none;animation:fade .35s ease;}
+section.module.active{display:block;}
+@keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+h2.mod-title{font-family:'IBM Plex Sans',sans-serif;font-size:27px;font-weight:700;color:var(--primary);margin-bottom:6px;}
+.mod-num{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent);font-weight:500;}
+h3{font-family:'IBM Plex Sans',sans-serif;font-size:19px;font-weight:600;margin:28px 0 10px;color:var(--text-main);}
+h4{font-family:'IBM Plex Sans',sans-serif;font-size:15.5px;font-weight:600;margin:18px 0 8px;}
+p{margin:10px 0;}ul,ol{margin:10px 0 10px 26px;}li{margin:5px 0;}strong{font-weight:600;}
+.objectives{background:#eef3fb;border:1px solid #d3e0f2;border-radius:8px;padding:16px 20px;margin:18px 0;}
+.objectives h4{margin-top:0;color:var(--primary);}.objectives ul{margin-bottom:0;}
+.analogy{background:#f3f0fa;border-left:4px solid #6a1b9a;padding:14px 18px;margin:18px 0;border-radius:0 6px 6px 0;font-style:italic;}
+.analogy strong{color:#6a1b9a;font-style:normal;}
+.keybox{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin:18px 0;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+figure{margin:22px 0;text-align:center;}
+figure svg{max-width:100%;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;}
+figcaption{font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'IBM Plex Sans',sans-serif;}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:14px 0;}
+code{font-family:'JetBrains Mono',monospace;font-size:13px;}
+p code,li code,td code{background:var(--code-bg);padding:1px 6px;border-radius:4px;font-size:13px;color:#6a1b9a;}
+.kw{color:#1a4fa0;font-weight:500;}.type{color:#6a1b9a;}.num{color:#0e7d6e;}.str{color:#c62828;}.cmt{color:#5c5c66;font-style:italic;}.dir{color:#f57f17;}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.5px;}
+th,td{border:1px solid var(--border);padding:8px 11px;text-align:left;vertical-align:top;}
+th{background:#eef3fb;font-family:'IBM Plex Sans',sans-serif;font-weight:600;color:var(--primary);}
+tr:nth-child(even) td{background:#fbfaf8;}
+.activity{background:#fffdf7;border:1px solid #f0e6c8;border-radius:8px;padding:18px 20px;margin:22px 0;}
+.activity h4{margin-top:0;color:#a86a00;}.activity h4::before{content:"✎ ";}
+.hint-btn,.solution-btn{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:500;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 14px;cursor:pointer;margin:8px 8px 0 0;color:var(--primary);}
+.hint-btn:hover,.solution-btn:hover{background:var(--code-bg);}
+.hint-box{background:var(--hint-bg);border-left:4px solid #f5a623;padding:12px 16px;margin-top:12px;border-radius:0 6px 6px 0;}
+.solution-box{background:#eef7f4;border-left:4px solid var(--accent);padding:12px 16px;margin-top:12px;border-radius:0 6px 6px 0;}
+.quiz-block{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px 20px;margin:22px 0;}
+.quiz-question{font-weight:600;font-family:'IBM Plex Sans',sans-serif;margin-bottom:12px;}
+.quiz-question::before{content:"? ";color:var(--accent);font-weight:700;}
+.quiz-options{display:flex;flex-direction:column;gap:8px;}
+.quiz-options button{font-family:'Source Serif 4',serif;font-size:14.5px;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 14px;cursor:pointer;transition:all .15s;}
+.quiz-options button:hover:not(:disabled){border-color:var(--primary);background:#f5f8fd;}
+.quiz-options button:disabled{cursor:default;opacity:.92;}
+.quiz-options button.correct{background:var(--quiz-right);border-color:var(--good-border);font-weight:600;}
+.quiz-options button.wrong{background:var(--quiz-wrong);border-color:var(--bad-border);}
+.quiz-feedback{margin-top:14px;padding:12px 16px;border-radius:6px;background:var(--code-bg);}
+.feedback-text{font-weight:600;font-family:'IBM Plex Sans',sans-serif;}
+.feedback-explain{margin-top:6px;font-size:14px;}
+.practices-section>h3::before{content:"⚖ ";}
+.practices-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0;}
+.practice-card{border-radius:8px;padding:16px 18px;}
+.practice-card.good{background:var(--good-bg);border:1px solid var(--good-border);}
+.practice-card.bad{background:var(--bad-bg);border:1px solid var(--bad-border);}
+.practice-card h4{margin-top:0;}
+.practice-card.good h4{color:var(--good-border);}.practice-card.bad h4{color:var(--bad-border);}
+.practice-why{margin-top:8px;font-size:13.5px;color:var(--text-muted);}
+.navbtns{display:flex;justify-content:space-between;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);}
+.navbtns button{font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:500;background:var(--primary);color:#fff;border:none;border-radius:6px;padding:10px 20px;cursor:pointer;transition:opacity .15s;}
+.navbtns button:hover{opacity:.88;}
+.navbtns button:disabled{background:var(--border);color:var(--text-muted);cursor:not-allowed;}
+.callout{border-left:4px solid var(--accent);background:#eef7f4;padding:12px 16px;margin:16px 0;border-radius:0 6px 6px 0;}
+.callout.warn{border-left-color:#f5a623;background:var(--hint-bg);}
+.tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;background:#eef3fb;color:var(--primary);border:1px solid #d3e0f2;border-radius:4px;padding:1px 7px;margin:0 2px;}
+@media(max-width:880px){
+  .sidebar{transform:translateX(-100%);transition:transform .25s;z-index:90;}
+  .sidebar.open{transform:none;}
+  .content{margin-left:0;padding:24px 18px 100px;}
+  .hamburger{display:block;}.practices-grid{grid-template-columns:1fr;}.progress-wrap{max-width:160px;}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <h1>AXI In Depth — A Verification Engineer's Deep Dive</h1>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="pfill"></div></div>
+    <span class="progress-label" id="plabel">0%</span>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar">
+  <div class="grp">Foundations</div>
+  <a data-target="m1" class="active">1 · Why AXI?</a>
+  <a data-target="m2">2 · The Five Channels</a>
+  <a data-target="m3">3 · VALID/READY Handshake</a>
+  <div class="grp">Transaction Mechanics</div>
+  <a data-target="m4">4 · Burst Mechanics</a>
+  <a data-target="m5">5 · IDs &amp; Ordering</a>
+  <a data-target="m6">6 · Responses &amp; Errors</a>
+  <div class="grp">Modern AXI</div>
+  <a data-target="m7">7 · AXI5 Features</a>
+  <a data-target="m8">8 · ACE &amp; Coherency</a>
+  <div class="grp">Verification</div>
+  <a data-target="m9">9 · Verifying AXI</a>
+</nav>
+<main class="content">
+
+<!-- ===== MODULE 1 ===== -->
+<section class="module active" id="m1">
+  <div class="mod-num">MODULE 1</div>
+  <h2 class="mod-title">Why AXI? From Shared Buses to Five Channels</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Explain the bottleneck in single-channel buses that AXI removes.</li>
+      <li>State the core idea of AXI: five independent, decoupled channels.</li>
+      <li>List the headline features AXI provides (bursts, outstanding, out-of-order).</li>
+      <li>Place AXI3, AXI4, and AXI5 in context.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — the bank counter vs the modern bank.</strong> An old bus is a bank with one teller window:
+    one customer fully served before the next steps up — fill the form, wait, get cash, leave. AXI is a modern
+    bank: you drop your request at one desk, others are being processed in parallel, and you collect your result
+    at a separate counter whenever it's ready. Requests and results are <em>decoupled</em>, and many are in
+    flight at once.
+  </div>
+
+  <h3>The problem with one channel</h3>
+  <p>Earlier buses like AHB use essentially one shared address/data path. Address and data are coupled, and a
+  slow subordinate stalls everyone. If a read takes 100 cycles to come back from DRAM, the bus sits idle for
+  100 cycles — even though other useful work could be done. This is the bottleneck AXI was designed to break.</p>
+
+  <h3>The AXI idea: five independent channels</h3>
+  <p><strong>AXI (Advanced eXtensible Interface)</strong> splits the bus into <strong>five independent
+  channels</strong>, each with its own handshake, all able to operate at the same time:</p>
+
+  <figure>
+    <svg viewBox="0 0 700 320" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <rect x="40" y="40" width="150" height="240" rx="8" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="115" y="68" text-anchor="middle" font-size="15" fill="#1a4fa0" font-weight="700">Manager</text>
+      <rect x="510" y="40" width="150" height="240" rx="8" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="585" y="68" text-anchor="middle" font-size="15" fill="#0e7d6e" font-weight="700">Subordinate</text>
+
+      <!-- write channels (manager -> sub) -->
+      <line x1="190" y1="100" x2="510" y2="100" stroke="#1a4fa0" stroke-width="2.5" marker-end="url(#axr)"/>
+      <text x="350" y="93" text-anchor="middle" font-size="12" fill="#1a4fa0" font-weight="600">AW — Write Address</text>
+      <line x1="190" y1="140" x2="510" y2="140" stroke="#1a4fa0" stroke-width="2.5" marker-end="url(#axr)"/>
+      <text x="350" y="133" text-anchor="middle" font-size="12" fill="#1a4fa0" font-weight="600">W — Write Data</text>
+      <!-- B (sub -> manager) -->
+      <line x1="510" y1="180" x2="190" y2="180" stroke="#0e7d6e" stroke-width="2.5" marker-end="url(#axl)"/>
+      <text x="350" y="173" text-anchor="middle" font-size="12" fill="#0e7d6e" font-weight="600">B — Write Response</text>
+      <!-- AR (manager -> sub) -->
+      <line x1="190" y1="220" x2="510" y2="220" stroke="#1a4fa0" stroke-width="2.5" marker-end="url(#axr)"/>
+      <text x="350" y="213" text-anchor="middle" font-size="12" fill="#1a4fa0" font-weight="600">AR — Read Address</text>
+      <!-- R (sub -> manager) -->
+      <line x1="510" y1="260" x2="190" y2="260" stroke="#0e7d6e" stroke-width="2.5" marker-end="url(#axl)"/>
+      <text x="350" y="253" text-anchor="middle" font-size="12" fill="#0e7d6e" font-weight="600">R — Read Data + Response</text>
+      <defs>
+        <marker id="axr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#1a4fa0"/></marker>
+        <marker id="axl" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#0e7d6e"/></marker>
+      </defs>
+      <text x="350" y="300" text-anchor="middle" font-size="11" fill="#5c5c66">Blue = driven by manager · Teal = driven by subordinate. All five run concurrently.</text>
+    </svg>
+    <figcaption>AXI's five channels. Writes use AW + W + B; reads use AR + R. Each channel is independently handshaked.</figcaption>
+  </figure>
+
+  <table>
+    <tr><th>Channel</th><th>Name</th><th>Direction</th><th>Carries</th></tr>
+    <tr><td><span class="tag">AW</span></td><td>Write Address</td><td>Manager → Subordinate</td><td>Address & control for a write</td></tr>
+    <tr><td><span class="tag">W</span></td><td>Write Data</td><td>Manager → Subordinate</td><td>The data being written + byte strobes</td></tr>
+    <tr><td><span class="tag">B</span></td><td>Write Response</td><td>Subordinate → Manager</td><td>"Write done" + status (OKAY/error)</td></tr>
+    <tr><td><span class="tag">AR</span></td><td>Read Address</td><td>Manager → Subordinate</td><td>Address & control for a read</td></tr>
+    <tr><td><span class="tag">R</span></td><td>Read Data</td><td>Subordinate → Manager</td><td>The data read back + status</td></tr>
+  </table>
+
+  <h3>What this buys you</h3>
+  <ul>
+    <li><strong>Decoupled address and data</strong> — a manager can send several addresses before any data comes back.</li>
+    <li><strong>Multiple outstanding transactions</strong> — many requests in flight at once; slow responders don't block fast ones.</li>
+    <li><strong>Out-of-order completion</strong> — responses can return in a different order than requests were issued (via IDs — Module 5).</li>
+    <li><strong>Bursts</strong> — one address can transfer many data beats, amortizing addressing overhead (Module 4).</li>
+    <li><strong>Independent read and write</strong> — reads and writes proceed fully in parallel on separate channels.</li>
+  </ul>
+
+  <h3>AXI generations</h3>
+  <table>
+    <tr><th>Version</th><th>Highlights</th></tr>
+    <tr><td><strong>AXI3</strong></td><td>The original. Bursts up to 16 beats. Allowed write data interleaving. Has <code>WID</code>.</td></tr>
+    <tr><td><strong>AXI4</strong></td><td>Bursts up to 256 beats (INCR). Removed write interleaving and <code>WID</code>. Added QoS, regions. The workhorse.</td></tr>
+    <tr><td><strong>AXI4-Lite</strong></td><td>A tiny subset: single transfers only, no bursts, no IDs. For simple register interfaces.</td></tr>
+    <tr><td><strong>AXI5</strong></td><td>Atomic transactions, cache-stashing, MTE (memory tagging), poison, wake-up signaling, NSAID, coherency alignment with CHI. The current generation — our main focus.</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>Why a verification engineer cares about all this:</strong> every one of those features is a source of
+    legal behaviours you must cover and illegal behaviours you must catch. "Five independent channels" alone
+    means the number of interleavings explodes — and that's before bursts, IDs, and atomics. The rest of this
+    course turns each feature into concrete checks and coverage.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — why five channels and not three?</h4>
+    <p>AXI separates write data (W) from write address (AW), and read data (R) from read address (AR). Why not
+    merge address and data into a single "write" channel and a single "read" channel (giving two channels plus
+    the response)?</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Think about <em>when</em> a manager knows the address versus when it has the data ready, and about letting the subordinate accept addresses faster than it can absorb data (or vice versa). What flexibility do you lose if they must move together?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p>Keeping address and data on separate channels lets them flow at <em>independent rates</em>. A manager
+      can push several write <em>addresses</em> ahead while data trickles behind, or stream data while the
+      subordinate is still accepting the address. The subordinate can apply back-pressure to data without
+      blocking new addresses. Merging them forces lock-step movement and reintroduces exactly the coupling
+      bottleneck AXI exists to remove. The separate B (write response) channel similarly lets completion be
+      reported whenever the write truly lands, decoupled from data acceptance.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="c">
+    <p class="quiz-question">What is the single most important architectural idea of AXI?</p>
+    <div class="quiz-options">
+      <button data-opt="a">It uses a faster clock than AHB</button>
+      <button data-opt="b">It encrypts all transactions</button>
+      <button data-opt="c">It splits the bus into five independent, concurrently-operating channels</button>
+      <button data-opt="d">It eliminates the need for an address</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Everything AXI offers — outstanding transactions, out-of-order completion, parallel read/write — flows from the five independent channels (AW, W, B, AR, R), each with its own handshake. Clock speed and encryption are not the point.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Build your AXI mental model channel-by-channel before thinking about full transactions.</p><p class="practice-why"><em>Why: every AXI rule is ultimately a per-channel handshake rule or a cross-channel ordering rule. Master the five channels and the rest composes.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Treating AXI like a single bus where "a write" is one atomic event.</p><p class="practice-why"><em>Why it hurts: you'll write checks that assume AW, W, and B happen together, and miss the real bugs that live in their independent timing.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Know exactly which AXI version your DUT implements before writing a testbench.</p><p class="practice-why"><em>Why: AXI3 allows write interleaving and has WID; AXI4 does not. A check valid for one version is a false failure on the other.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Reusing an AXI3 VIP config on an AXI4 DUT without re-checking burst-length limits.</p><p class="practice-why"><em>Why it hurts: AXI3 caps INCR bursts at 16 beats; AXI4 allows 256. Wrong limits either over-constrain stimulus (missed coverage) or generate illegal bursts (false fails).</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button disabled>← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 2 ===== -->
+<section class="module" id="m2">
+  <div class="mod-num">MODULE 2</div>
+  <h2 class="mod-title">The Five Channels in Detail</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Name and interpret every major signal on all five channels.</li>
+      <li>Understand the role of byte strobes (WSTRB) and the LAST signal.</li>
+      <li>Trace a complete write and a complete read at the signal level.</li>
+      <li>Recognise which signals a monitor must sample on each channel.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a shipping form.</strong> The address channels (AW/AR) are the shipping label: where it
+    goes, how big, how it should travel. The data channels (W/R) are the contents of the boxes. WSTRB is the
+    packing slip saying which compartments of the box are actually filled. The response (B) is the delivery
+    confirmation signature.
+  </div>
+
+  <h3>Signal naming convention</h3>
+  <p>AXI signals are prefixed by channel. Address signals share an <code>Ax</code> prefix when a rule applies
+  to both AW and AR (e.g. <code>AxADDR</code> means "AWADDR and ARADDR"). Every channel has a
+  <code>xVALID</code>/<code>xREADY</code> handshake pair (next module).</p>
+
+  <h3>Write Address channel (AW)</h3>
+  <table>
+    <tr><th>Signal</th><th>Meaning</th></tr>
+    <tr><td><code>AWVALID / AWREADY</code></td><td>Handshake for the write-address channel.</td></tr>
+    <tr><td><code>AWID</code></td><td>Transaction ID — tags the write so responses can be matched and ordered.</td></tr>
+    <tr><td><code>AWADDR</code></td><td>Start address of the write burst.</td></tr>
+    <tr><td><code>AWLEN</code></td><td>Burst length = number of beats − 1 (so 0 means 1 beat; 255 means 256 beats).</td></tr>
+    <tr><td><code>AWSIZE</code></td><td>Bytes per beat, encoded: 0→1 byte, 1→2, 2→4, 3→8 … up to the bus width.</td></tr>
+    <tr><td><code>AWBURST</code></td><td>Burst type: FIXED, INCR, or WRAP.</td></tr>
+    <tr><td><code>AWCACHE</code></td><td>Memory attributes: cacheable, bufferable, allocate hints.</td></tr>
+    <tr><td><code>AWPROT</code></td><td>Protection: privileged/unprivileged, secure/non-secure, instruction/data.</td></tr>
+    <tr><td><code>AWQOS</code></td><td>Quality-of-Service priority (AXI4+).</td></tr>
+    <tr><td><code>AWREGION</code></td><td>Region identifier — lets one subordinate present multiple logical regions (AXI4+).</td></tr>
+    <tr><td><code>AWLOCK</code></td><td>Exclusive-access indicator (for atomics via exclusive monitor).</td></tr>
+    <tr><td><code>AWUSER</code></td><td>User-defined sideband, meaning is design-specific.</td></tr>
+  </table>
+
+  <h3>Write Data channel (W)</h3>
+  <table>
+    <tr><th>Signal</th><th>Meaning</th></tr>
+    <tr><td><code>WVALID / WREADY</code></td><td>Handshake for write data.</td></tr>
+    <tr><td><code>WDATA</code></td><td>The write data for this beat (bus-width wide).</td></tr>
+    <tr><td><code>WSTRB</code></td><td>Byte strobes — one bit per data byte; 1 = this byte is valid and should be written.</td></tr>
+    <tr><td><code>WLAST</code></td><td>Asserted on the final beat of the burst.</td></tr>
+    <tr><td><code>WUSER</code></td><td>User sideband.</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <strong>WSTRB is where many bugs hide.</strong> Byte strobes let a manager write only some bytes of a word
+    (a sub-word write). A subordinate that ignores WSTRB and writes all bytes corrupts the bytes that should
+    have been left alone. Your tests must drive sparse, patterned, and all-zero strobes — and your scoreboard
+    must model them exactly.
+  </div>
+
+  <h3>Write Response channel (B)</h3>
+  <table>
+    <tr><th>Signal</th><th>Meaning</th></tr>
+    <tr><td><code>BVALID / BREADY</code></td><td>Handshake for the write response.</td></tr>
+    <tr><td><code>BID</code></td><td>ID of the write being responded to — must match the AWID.</td></tr>
+    <tr><td><code>BRESP</code></td><td>Status: OKAY, EXOKAY, SLVERR, DECERR (Module 6).</td></tr>
+    <tr><td><code>BUSER</code></td><td>User sideband.</td></tr>
+  </table>
+  <p>There is exactly <strong>one</strong> B response per write burst — not one per beat. The subordinate sends
+  it after it has accepted (and, depending on AWCACHE, committed) all the write data.</p>
+
+  <h3>Read Address (AR) and Read Data (R)</h3>
+  <p>AR carries the same fields as AW (<code>ARID, ARADDR, ARLEN, ARSIZE, ARBURST, ARCACHE, ARPROT, ARQOS,
+  ARREGION, ARLOCK, ARUSER</code>). The R channel returns the data:</p>
+  <table>
+    <tr><th>Signal</th><th>Meaning</th></tr>
+    <tr><td><code>RVALID / RREADY</code></td><td>Handshake for read data.</td></tr>
+    <tr><td><code>RID</code></td><td>ID of the read — matches ARID.</td></tr>
+    <tr><td><code>RDATA</code></td><td>Read data for this beat.</td></tr>
+    <tr><td><code>RRESP</code></td><td>Per-beat status (reads report status on every beat, unlike writes).</td></tr>
+    <tr><td><code>RLAST</code></td><td>Asserted on the final beat of the read burst.</td></tr>
+    <tr><td><code>RUSER</code></td><td>User sideband.</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>Key asymmetry:</strong> a write burst gets <em>one</em> response on B; a read burst reports
+    <code>RRESP</code> on <em>every beat</em> of R. Mixing this up is a classic monitor bug — counting B beats
+    per burst, or expecting a single status for a read.
+  </div>
+
+  <h3>Tracing a complete single-beat write</h3>
+  <pre><code class="language-sv"><span class="cmt">// Manager writes 0xCAFE to address 0x1000, 1 beat, 4-byte bus</span>
+AWID=0  AWADDR=0x1000  AWLEN=0  AWSIZE=2 (4B)  AWBURST=INCR   <span class="cmt">// AW beat</span>
+WDATA=0x0000CAFE  WSTRB=0b0011  WLAST=1                       <span class="cmt">// W beat (low 2 bytes valid)</span>
+BID=0  BRESP=OKAY                                             <span class="cmt">// B response</span></code></pre>
+  <p><strong>What happens on the wires:</strong> the manager presents AW and W (possibly in the same cycle or
+  apart), the subordinate accepts each with its READY, then drives one B beat with matching BID and a status.
+  Note WSTRB=<code>0b0011</code> means only the low two bytes are written — the subordinate must leave the
+  upper two untouched.</p>
+  <h3>Timing diagram — a single write</h3>
+  <p>Here is that same write as a waveform. Watch each channel handshake independently, and note the single B response at the end:</p>
+
+  <figure>
+    <svg viewBox="0 0 508 438" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:508px;font-family:'JetBrains Mono',monospace;">
+<defs><marker id="wa" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker><marker id="we" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c62828"/></marker></defs>
+<line x1="100" y1="16" x2="100" y2="390" stroke="#e2e0db" stroke-width="1"/>
+<line x1="154" y1="16" x2="154" y2="390" stroke="#e2e0db" stroke-width="1"/>
+<line x1="208" y1="16" x2="208" y2="390" stroke="#e2e0db" stroke-width="1"/>
+<line x1="262" y1="16" x2="262" y2="390" stroke="#e2e0db" stroke-width="1"/>
+<line x1="316" y1="16" x2="316" y2="390" stroke="#e2e0db" stroke-width="1"/>
+<line x1="370" y1="16" x2="370" y2="390" stroke="#e2e0db" stroke-width="1"/>
+<line x1="424" y1="16" x2="424" y2="390" stroke="#e2e0db" stroke-width="1"/>
+<line x1="478" y1="16" x2="478" y2="390" stroke="#e2e0db" stroke-width="1"/>
+<text x="127" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T0</text>
+<text x="181" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T1</text>
+<text x="235" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T2</text>
+<text x="289" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T3</text>
+<text x="343" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T4</text>
+<text x="397" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T5</text>
+<text x="451" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T6</text>
+<text x="10" y="45" font-size="12" fill="#1a4fa0">ACLK</text>
+<polyline points="100,30 100,8 127.0,8 127.0,30 154,30 154,8 181.0,8 181.0,30 208,30 208,8 235.0,8 235.0,30 262,30 262,8 289.0,8 289.0,30 316,30 316,8 343.0,8 343.0,30 370,30 370,8 397.0,8 397.0,30 424,30 424,8 451.0,8 451.0,30 478,30" fill="none" stroke="#1a4fa0" stroke-width="2"/>
+<text x="10" y="91" font-size="12" fill="#1c1c1e">AWVALID</text>
+<polyline points="100,76 154,76 154,76 154,54 208,54 262,54 262,54 262,76 316,76 370,76 424,76 478,76" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="137" font-size="12" fill="#1c1c1e">AWREADY</text>
+<polyline points="100,122 154,122 208,122 208,122 208,100 262,100 262,100 262,122 316,122 370,122 424,122 478,122" fill="none" stroke="#c62828" stroke-width="2"/>
+<text x="10" y="183" font-size="12" fill="#1c1c1e">AWADDR</text>
+<rect x="154" y="146" width="108" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="208" y="161" font-size="10" text-anchor="middle" fill="#1a4fa0">0x1000</text>
+<text x="10" y="229" font-size="12" fill="#1c1c1e">WVALID</text>
+<polyline points="100,214 154,214 208,214 208,214 208,192 262,192 316,192 316,192 316,214 370,214 424,214 478,214" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="275" font-size="12" fill="#1c1c1e">WREADY</text>
+<polyline points="100,260 154,260 208,260 208,260 208,238 262,238 316,238 316,238 316,260 370,260 424,260 478,260" fill="none" stroke="#c62828" stroke-width="2"/>
+<text x="10" y="321" font-size="12" fill="#1c1c1e">WDATA/WSTRB</text>
+<rect x="208" y="284" width="108" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="262" y="299" font-size="10" text-anchor="middle" fill="#1a4fa0">0xCAFE / 0b0011</text>
+<text x="10" y="367" font-size="12" fill="#1c1c1e">BVALID/BRESP</text>
+<rect x="370" y="330" width="54" height="22" rx="2" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.5"/>
+<text x="397" y="345" font-size="10" text-anchor="middle" fill="#2e7d32">OKAY</text>
+<polyline points="100,352 154,352 208,352 262,352 316,352 370,352 424,352 478,352" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<line x1="208" y1="16" x2="208" y2="390" stroke="#0e7d6e" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="208" cy="16" r="4" fill="#0e7d6e"/>
+<text x="208" y="403" font-size="9" fill="#0e7d6e" text-anchor="middle">AW accepted</text>
+<line x1="316" y1="16" x2="316" y2="390" stroke="#0e7d6e" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="316" cy="16" r="4" fill="#0e7d6e"/>
+<text x="316" y="403" font-size="9" fill="#0e7d6e" text-anchor="middle">W accepted (WLAST)</text>
+<line x1="424" y1="16" x2="424" y2="390" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="424" cy="16" r="4" fill="#2e7d32"/>
+<text x="424" y="403" font-size="9" fill="#2e7d32" text-anchor="middle">B accepted</text>
+<text x="289.0" y="428" font-size="9.5" fill="#5c5c66" text-anchor="middle">One write: address + 1 data beat (low 2 bytes via WSTRB), then a single OKAY on B.</text>
+</svg>
+    <figcaption>Timing — single write. AW and W each complete on their own VALID&amp;READY edge; the subordinate returns exactly one B (OKAY) for the whole transaction. WSTRB=0b0011 writes only the low two bytes.</figcaption>
+  <h3>Timing diagram — a single read</h3>
+  <p>A read is simpler: one address out, one (or more) data beats back. RRESP travels with the data, and RLAST marks the final beat:</p>
+
+  <figure>
+    <svg viewBox="0 0 508 346" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:508px;font-family:'JetBrains Mono',monospace;">
+<defs><marker id="wa" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker><marker id="we" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c62828"/></marker></defs>
+<line x1="100" y1="16" x2="100" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="154" y1="16" x2="154" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="208" y1="16" x2="208" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="262" y1="16" x2="262" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="316" y1="16" x2="316" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="370" y1="16" x2="370" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="424" y1="16" x2="424" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="478" y1="16" x2="478" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<text x="127" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T0</text>
+<text x="181" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T1</text>
+<text x="235" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T2</text>
+<text x="289" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T3</text>
+<text x="343" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T4</text>
+<text x="397" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T5</text>
+<text x="451" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T6</text>
+<text x="10" y="45" font-size="12" fill="#1a4fa0">ACLK</text>
+<polyline points="100,30 100,8 127.0,8 127.0,30 154,30 154,8 181.0,8 181.0,30 208,30 208,8 235.0,8 235.0,30 262,30 262,8 289.0,8 289.0,30 316,30 316,8 343.0,8 343.0,30 370,30 370,8 397.0,8 397.0,30 424,30 424,8 451.0,8 451.0,30 478,30" fill="none" stroke="#1a4fa0" stroke-width="2"/>
+<text x="10" y="91" font-size="12" fill="#1c1c1e">ARVALID</text>
+<polyline points="100,76 154,76 154,76 154,54 208,54 208,54 208,76 262,76 316,76 370,76 424,76 478,76" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="137" font-size="12" fill="#1c1c1e">ARREADY</text>
+<polyline points="100,122 154,122 154,122 154,100 208,100 208,100 208,122 262,122 316,122 370,122 424,122 478,122" fill="none" stroke="#c62828" stroke-width="2"/>
+<text x="10" y="183" font-size="12" fill="#1c1c1e">ARADDR</text>
+<rect x="154" y="146" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="181" y="161" font-size="10" text-anchor="middle" fill="#1a4fa0">0x2000</text>
+<text x="10" y="229" font-size="12" fill="#1c1c1e">RVALID</text>
+<polyline points="100,214 154,214 208,214 262,214 316,214 316,214 316,192 370,192 370,192 370,214 424,214 478,214" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="275" font-size="12" fill="#1c1c1e">RREADY</text>
+<polyline points="100,260 154,260 208,260 262,260 316,260 316,260 316,238 370,238 370,238 370,260 424,260 478,260" fill="none" stroke="#c62828" stroke-width="2"/>
+<line x1="208" y1="16" x2="208" y2="298" stroke="#0e7d6e" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="208" cy="16" r="4" fill="#0e7d6e"/>
+<text x="208" y="311" font-size="9" fill="#0e7d6e" text-anchor="middle">AR accepted</text>
+<line x1="370" y1="16" x2="370" y2="298" stroke="#0e7d6e" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="370" cy="16" r="4" fill="#0e7d6e"/>
+<text x="370" y="311" font-size="9" fill="#0e7d6e" text-anchor="middle">R: data+RRESP+RLAST</text>
+<text x="343.0" y="188" font-size="9.5" fill="#0e7d6e" text-anchor="middle">RDATA=0xBEEF  RRESP=OKAY  RLAST=1</text>
+<text x="289.0" y="336" font-size="9.5" fill="#5c5c66" text-anchor="middle">One read: address accepted, then after latency the subordinate returns 1 data beat with RLAST=1.</text>
+</svg>
+    <figcaption>Timing — single read. The address is accepted on AR, then after some latency the subordinate drives one R beat carrying RDATA, RRESP and RLAST together. Reads report RRESP on every beat.</figcaption>
+  </figure>
+
+  </figure>
+
+
+  <div class="activity">
+    <h4>Activity — read the burst parameters</h4>
+    <p>A monitor captures an AR beat: <code>ARADDR=0x2000, ARLEN=3, ARSIZE=2, ARBURST=INCR</code> on a 32-bit
+    bus. How many data beats will the R channel return, how many bytes per beat, and which addresses do the
+    beats correspond to?</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Beats = ARLEN + 1. Bytes/beat = 2^ARSIZE. INCR means each beat's address increases by the number of bytes per beat. Watch the off-by-one in ARLEN.</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>Beats:</strong> ARLEN=3 → 3+1 = <strong>4 beats</strong>.</p>
+      <p><strong>Bytes/beat:</strong> ARSIZE=2 → 2² = <strong>4 bytes</strong> per beat.</p>
+      <p><strong>Addresses (INCR):</strong> 0x2000, 0x2004, 0x2008, 0x200C.</p>
+      <p>The R channel returns 4 beats; RLAST is asserted on the 4th. Each beat carries its own RRESP. Your
+      scoreboard must expect exactly 4 beats and flag it as an error if RLAST comes early or late.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="b">
+    <p class="quiz-question">How many B (write response) beats does a 16-beat write burst produce?</p>
+    <div class="quiz-options">
+      <button data-opt="a">16 — one per data beat</button>
+      <button data-opt="b">1 — one per burst, after all data is accepted</button>
+      <button data-opt="c">2 — one at the start and one at the end</button>
+      <button data-opt="d">0 — writes are not acknowledged</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">A write burst gets exactly one B response, regardless of beat count. Reads are the asymmetric case — they report RRESP on every R beat. Expecting one B per beat is a frequent monitor/scoreboard bug.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Model WSTRB precisely in your scoreboard — apply only strobed bytes to your reference memory.</p><p class="practice-why"><em>Why: sub-word writes are common and a subordinate that mishandles strobes silently corrupts neighbouring bytes. A strobe-blind scoreboard will never catch it.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Sampling WLAST/RLAST but not cross-checking it against the expected beat count.</p><p class="practice-why"><em>Why it hurts: an early or late LAST is a real protocol bug; if you trust LAST blindly you'll mis-frame transactions and corrupt every check downstream.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Capture all sideband (PROT, CACHE, QOS, REGION, USER) in your transaction object even if the DUT ignores them today.</p><p class="practice-why"><em>Why: coverage of attribute combinations and future reuse depend on it; re-instrumenting a monitor late in a project is painful.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Assuming AWADDR equals the address of every beat in the burst.</p><p class="practice-why"><em>Why it hurts: only FIXED bursts keep one address. INCR and WRAP advance per beat; a scoreboard that doesn't compute per-beat addresses checks the wrong memory locations.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 3 ===== -->
+<section class="module" id="m3">
+  <div class="mod-num">MODULE 3</div>
+  <h2 class="mod-title">The VALID/READY Handshake</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>State the VALID/READY handshake rule precisely and why it exists.</li>
+      <li>Understand the golden rule: VALID must not wait for READY.</li>
+      <li>Read timing diagrams for accepted, stalled, and back-pressured transfers.</li>
+      <li>Write the core SVA assertions that protect the handshake.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a handshake between two people.</strong> One person extends their hand (VALID: "I'm
+    offering this"). The other extends theirs (READY: "I'll take it"). The handshake <em>completes</em> only in
+    the instant both hands are out. Crucially, the offerer must not refuse to extend their hand until they see
+    the other's — that's a deadlock where both wait forever.
+  </div>
+
+  <h3>The one rule that governs everything</h3>
+  <p>Every AXI channel uses the same two-signal handshake. The source asserts <code>VALID</code> when it has
+  information to send. The destination asserts <code>READY</code> when it can accept. A transfer occurs on a
+  rising clock edge <strong>if and only if both VALID and READY are high</strong>.</p>
+
+  <div class="keybox">
+    <strong>Transfer happens when:</strong> <code>VALID == 1 && READY == 1</code> at a rising clock edge.
+    On that edge, exactly one beat of information moves. If either is low, nothing moves and the source must
+    hold its data stable.
+  </div>
+
+  <h3>The golden rules of the handshake</h3>
+  <ol>
+    <li><strong>Once VALID is asserted, it must stay asserted until the transfer completes</strong> (until READY is also high on a clock edge). The source may not withdraw an offer.</li>
+    <li><strong>The payload (address, data, etc.) must remain stable while VALID is held.</strong> You can't change the data mid-offer.</li>
+    <li><strong>VALID must not depend (combinationally) on READY.</strong> A source may assert VALID before READY; it must <em>not</em> wait to see READY before asserting VALID. (READY <em>is</em> allowed to depend on VALID.) Violating this risks deadlock: both sides waiting for the other.</li>
+  </ol>
+
+  <h3>Three timing cases</h3>
+
+  <figure>
+    <svg viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg" style="font-family:'JetBrains Mono',monospace;">
+      <text x="10" y="35" font-size="12" fill="#1c1c1e">clk</text>
+      <text x="10" y="85" font-size="12" fill="#1c1c1e">VALID</text>
+      <text x="10" y="135" font-size="12" fill="#1c1c1e">READY</text>
+      <text x="10" y="185" font-size="11" fill="#5c5c66">xfer</text>
+      <!-- clk -->
+      <polyline points="70,40 70,20 105,20 105,40 140,40 140,20 175,20 175,40 210,40 210,20 245,20 245,40 280,40 280,20 315,20 315,40 350,40 350,20 385,20 385,40 420,40 420,20 455,20 455,40 490,40 490,20 525,20 525,40 560,40 560,20 595,20 595,40 630,40 630,20 665,20 665,40"
+                fill="none" stroke="#1a4fa0" stroke-width="2"/>
+      <!-- VALID: case1 both high early -->
+      <polyline points="70,90 105,90 105,70 175,70 175,90 210,90" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <polyline points="105,140 105,120 175,120 175,140" fill="none" stroke="#c62828" stroke-width="2"/>
+      <circle cx="140" cy="20" r="5" fill="#0e7d6e"/><text x="140" y="200" text-anchor="middle" font-size="9" fill="#0e7d6e">A: both high → xfer</text>
+      <!-- case2 VALID waits while READY low (stall by source? show VALID early, READY late) -->
+      <polyline points="245,90 245,70 385,70 385,90" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <polyline points="315,140 315,120 385,120 385,140" fill="none" stroke="#c62828" stroke-width="2"/>
+      <circle cx="350" cy="20" r="5" fill="#0e7d6e"/><text x="350" y="200" text-anchor="middle" font-size="9" fill="#5c5c66">B: VALID waits for READY (back-pressure)</text>
+      <!-- case3 READY early, VALID late -->
+      <polyline points="455,140 455,120 595,120 595,140" fill="none" stroke="#c62828" stroke-width="2"/>
+      <polyline points="525,90 525,70 595,70 595,90" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <circle cx="560" cy="20" r="5" fill="#0e7d6e"/><text x="560" y="200" text-anchor="middle" font-size="9" fill="#5c5c66">C: READY waits for VALID</text>
+      <text x="690" y="90" font-size="10" fill="#0e7d6e">VALID</text>
+      <text x="690" y="140" font-size="10" fill="#c62828">READY</text>
+    </svg>
+    <figcaption>Transfer (●) occurs only where VALID and READY overlap on a clock edge. The source holds VALID and stable data through any wait.</figcaption>
+  </figure>
+
+  <h3>Back-pressure</h3>
+  <p>When a destination can't keep up, it holds <code>READY</code> low — this is <strong>back-pressure</strong>.
+  The source must wait, holding VALID and its payload steady. Back-pressure is normal and legal; it's how a
+  slow subordinate throttles a fast manager. Good verification deliberately injects random READY-low gaps on
+  <em>every</em> channel to stress these waits.</p>
+  <h3>Timing diagram — accepted vs stalled</h3>
+  <p>This is the single most important AXI waveform to internalise — a stalled transfer where the destination applies back-pressure:</p>
+
+  <figure>
+    <svg viewBox="0 0 562 254" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:562px;font-family:'JetBrains Mono',monospace;">
+<defs><marker id="wa" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker><marker id="we" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c62828"/></marker></defs>
+<line x1="100" y1="16" x2="100" y2="206" stroke="#e2e0db" stroke-width="1"/>
+<line x1="154" y1="16" x2="154" y2="206" stroke="#e2e0db" stroke-width="1"/>
+<line x1="208" y1="16" x2="208" y2="206" stroke="#e2e0db" stroke-width="1"/>
+<line x1="262" y1="16" x2="262" y2="206" stroke="#e2e0db" stroke-width="1"/>
+<line x1="316" y1="16" x2="316" y2="206" stroke="#e2e0db" stroke-width="1"/>
+<line x1="370" y1="16" x2="370" y2="206" stroke="#e2e0db" stroke-width="1"/>
+<line x1="424" y1="16" x2="424" y2="206" stroke="#e2e0db" stroke-width="1"/>
+<line x1="478" y1="16" x2="478" y2="206" stroke="#e2e0db" stroke-width="1"/>
+<line x1="532" y1="16" x2="532" y2="206" stroke="#e2e0db" stroke-width="1"/>
+<text x="127" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T0</text>
+<text x="181" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T1</text>
+<text x="235" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T2</text>
+<text x="289" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T3</text>
+<text x="343" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T4</text>
+<text x="397" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T5</text>
+<text x="451" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T6</text>
+<text x="505" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T7</text>
+<text x="10" y="45" font-size="12" fill="#1a4fa0">ACLK</text>
+<polyline points="100,30 100,8 127.0,8 127.0,30 154,30 154,8 181.0,8 181.0,30 208,30 208,8 235.0,8 235.0,30 262,30 262,8 289.0,8 289.0,30 316,30 316,8 343.0,8 343.0,30 370,30 370,8 397.0,8 397.0,30 424,30 424,8 451.0,8 451.0,30 478,30 478,8 505.0,8 505.0,30 532,30" fill="none" stroke="#1a4fa0" stroke-width="2"/>
+<text x="10" y="91" font-size="12" fill="#1c1c1e">VALID</text>
+<polyline points="100,76 154,76 154,76 154,54 208,54 262,54 316,54 370,54 370,54 370,76 424,76 478,76 532,76" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="137" font-size="12" fill="#1c1c1e">READY</text>
+<polyline points="100,122 154,122 208,122 262,122 316,122 316,122 316,100 370,100 424,100 424,100 424,122 478,122 532,122" fill="none" stroke="#c62828" stroke-width="2"/>
+<text x="10" y="183" font-size="12" fill="#1c1c1e">PAYLOAD</text>
+<rect x="154" y="146" width="216" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="262" y="161" font-size="10" text-anchor="middle" fill="#1a4fa0">held stable (D0)</text>
+<line x1="370" y1="16" x2="370" y2="206" stroke="#0e7d6e" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="370" cy="16" r="4" fill="#0e7d6e"/>
+<text x="370" y="219" font-size="9" fill="#0e7d6e" text-anchor="middle">transfer (both high)</text>
+<text x="235.0" y="202" font-size="9.5" fill="#c62828" text-anchor="middle">back-pressure: READY low</text>
+<text x="316.0" y="244" font-size="9.5" fill="#5c5c66" text-anchor="middle">Source asserts VALID at T1 and HOLDS it + the payload until READY goes high at T4. Transfer at T5. Source must not withdraw VALID.</text>
+</svg>
+    <figcaption>Timing — back-pressure. VALID is asserted at T1 and HELD, with the payload stable, until READY rises at T4; the transfer completes at T5. The source may never withdraw VALID while waiting.</figcaption>
+  </figure>
+
+
+  <h3>Protecting the handshake with SVA</h3>
+  <pre><code class="language-sv"><span class="cmt">// Rule 1: once VALID is high, it stays high until READY is seen.</span>
+property valid_stable_until_ready;
+  @(<span class="kw">posedge</span> clk) <span class="kw">disable iff</span> (!rstn)
+    (AWVALID && !AWREADY) |=> AWVALID;   <span class="cmt">// still valid next cycle</span>
+endproperty
+a_valid_held: <span class="kw">assert property</span>(valid_stable_until_ready)
+  <span class="kw">else</span> $error(<span class="str">"AWVALID dropped before AWREADY"</span>);
+
+<span class="cmt">// Rule 2: payload must be stable while VALID held and not yet accepted.</span>
+property addr_stable;
+  @(<span class="kw">posedge</span> clk) <span class="kw">disable iff</span> (!rstn)
+    (AWVALID && !AWREADY) |=> $stable(AWADDR);
+endproperty
+a_addr_stable: <span class="kw">assert property</span>(addr_stable)
+  <span class="kw">else</span> $error(<span class="str">"AWADDR changed while waiting for AWREADY"</span>);</code></pre>
+  <p><strong>What these check:</strong> the first fires if a source illegally withdraws a VALID offer; the second
+  fires if it changes the address mid-offer. Both are protocol violations that a VIP's bundled assertions catch
+  automatically — but understanding them is what lets you read a VIP failure message and know what it means.</p>
+
+  <div class="callout warn">
+    <strong>The deadlock trap.</strong> If a manager's RTL is coded so AWVALID is only asserted once it sees
+    AWREADY, and the subordinate only asserts AWREADY once it sees AWVALID, neither ever moves — a dead bus.
+    This is why "VALID must not combinationally depend on READY" is a hard rule, and why a hang on the very
+    first transaction often points straight at it.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — is this waveform legal?</h4>
+    <p>On the AW channel you observe: cycle 1 AWVALID=1, AWREADY=0 (AWADDR=0x40). Cycle 2 AWVALID=1, AWREADY=0,
+    but AWADDR has changed to 0x80. Cycle 3 AWVALID=1, AWREADY=1 (AWADDR=0x80). Is this legal? If not, which
+    rule is broken?</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>The transfer only completes in cycle 3 (both high). Look at what the payload did between the moment VALID was first asserted and the moment the transfer completed.</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>Illegal.</strong> VALID was asserted in cycle 1 with AWADDR=0x40, but the transfer didn't
+      complete until cycle 3. The payload <em>changed</em> (0x40 → 0x80) while VALID was held and unaccepted —
+      violating the payload-stability rule (golden rule 2). The <code>addr_stable</code> assertion above would
+      fire in cycle 2. The legal behaviour is to hold AWADDR=0x40 stable until READY is seen.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="d">
+    <p class="quiz-question">Which dependency is forbidden, to avoid deadlock?</p>
+    <div class="quiz-options">
+      <button data-opt="a">READY depending on VALID</button>
+      <button data-opt="b">READY depending on the clock</button>
+      <button data-opt="c">Data depending on the address</button>
+      <button data-opt="d">VALID combinationally depending on READY</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">VALID must never wait (combinationally) for READY — if both sides wait for the other, the bus deadlocks. READY is allowed to depend on VALID; that direction is fine. This asymmetry is the heart of the handshake.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Randomise READY-low back-pressure on every channel, including B and R, in your VIP.</p><p class="practice-why"><em>Why: many bugs only appear when a channel stalls mid-burst. Always-ready testbenches give a false sense of safety and never exercise the wait paths.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Driving back-pressure only on the data channels, leaving address and response channels always-ready.</p><p class="practice-why"><em>Why it hurts: address-channel and B/R-channel stalls exercise different FIFO and ordering logic; leaving them always-ready hides a whole class of buffer-overflow and ordering bugs.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Bind handshake-stability assertions (VALID held, payload stable) to every channel via a reusable assertion module.</p><p class="practice-why"><em>Why: these are cycle-accurate protocol guards. A scoreboard catches functional mismatches far too late; assertions pinpoint the exact failing cycle and signal.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Leaving handshake assertions enabled during reset.</p><p class="practice-why"><em>Why it hurts: spurious reset-phase failures flood the log and desensitise the team. Always guard with <code>disable iff (!rstn)</code>.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 4 ===== -->
+<section class="module" id="m4">
+  <div class="mod-num">MODULE 4</div>
+  <h2 class="mod-title">Burst Mechanics — AxLEN, AxSIZE, AxBURST</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Compute the addresses of every beat in FIXED, INCR, and WRAP bursts.</li>
+      <li>Understand AxSIZE, the bus width, and narrow transfers.</li>
+      <li>Apply the AXI burst rules (no 4KB crossing, WRAP alignment).</li>
+      <li>Build a reference model that reconstructs burst addresses for the scoreboard.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a delivery run.</strong> A burst is one truck delivering to several houses on one trip
+    instead of returning to the depot between each. AxLEN is how many stops, AxSIZE is how big each parcel is,
+    and AxBURST is the route pattern: FIXED keeps hitting the same address (a pump filling one tank), INCR walks
+    down the street, WRAP loops around the block back to the start.
+  </div>
+
+  <h3>The three burst parameters</h3>
+  <table>
+    <tr><th>Parameter</th><th>Meaning</th><th>Encoding</th></tr>
+    <tr><td><code>AxLEN</code></td><td>Number of beats minus 1</td><td>AXI4: 0–255 (INCR), 0–15 (FIXED/WRAP). AXI3: 0–15 all types.</td></tr>
+    <tr><td><code>AxSIZE</code></td><td>Bytes transferred per beat</td><td>2^AxSIZE bytes: 0→1, 1→2, 2→4, 3→8, …, must be ≤ bus width</td></tr>
+    <tr><td><code>AxBURST</code></td><td>How the address evolves per beat</td><td>0b00=FIXED, 0b01=INCR, 0b10=WRAP, 0b11=reserved</td></tr>
+  </table>
+
+  <h3>FIXED — same address every beat</h3>
+  <p>Every beat uses the same address. Used for things like reading repeatedly from a FIFO data register or a
+  peripheral port where the "address" is a fixed hardware location.</p>
+  <pre><code class="language-sv"><span class="cmt">// FIXED: AWADDR=0x1000, AWLEN=3, AWSIZE=2 (4B)</span>
+beat 0 -> 0x1000
+beat 1 -> 0x1000
+beat 2 -> 0x1000
+beat 3 -> 0x1000   <span class="cmt">// WLAST=1</span></code></pre>
+
+  <h3>INCR — incrementing address</h3>
+  <p>Each beat's address advances by the number of bytes per beat (2^AxSIZE). This is the common case for
+  reading/writing a block of memory.</p>
+  <pre><code class="language-sv"><span class="cmt">// INCR: ARADDR=0x1000, ARLEN=3, ARSIZE=2 (4B)</span>
+beat 0 -> 0x1000
+beat 1 -> 0x1004
+beat 2 -> 0x1008
+beat 3 -> 0x100C   <span class="cmt">// RLAST=1</span></code></pre>
+
+  <h3>WRAP — incrementing then wrapping</h3>
+  <p>Like INCR, but the address wraps back to a lower aligned boundary after reaching the top of a "wrap
+  window." This exists to support <strong>critical-word-first cache-line fills</strong>: a CPU that misses on
+  the middle of a cache line can fetch that word first, then wrap around to collect the rest.</p>
+  <p>WRAP has strict rules: AxLEN must be 2, 4, 8, or 16 beats (so the burst is a power-of-two length), and the
+  start address must be aligned to the transfer size. The wrap boundary = (number of beats) × (bytes per beat).</p>
+  <pre><code class="language-sv"><span class="cmt">// WRAP: ARADDR=0x1008, ARLEN=3 (4 beats), ARSIZE=2 (4B)</span>
+<span class="cmt">// wrap window = 4 beats * 4 bytes = 16 bytes, aligned to 0x1000..0x100F</span>
+beat 0 -> 0x1008
+beat 1 -> 0x100C
+beat 2 -> 0x1000   <span class="cmt">// wrapped back to window start</span>
+beat 3 -> 0x1004   <span class="cmt">// RLAST=1</span></code></pre>
+
+  <figure>
+    <svg viewBox="0 0 700 240" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <text x="115" y="25" text-anchor="middle" font-size="13" fill="#1a4fa0" font-weight="600">FIXED</text>
+      <text x="350" y="25" text-anchor="middle" font-size="13" fill="#1a4fa0" font-weight="600">INCR</text>
+      <text x="585" y="25" text-anchor="middle" font-size="13" fill="#1a4fa0" font-weight="600">WRAP</text>
+      <!-- fixed -->
+      <g font-size="10" fill="#1c1c1e" text-anchor="middle">
+        <rect x="80" y="60" width="70" height="26" fill="#e8f0fe" stroke="#1a4fa0"/><text x="115" y="77">0x1000</text>
+        <rect x="80" y="95" width="70" height="26" fill="#e8f0fe" stroke="#1a4fa0"/><text x="115" y="112">0x1000</text>
+        <rect x="80" y="130" width="70" height="26" fill="#e8f0fe" stroke="#1a4fa0"/><text x="115" y="147">0x1000</text>
+        <rect x="80" y="165" width="70" height="26" fill="#e8f0fe" stroke="#1a4fa0"/><text x="115" y="182">0x1000</text>
+      </g>
+      <!-- incr -->
+      <g font-size="10" fill="#1c1c1e" text-anchor="middle">
+        <rect x="315" y="60" width="70" height="26" fill="#e8f4f1" stroke="#0e7d6e"/><text x="350" y="77">0x1000</text>
+        <rect x="315" y="95" width="70" height="26" fill="#e8f4f1" stroke="#0e7d6e"/><text x="350" y="112">0x1004</text>
+        <rect x="315" y="130" width="70" height="26" fill="#e8f4f1" stroke="#0e7d6e"/><text x="350" y="147">0x1008</text>
+        <rect x="315" y="165" width="70" height="26" fill="#e8f4f1" stroke="#0e7d6e"/><text x="350" y="182">0x100C</text>
+      </g>
+      <!-- wrap -->
+      <g font-size="10" fill="#1c1c1e" text-anchor="middle">
+        <rect x="550" y="60" width="70" height="26" fill="#fdf3e8" stroke="#a86a00"/><text x="585" y="77">0x1008</text>
+        <rect x="550" y="95" width="70" height="26" fill="#fdf3e8" stroke="#a86a00"/><text x="585" y="112">0x100C</text>
+        <rect x="550" y="130" width="70" height="26" fill="#fdf3e8" stroke="#a86a00"/><text x="585" y="147">0x1000</text>
+        <rect x="550" y="165" width="70" height="26" fill="#fdf3e8" stroke="#a86a00"/><text x="585" y="182">0x1004</text>
+      </g>
+      <path d="M625,108 Q660,108 660,143 Q660,143 627,143" fill="none" stroke="#c62828" stroke-width="1.5" marker-end="url(#wraparr)"/>
+      <text x="672" y="128" font-size="9" fill="#c62828">wrap</text>
+      <defs><marker id="wraparr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c62828"/></marker></defs>
+      <text x="350" y="222" text-anchor="middle" font-size="10" fill="#5c5c66">Each box is one beat's address (top → bottom). WRAP loops back to the window start.</text>
+    </svg>
+    <figcaption>The three burst address patterns for a 4-beat, 4-byte burst.</figcaption>
+  </figure>
+
+  <h3>Narrow transfers and unaligned starts</h3>
+  <p>If AxSIZE is smaller than the bus width, the transfer is <strong>narrow</strong> — only some byte lanes are
+  active each beat, and which lanes shift according to address. If the start address isn't aligned to AxSIZE, the
+  first beat is unaligned and WSTRB/byte-lane handling gets subtle. These are rich bug territory.</p>
+
+  <p>As a waveform, a narrow transfer looks like this — note the idle upper byte lanes:</p>
+
+  <figure>
+    <svg viewBox="0 0 562 346" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:562px;font-family:'JetBrains Mono',monospace;">
+<defs><marker id="wa" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker><marker id="we" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c62828"/></marker></defs>
+<line x1="100" y1="16" x2="100" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="154" y1="16" x2="154" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="208" y1="16" x2="208" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="262" y1="16" x2="262" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="316" y1="16" x2="316" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="370" y1="16" x2="370" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="424" y1="16" x2="424" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="478" y1="16" x2="478" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="532" y1="16" x2="532" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<text x="127" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T0</text>
+<text x="181" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T1</text>
+<text x="235" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T2</text>
+<text x="289" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T3</text>
+<text x="343" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T4</text>
+<text x="397" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T5</text>
+<text x="451" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T6</text>
+<text x="505" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T7</text>
+<text x="10" y="45" font-size="12" fill="#1a4fa0">ACLK</text>
+<polyline points="100,30 100,8 127.0,8 127.0,30 154,30 154,8 181.0,8 181.0,30 208,30 208,8 235.0,8 235.0,30 262,30 262,8 289.0,8 289.0,30 316,30 316,8 343.0,8 343.0,30 370,30 370,8 397.0,8 397.0,30 424,30 424,8 451.0,8 451.0,30 478,30 478,8 505.0,8 505.0,30 532,30" fill="none" stroke="#1a4fa0" stroke-width="2"/>
+<text x="10" y="91" font-size="12" fill="#1c1c1e">AWSIZE</text>
+<rect x="154" y="54" width="108" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="208" y="69" font-size="10" text-anchor="middle" fill="#1a4fa0">SIZE=1 (2B)</text>
+<text x="10" y="137" font-size="12" fill="#1c1c1e">WVALID</text>
+<polyline points="100,122 154,122 208,122 208,122 208,100 262,100 316,100 370,100 370,100 370,122 424,122 478,122 532,122" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="183" font-size="12" fill="#1c1c1e">WDATA[31:16]</text>
+<rect x="262" y="146" width="54" height="22" rx="2" fill="#fdecea" stroke="#c62828" stroke-width="1.5"/>
+<text x="289" y="161" font-size="10" text-anchor="middle" fill="#c62828">-- inactive --</text>
+<text x="10" y="229" font-size="12" fill="#1c1c1e">WDATA[15:0]</text>
+<rect x="208" y="192" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="235" y="207" font-size="10" text-anchor="middle" fill="#1a4fa0">@addr</text>
+<rect x="262" y="192" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="289" y="207" font-size="10" text-anchor="middle" fill="#1a4fa0">@addr+2</text>
+<rect x="316" y="192" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="343" y="207" font-size="10" text-anchor="middle" fill="#1a4fa0">@addr+4</text>
+<text x="10" y="275" font-size="12" fill="#1c1c1e">WSTRB</text>
+<rect x="208" y="238" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="235" y="253" font-size="10" text-anchor="middle" fill="#1a4fa0">0b0011</text>
+<rect x="262" y="238" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="289" y="253" font-size="10" text-anchor="middle" fill="#1a4fa0">0b0011</text>
+<rect x="316" y="238" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="343" y="253" font-size="10" text-anchor="middle" fill="#1a4fa0">0b0011</text>
+<text x="316.0" y="336" font-size="9.5" fill="#5c5c66" text-anchor="middle">Narrow transfer on a 32-bit bus: each beat moves only 2 bytes; upper lanes idle; WSTRB marks the active bytes; address advances by 2.</text>
+</svg>
+    <figcaption>Timing — narrow transfer. On a 32-bit bus with AWSIZE=1 (2 bytes), only the low byte lanes are active each beat; the upper lanes are idle and WSTRB marks the live bytes. The address steps by 2.</figcaption>
+  </figure>
+
+  <h3>The 4KB rule</h3>
+  <div class="callout warn">
+    <strong>A burst must not cross a 4KB address boundary.</strong> Why 4KB? It's the smallest common page size,
+    and it guarantees a single burst targets a single page — so it can't span two different subordinates or two
+    pages with different memory attributes. A manager that needs to cross a 4KB boundary must split into two
+    bursts. A VIP checker that flags 4KB crossings is mandatory; generating one is a protocol violation.
+  </div>
+
+  <h3>Reference-model address reconstruction</h3>
+  <pre><code class="language-sv"><span class="cmt">// Compute beat addresses for the scoreboard (simplified, aligned case)</span>
+<span class="kw">function</span> <span class="type">void</span> beat_addrs(<span class="type">bit</span>[<span class="num">31</span>:<span class="num">0</span>] start, <span class="type">int</span> len, <span class="type">int</span> size, burst_e btype);
+  <span class="type">int</span> bytes = <span class="num">1</span> &lt;&lt; size;                 <span class="cmt">// 2^AxSIZE</span>
+  <span class="type">int</span> nbeats = len + <span class="num">1</span>;
+  <span class="type">bit</span>[<span class="num">31</span>:<span class="num">0</span>] wrap_mask = (nbeats*bytes) - <span class="num">1</span>;
+  <span class="kw">for</span> (<span class="type">int</span> i=<span class="num">0</span>; i&lt;nbeats; i++) <span class="kw">begin</span>
+    <span class="kw">case</span> (btype)
+      FIXED: addr[i] = start;
+      INCR : addr[i] = start + i*bytes;
+      WRAP : addr[i] = (start &amp; ~wrap_mask) | ((start + i*bytes) &amp; wrap_mask);
+    <span class="kw">endcase</span>
+  <span class="kw">end</span>
+<span class="kw">endfunction</span></code></pre>
+  <p><strong>What this does:</strong> it reproduces, in the testbench, exactly which address each beat targets —
+  so the scoreboard can compare DUT data against the right memory location. Getting the WRAP masking wrong is one
+  of the most common scoreboard bugs in AXI verification.</p>
+  <h3>Timing diagram — a write burst</h3>
+  <p>Now a multi-beat burst. The address goes out once; the data beats follow, and only one response comes back:</p>
+
+  <figure>
+    <svg viewBox="0 0 616 392" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:616px;font-family:'JetBrains Mono',monospace;">
+<defs><marker id="wa" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker><marker id="we" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c62828"/></marker></defs>
+<line x1="100" y1="16" x2="100" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="154" y1="16" x2="154" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="208" y1="16" x2="208" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="262" y1="16" x2="262" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="316" y1="16" x2="316" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="370" y1="16" x2="370" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="424" y1="16" x2="424" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="478" y1="16" x2="478" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="532" y1="16" x2="532" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="586" y1="16" x2="586" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<text x="127" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T0</text>
+<text x="181" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T1</text>
+<text x="235" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T2</text>
+<text x="289" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T3</text>
+<text x="343" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T4</text>
+<text x="397" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T5</text>
+<text x="451" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T6</text>
+<text x="505" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T7</text>
+<text x="559" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T8</text>
+<text x="10" y="45" font-size="12" fill="#1a4fa0">ACLK</text>
+<polyline points="100,30 100,8 127.0,8 127.0,30 154,30 154,8 181.0,8 181.0,30 208,30 208,8 235.0,8 235.0,30 262,30 262,8 289.0,8 289.0,30 316,30 316,8 343.0,8 343.0,30 370,30 370,8 397.0,8 397.0,30 424,30 424,8 451.0,8 451.0,30 478,30 478,8 505.0,8 505.0,30 532,30 532,8 559.0,8 559.0,30 586,30" fill="none" stroke="#1a4fa0" stroke-width="2"/>
+<text x="10" y="91" font-size="12" fill="#1c1c1e">AWVALID</text>
+<polyline points="100,76 154,76 154,76 154,54 208,54 208,54 208,76 262,76 316,76 370,76 424,76 478,76 532,76 586,76" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="137" font-size="12" fill="#1c1c1e">AWREADY</text>
+<polyline points="100,122 154,122 154,122 154,100 208,100 208,100 208,122 262,122 316,122 370,122 424,122 478,122 532,122 586,122" fill="none" stroke="#c62828" stroke-width="2"/>
+<text x="10" y="183" font-size="12" fill="#1c1c1e">AWADDR/LEN</text>
+<rect x="154" y="146" width="108" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="208" y="161" font-size="10" text-anchor="middle" fill="#1a4fa0">0x1000 LEN=3</text>
+<text x="10" y="229" font-size="12" fill="#1c1c1e">WVALID</text>
+<polyline points="100,214 154,214 208,214 208,214 208,192 262,192 316,192 370,192 424,192 424,192 424,214 478,214 532,214 586,214" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="275" font-size="12" fill="#1c1c1e">WDATA</text>
+<rect x="208" y="238" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="235" y="253" font-size="10" text-anchor="middle" fill="#1a4fa0">D0@1000</text>
+<rect x="262" y="238" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="289" y="253" font-size="10" text-anchor="middle" fill="#1a4fa0">D1@1004</text>
+<rect x="316" y="238" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="343" y="253" font-size="10" text-anchor="middle" fill="#1a4fa0">D2@1008</text>
+<rect x="370" y="238" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="397" y="253" font-size="10" text-anchor="middle" fill="#1a4fa0">D3@100C</text>
+<text x="10" y="321" font-size="12" fill="#1c1c1e">WLAST / B</text>
+<polyline points="100,306 154,306 208,306 262,306 316,306 370,306 370,306 370,284 424,284 424,284 424,306 478,306 532,306 586,306" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="397.0" y="280" font-size="9.5" fill="#0e7d6e" text-anchor="middle">WLAST</text>
+<rect x="478" y="284" width="54" height="22" rx="2" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.5"/>
+<text x="505" y="299" font-size="10" text-anchor="middle" fill="#2e7d32">B:OKAY</text>
+<line x1="424" y1="16" x2="424" y2="344" stroke="#0e7d6e" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="424" cy="16" r="4" fill="#0e7d6e"/>
+<text x="424" y="357" font-size="9" fill="#0e7d6e" text-anchor="middle">last data beat</text>
+<line x1="532" y1="16" x2="532" y2="344" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="532" cy="16" r="4" fill="#2e7d32"/>
+<text x="532" y="357" font-size="9" fill="#2e7d32" text-anchor="middle">single B for whole burst</text>
+<text x="343.0" y="382" font-size="9.5" fill="#5c5c66" text-anchor="middle">INCR write burst: one AW, four W beats (addr +4 each), WLAST on beat 3, then ONE B response.</text>
+</svg>
+    <figcaption>Timing — INCR write burst (4 beats). One AW carries the start address and AWLEN=3. Four W beats stream with addresses +4 each; WLAST marks beat 3. A single B closes the whole burst.</figcaption>
+  <h3>Timing diagram — a WRAP read burst</h3>
+  <p>And a WRAP burst, the trickiest address pattern — watch the address jump backwards mid-burst when it hits the wrap boundary:</p>
+
+  <figure>
+    <svg viewBox="0 0 616 346" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:616px;font-family:'JetBrains Mono',monospace;">
+<defs><marker id="wa" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker><marker id="we" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c62828"/></marker></defs>
+<line x1="100" y1="16" x2="100" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="154" y1="16" x2="154" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="208" y1="16" x2="208" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="262" y1="16" x2="262" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="316" y1="16" x2="316" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="370" y1="16" x2="370" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="424" y1="16" x2="424" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="478" y1="16" x2="478" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="532" y1="16" x2="532" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="586" y1="16" x2="586" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<text x="127" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T0</text>
+<text x="181" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T1</text>
+<text x="235" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T2</text>
+<text x="289" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T3</text>
+<text x="343" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T4</text>
+<text x="397" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T5</text>
+<text x="451" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T6</text>
+<text x="505" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T7</text>
+<text x="559" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T8</text>
+<text x="10" y="45" font-size="12" fill="#1a4fa0">ACLK</text>
+<polyline points="100,30 100,8 127.0,8 127.0,30 154,30 154,8 181.0,8 181.0,30 208,30 208,8 235.0,8 235.0,30 262,30 262,8 289.0,8 289.0,30 316,30 316,8 343.0,8 343.0,30 370,30 370,8 397.0,8 397.0,30 424,30 424,8 451.0,8 451.0,30 478,30 478,8 505.0,8 505.0,30 532,30 532,8 559.0,8 559.0,30 586,30" fill="none" stroke="#1a4fa0" stroke-width="2"/>
+<text x="10" y="91" font-size="12" fill="#1c1c1e">ARVALID</text>
+<polyline points="100,76 154,76 154,76 154,54 208,54 208,54 208,76 262,76 316,76 370,76 424,76 478,76 532,76 586,76" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="137" font-size="12" fill="#1c1c1e">ARADDR/BURST</text>
+<rect x="154" y="100" width="108" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="208" y="115" font-size="10" text-anchor="middle" fill="#1a4fa0">0x1008 WRAP LEN=3</text>
+<text x="10" y="183" font-size="12" fill="#1c1c1e">RVALID</text>
+<polyline points="100,168 154,168 208,168 262,168 262,168 262,146 316,146 370,146 424,146 478,146 478,146 478,168 532,168 586,168" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="229" font-size="12" fill="#1c1c1e">RDATA</text>
+<rect x="262" y="192" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="289" y="207" font-size="10" text-anchor="middle" fill="#1a4fa0">@1008</text>
+<rect x="316" y="192" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="343" y="207" font-size="10" text-anchor="middle" fill="#1a4fa0">@100C</text>
+<rect x="370" y="192" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="397" y="207" font-size="10" text-anchor="middle" fill="#1a4fa0">@1000</text>
+<rect x="424" y="192" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="451" y="207" font-size="10" text-anchor="middle" fill="#1a4fa0">@1004</text>
+<text x="10" y="275" font-size="12" fill="#1c1c1e">RLAST</text>
+<polyline points="100,260 154,260 208,260 262,260 316,260 370,260 424,260 424,260 424,238 478,238 478,238 478,260 532,260 586,260" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<line x1="370" y1="16" x2="370" y2="298" stroke="#c62828" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="370" cy="16" r="4" fill="#c62828"/>
+<text x="370" y="311" font-size="9" fill="#c62828" text-anchor="middle">wrap → back to 0x1000</text>
+<line x1="478" y1="16" x2="478" y2="298" stroke="#0e7d6e" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="478" cy="16" r="4" fill="#0e7d6e"/>
+<text x="478" y="311" font-size="9" fill="#0e7d6e" text-anchor="middle">RLAST on final beat</text>
+<text x="343.0" y="336" font-size="9.5" fill="#5c5c66" text-anchor="middle">WRAP read burst: addresses 1008,100C wrap to 1000,1004 within the 16-byte window. RRESP rides every beat.</text>
+</svg>
+    <figcaption>Timing — WRAP read burst. Addresses 0x1008, 0x100C then wrap to 0x1000, 0x1004 inside the 16-byte window. Every R beat carries its own RRESP; RLAST marks the fourth beat.</figcaption>
+  </figure>
+
+  </figure>
+
+
+  <div class="activity">
+    <h4>Activity — does this burst cross 4KB?</h4>
+    <p>A manager issues: <code>AWADDR=0x0FF0, AWLEN=7 (8 beats), AWSIZE=3 (8 bytes), AWBURST=INCR</code>. Does it
+    violate the 4KB rule? Show your work.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Compute the last byte touched: start + (nbeats × bytes_per_beat) − 1. Then check whether start and last-byte fall in the same 4KB-aligned block (i.e. whether bits [31:12] match).</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p>Bytes/beat = 2³ = 8. Beats = 8. Total bytes = 64 = 0x40.</p>
+      <p>Start = 0x0FF0. Last byte = 0x0FF0 + 0x40 − 1 = 0x102F.</p>
+      <p>Start's 4KB block: 0x0FF0 → bits[31:12] = 0x0 (block 0x0000–0x0FFF). Last byte 0x102F → block
+      0x1000–0x1FFF. <strong>They differ → the burst crosses the 4KB boundary at 0x1000. This is illegal.</strong>
+      The manager must split it into two bursts at the 0x1000 boundary. A good VIP fires a 4KB-crossing assertion
+      here immediately.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="b">
+    <p class="quiz-question">For a WRAP burst, AxLEN+1 (the number of beats) must be:</p>
+    <div class="quiz-options">
+      <button data-opt="a">Any value from 1 to 256</button>
+      <button data-opt="b">A power of two: 2, 4, 8, or 16</button>
+      <button data-opt="c">An odd number</button>
+      <button data-opt="d">Exactly 16</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">WRAP bursts must be 2, 4, 8, or 16 beats and start-aligned to the transfer size, because the wrap boundary is computed as beats × bytes-per-beat and must be a clean power-of-two window (this is what makes critical-word-first cache fills work).</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Constrain stimulus so bursts are protocol-legal (no 4KB crossing, WRAP power-of-two and aligned), then separately test that the DUT rejects/handles illegal ones if it must.</p><p class="practice-why"><em>Why: unconstrained random generates illegal bursts that produce false failures, drowning the real bugs.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Computing WRAP addresses as if they were INCR.</p><p class="practice-why"><em>Why it hurts: the scoreboard checks the wrong memory locations after the wrap point, reporting mismatches that look like DUT bugs but are testbench bugs.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Add functional coverage on (AxSIZE × AxBURST × narrow vs full-width × aligned vs unaligned).</p><p class="practice-why"><em>Why: bugs cluster at the intersection of narrow transfers and unaligned starts; per-field coverage alone won't tell you that combination was hit.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Only ever testing full-width, aligned INCR bursts.</p><p class="practice-why"><em>Why it hurts: real traffic includes narrow, unaligned, FIXED, and WRAP. Byte-lane and strobe-steering logic is exercised only by the cases you skipped.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 5 ===== -->
+<section class="module" id="m5">
+  <div class="mod-num">MODULE 5</div>
+  <h2 class="mod-title">IDs, Ordering &amp; Out-of-Order Transactions</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Explain what AxID is and how it enables out-of-order completion.</li>
+      <li>State the AXI ordering rules: same-ID vs different-ID.</li>
+      <li>Understand outstanding transactions and transaction interleaving.</li>
+      <li>Design a scoreboard that handles out-of-order, multi-ID traffic.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a coffee shop order number.</strong> You order, get a number, and step aside. Drinks come
+    out as they're ready — not necessarily in order. A simple latte beats a complicated one ordered earlier. The
+    number (the ID) is how you know which drink is yours. But two orders with the <em>same</em> number must come
+    out in order, or you couldn't tell them apart.
+  </div>
+
+  <h3>What AxID does</h3>
+  <p>Every transaction carries an ID (<code>AWID</code>/<code>ARID</code>). The response carries the matching ID
+  (<code>BID</code>/<code>RID</code>). The ID is a <em>tag</em> that lets the manager match responses to requests
+  even when they come back out of order — and it's the basis of AXI's ordering model.</p>
+
+  <h3>The ordering rules</h3>
+  <div class="keybox">
+    <strong>Same ID → ordered.</strong> Transactions with the <em>same</em> AxID to the same direction must
+    complete in the order they were issued. The manager relies on this.<br><br>
+    <strong>Different ID → no ordering guarantee.</strong> Transactions with <em>different</em> IDs may complete
+    in any order relative to each other. This is what lets a fast subordinate response overtake a slow one.
+  </div>
+
+  <p>Concretely: if a manager issues read A (ID=5), read B (ID=5), read C (ID=9), then:</p>
+  <ul>
+    <li>A's data must arrive before B's data (same ID 5 → ordered).</li>
+    <li>C (ID 9) may arrive before, between, or after A and B — no constraint.</li>
+  </ul>
+
+  <figure>
+    <svg viewBox="0 0 700 220" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <text x="120" y="25" text-anchor="middle" font-size="12" fill="#1a4fa0" font-weight="600">Requests issued (AR)</text>
+      <text x="540" y="25" text-anchor="middle" font-size="12" fill="#0e7d6e" font-weight="600">Responses (R) — legal order</text>
+      <!-- requests -->
+      <g font-size="11" text-anchor="middle">
+        <rect x="60" y="45" width="120" height="30" rx="4" fill="#e8f0fe" stroke="#1a4fa0"/><text x="120" y="65">A: ID=5 (slow)</text>
+        <rect x="60" y="85" width="120" height="30" rx="4" fill="#e8f0fe" stroke="#1a4fa0"/><text x="120" y="105">B: ID=5</text>
+        <rect x="60" y="125" width="120" height="30" rx="4" fill="#e8f0fe" stroke="#1a4fa0"/><text x="120" y="145">C: ID=9 (fast)</text>
+      </g>
+      <line x1="190" y1="100" x2="420" y2="100" stroke="#5c5c66" stroke-width="1.5" marker-end="url(#oarr)"/>
+      <defs><marker id="oarr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker></defs>
+      <!-- responses -->
+      <g font-size="11" text-anchor="middle">
+        <rect x="440" y="45" width="120" height="30" rx="4" fill="#e8f4f1" stroke="#0e7d6e"/><text x="500" y="65">C: ID=9 first ✓</text>
+        <rect x="440" y="85" width="120" height="30" rx="4" fill="#e8f4f1" stroke="#0e7d6e"/><text x="500" y="105">A: ID=5</text>
+        <rect x="440" y="125" width="120" height="30" rx="4" fill="#e8f4f1" stroke="#0e7d6e"/><text x="500" y="145">B: ID=5</text>
+      </g>
+      <text x="350" y="185" text-anchor="middle" font-size="10" fill="#5c5c66">C overtakes (different ID). But A must still precede B (same ID 5).</text>
+      <text x="350" y="200" text-anchor="middle" font-size="10" fill="#c62828">B before A would be a protocol violation.</text>
+    </svg>
+    <figcaption>Out-of-order completion: different IDs may reorder freely; same IDs must stay in order.</figcaption>
+  </figure>
+
+  <h3>Outstanding transactions</h3>
+  <p>A manager may issue many transactions before earlier ones complete — these are <strong>outstanding</strong>.
+  The number it can have in flight is its outstanding capability (often per-ID and total limits). More
+  outstanding transactions hide latency better but need deeper buffers. Verification must push to (and past) the
+  declared limits to find buffer-overflow and ID-tracking bugs.</p>
+
+  <h3>Interleaving</h3>
+  <p>In AXI3, <em>write data</em> from different IDs could be interleaved on the W channel (controlled by
+  <code>WID</code>). <strong>AXI4 removed write data interleaving and the WID signal</strong> — write data for a
+  burst must now arrive contiguously. <em>Read</em> data from different IDs may still interleave beat-by-beat on
+  the R channel (the RID on each beat tells you which transaction it belongs to). This is a frequent source of
+  version confusion.</p>
+
+  <h3>Designing the scoreboard</h3>
+  <pre><code class="language-sv"><span class="cmt">// Per-ID queues are the key data structure for an OOO scoreboard.</span>
+<span class="cmt">// Each ID has its own expected-order FIFO; across IDs, order is free.</span>
+<span class="type">mailbox</span> #(axi_txn) expected_q [<span class="type">int</span>];   <span class="cmt">// indexed by ID</span>
+
+<span class="kw">function</span> <span class="type">void</span> on_request(axi_txn t);
+  <span class="kw">if</span> (!expected_q.exists(t.id))
+    expected_q[t.id] = <span class="kw">new</span>();
+  expected_q[t.id].put(t);              <span class="cmt">// enqueue in issue order, per ID</span>
+<span class="kw">endfunction</span>
+
+<span class="kw">function</span> <span class="type">void</span> on_response(axi_txn r);
+  axi_txn exp;
+  <span class="cmt">// For this ID, the response MUST match the head of that ID's queue.</span>
+  expected_q[r.id].get(exp);            <span class="cmt">// same-ID ordering enforced here</span>
+  <span class="kw">if</span> (r.data !== exp.data)
+    `uvm_error("SB", $sformatf("ID %0d data mismatch", r.id))
+<span class="kw">endfunction</span></code></pre>
+  <p><strong>The core insight:</strong> one queue per ID. Within a queue, order is strict (head must match next
+  response). Across queues, any interleaving of arrivals is legal. A single global FIFO scoreboard is the classic
+  wrong design — it will report false mismatches the moment different-ID responses legally reorder.</p>
+
+  <h3>Timing diagram — out-of-order responses</h3>
+  <p>This waveform shows the ordering rule in action: a different-ID response overtaking, while same-ID order is preserved:</p>
+
+  <figure>
+    <svg viewBox="0 0 670 346" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:670px;font-family:'JetBrains Mono',monospace;">
+<defs><marker id="wa" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker><marker id="we" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c62828"/></marker></defs>
+<line x1="100" y1="16" x2="100" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="154" y1="16" x2="154" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="208" y1="16" x2="208" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="262" y1="16" x2="262" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="316" y1="16" x2="316" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="370" y1="16" x2="370" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="424" y1="16" x2="424" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="478" y1="16" x2="478" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="532" y1="16" x2="532" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="586" y1="16" x2="586" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="640" y1="16" x2="640" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<text x="127" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T0</text>
+<text x="181" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T1</text>
+<text x="235" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T2</text>
+<text x="289" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T3</text>
+<text x="343" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T4</text>
+<text x="397" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T5</text>
+<text x="451" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T6</text>
+<text x="505" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T7</text>
+<text x="559" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T8</text>
+<text x="613" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T9</text>
+<text x="10" y="45" font-size="12" fill="#1a4fa0">ACLK</text>
+<polyline points="100,30 100,8 127.0,8 127.0,30 154,30 154,8 181.0,8 181.0,30 208,30 208,8 235.0,8 235.0,30 262,30 262,8 289.0,8 289.0,30 316,30 316,8 343.0,8 343.0,30 370,30 370,8 397.0,8 397.0,30 424,30 424,8 451.0,8 451.0,30 478,30 478,8 505.0,8 505.0,30 532,30 532,8 559.0,8 559.0,30 586,30 586,8 613.0,8 613.0,30 640,30" fill="none" stroke="#1a4fa0" stroke-width="2"/>
+<text x="10" y="91" font-size="12" fill="#1c1c1e">ARVALID</text>
+<polyline points="100,76 154,76 154,76 154,54 208,54 262,54 316,54 316,54 316,76 370,76 424,76 478,76 532,76 586,76 640,76" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="137" font-size="12" fill="#1c1c1e">ARID</text>
+<rect x="154" y="100" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="181" y="115" font-size="10" text-anchor="middle" fill="#1a4fa0">ID=5 (A)</text>
+<rect x="208" y="100" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="235" y="115" font-size="10" text-anchor="middle" fill="#1a4fa0">ID=5 (B)</text>
+<rect x="262" y="100" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="289" y="115" font-size="10" text-anchor="middle" fill="#1a4fa0">ID=9 (C)</text>
+<text x="10" y="183" font-size="12" fill="#1c1c1e">RVALID</text>
+<polyline points="100,168 154,168 208,168 262,168 316,168 370,168 370,168 370,146 424,146 478,146 532,146 586,146 586,146 586,168 640,168" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="229" font-size="12" fill="#1c1c1e">RID</text>
+<rect x="370" y="192" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="397" y="207" font-size="10" text-anchor="middle" fill="#6a1b9a">ID=9 (C)</text>
+<rect x="424" y="192" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="451" y="207" font-size="10" text-anchor="middle" fill="#1a4fa0">ID=5 (A)</text>
+<rect x="478" y="192" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="505" y="207" font-size="10" text-anchor="middle" fill="#1a4fa0">ID=5 (B)</text>
+<text x="10" y="275" font-size="12" fill="#1c1c1e">RLAST</text>
+<polyline points="100,260 154,260 208,260 262,260 316,260 370,260 370,260 370,238 424,238 478,238 532,238 586,238 586,238 586,260 640,260" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<line x1="424" y1="16" x2="424" y2="298" stroke="#6a1b9a" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="424" cy="16" r="4" fill="#6a1b9a"/>
+<text x="424" y="311" font-size="9" fill="#6a1b9a" text-anchor="middle">C first (diff ID)</text>
+<text x="478" y="248" font-size="9.5" fill="#0e7d6e" text-anchor="middle">A before B preserved (same ID=5)</text>
+<text x="370.0" y="336" font-size="9.5" fill="#5c5c66" text-anchor="middle">Three reads issued A,B,C. C (ID=9) overtakes; A then B (both ID=5) keep issue order. RID tells the manager which response is which.</text>
+</svg>
+    <figcaption>Timing — out-of-order completion. Reads A, B (ID=5) and C (ID=9) are issued in order. C overtakes because its ID differs; A still precedes B because they share ID=5. RID identifies each response.</figcaption>
+  </figure>
+
+  <div class="activity">
+    <h4>Activity — spot the illegal reordering</h4>
+    <p>A manager issues reads in this order: R1(ID=2), R2(ID=2), R3(ID=7), R4(ID=2). Responses arrive in this
+    order: R3, R1, R4, R2. Is any rule violated?</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Ignore ID=7 (only one, no ordering constraint with others). Now look only at the ID=2 transactions in issue order vs arrival order: R1, R2, R4 issued; in what order did they arrive?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p>ID=2 transactions were issued in order R1, R2, R4. They <em>arrived</em> in order R1, R4, R2. That means
+      R4 returned before R2 — but R2 was issued before R4 and they share ID=2. <strong>Violation:</strong>
+      same-ID transactions must complete in issue order. R3 (ID=7) overtaking is fine. The bug: R4 before R2.</p>
+      <p>A per-ID-queue scoreboard catches this automatically — when R4 arrives, the head of ID=2's queue is R2,
+      so the data won't match and the check fires at exactly the right moment.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="a">
+    <p class="quiz-question">Two AXI read transactions have different ARIDs. What does the protocol guarantee about their completion order?</p>
+    <div class="quiz-options">
+      <button data-opt="a">Nothing — they may complete in any order</button>
+      <button data-opt="b">They must complete in issue order</button>
+      <button data-opt="c">The higher ID always completes first</button>
+      <button data-opt="d">They must complete simultaneously</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Different IDs carry no ordering guarantee — that freedom is exactly what enables out-of-order completion and latency hiding. Only same-ID transactions must stay in order.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Use per-ID expected queues in the scoreboard; enforce order only within an ID.</p><p class="practice-why"><em>Why: it matches the protocol's actual ordering model. A single global FIFO produces false mismatches on legal reordering.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Assuming responses always come back in request order.</p><p class="practice-why"><em>Why it hurts: the testbench breaks the instant the DUT legitimately reorders different-ID traffic — and you'll waste days "debugging" a non-bug.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Cover ID reuse, max-outstanding-per-ID, and read interleaving explicitly.</p><p class="practice-why"><em>Why: ID-tracking and reorder buffers are where the subtle bugs live; these states won't be hit by accident.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Carrying AXI3 write-interleaving assumptions into an AXI4 environment.</p><p class="practice-why"><em>Why it hurts: AXI4 forbids write-data interleaving and dropped WID; an AXI3-era checker either misses real bugs or flags legal AXI4 traffic.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 6 ===== -->
+<section class="module" id="m6">
+  <div class="mod-num">MODULE 6</div>
+  <h2 class="mod-title">Responses &amp; Error Handling</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Interpret all four response codes: OKAY, EXOKAY, SLVERR, DECERR.</li>
+      <li>Understand where each response is reported (B vs per-beat R).</li>
+      <li>Know how errors must be handled — and why a burst still completes.</li>
+      <li>Build error-injection and response checks into verification.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — delivery outcomes.</strong> OKAY is "delivered." EXOKAY is "delivered, and your special
+    reserved-slot request succeeded." SLVERR is "the recipient existed but rejected the package." DECERR is "no
+    such address — undeliverable." In every case you still get a notification — the truck doesn't just vanish.
+  </div>
+
+  <h3>The four response codes (xRESP)</h3>
+  <table>
+    <tr><th>Code</th><th>Encoding</th><th>Meaning</th></tr>
+    <tr><td><span class="tag">OKAY</span></td><td>0b00</td><td>Normal successful access.</td></tr>
+    <tr><td><span class="tag">EXOKAY</span></td><td>0b01</td><td>Exclusive access succeeded (the exclusive read/write pair completed atomically). Only meaningful for exclusive accesses.</td></tr>
+    <tr><td><span class="tag">SLVERR</span></td><td>0b10</td><td>The subordinate was reached but reported an error (e.g. write to a read-only register, unsupported size).</td></tr>
+    <tr><td><span class="tag">DECERR</span></td><td>0b11</td><td>Decode error — no subordinate at this address. Generated by the interconnect's decoder.</td></tr>
+  </table>
+
+  <h3>Where responses appear</h3>
+  <ul>
+    <li><strong>Writes:</strong> one <code>BRESP</code> on the B channel for the whole burst.</li>
+    <li><strong>Reads:</strong> <code>RRESP</code> on <em>every</em> R beat. Different beats of the same burst can
+    even carry different responses (e.g. some beats OKAY, a later beat SLVERR).</li>
+  </ul>
+
+  <div class="callout warn">
+    <strong>SLVERR vs DECERR — who generates them?</strong> DECERR comes from the <em>interconnect</em> (the
+    address decoded to nothing). SLVERR comes from the <em>subordinate itself</em> (it was reached but couldn't
+    complete the request). Getting this attribution right matters when you debug: a DECERR points at the memory
+    map or routing; a SLVERR points at the target's internal logic.
+  </div>
+
+  <h3>Errors don't abort the burst</h3>
+  <p>A crucial and often-missed rule: an error response does <strong>not</strong> cancel the rest of the burst.
+  If beat 2 of a 4-beat read returns SLVERR, the subordinate must <em>still</em> drive beats 3 and 4 (typically
+  also with an error or with junk data) and assert RLAST on beat 4. The transaction completes its full beat
+  count. A subordinate that stops early — dropping RLAST — hangs the manager waiting for beats that never come.</p>
+
+  <figure>
+    <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg" style="font-family:'JetBrains Mono',monospace;">
+      <text x="10" y="35" font-size="12" fill="#1c1c1e">RVALID</text>
+      <text x="10" y="80" font-size="12" fill="#1c1c1e">RRESP</text>
+      <text x="10" y="125" font-size="12" fill="#1c1c1e">RLAST</text>
+      <!-- 4 beats -->
+      <polyline points="90,40 90,20 670,20 670,40" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <g font-size="10" text-anchor="middle">
+        <rect x="90" y="65" width="140" height="26" fill="#e8f5e9" stroke="#2e7d32"/><text x="160" y="82">OKAY</text>
+        <rect x="235" y="65" width="140" height="26" fill="#e8f5e9" stroke="#2e7d32"/><text x="305" y="82">OKAY</text>
+        <rect x="380" y="65" width="140" height="26" fill="#fdecea" stroke="#c62828"/><text x="450" y="82">SLVERR</text>
+        <rect x="525" y="65" width="140" height="26" fill="#fdecea" stroke="#c62828"/><text x="595" y="82">SLVERR</text>
+      </g>
+      <polyline points="525,130 525,110 665,110 665,130" fill="none" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="595" y="150" text-anchor="middle" font-size="9" fill="#1a4fa0">RLAST on beat 4 — burst still completes</text>
+      <text x="350" y="180" text-anchor="middle" font-size="10" fill="#5c5c66">An error mid-burst does NOT abort it. All beats are driven; RLAST closes the burst.</text>
+    </svg>
+    <figcaption>A read burst where an error appears mid-stream. The subordinate still drives all 4 beats and asserts RLAST.</figcaption>
+  </figure>
+
+  <h3>Error injection in verification</h3>
+  <pre><code class="language-sv"><span class="cmt">// Subordinate VIP: randomly inject error responses to exercise manager recovery</span>
+<span class="kw">constraint</span> err_dist_c {
+  resp dist {
+    OKAY   := <span class="num">90</span>,    <span class="cmt">// mostly clean</span>
+    SLVERR := <span class="num">7</span>,
+    DECERR := <span class="num">2</span>,
+    EXOKAY := <span class="num">1</span>     <span class="cmt">// only when exclusive</span>
+  };
+}
+<span class="cmt">// Checker: every request must get exactly one matching response, ever.</span>
+<span class="cmt">// No response = hang (caught by timeout). Extra response = protocol error.</span></code></pre>
+  <p><strong>Why inject errors:</strong> most RTL is well-tested on the happy path and buggy on error recovery.
+  Does the manager correctly propagate a SLVERR up to software? Does it free the transaction's buffer slot? Does
+  a DECERR on one ID corrupt tracking of others? Error injection is where these escape-prone paths get exercised.</p>
+
+  <div class="callout">
+    <strong>Timeouts are your friend.</strong> The most dangerous error behaviour is <em>no</em> response — a
+    dropped transaction that hangs the manager forever. Always run a per-transaction timeout in the scoreboard
+    and treat expiry as a failure. A silent hang with no timeout just wastes CI hours with no diagnostic.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — classify the responses</h4>
+    <p>For each scenario, name the expected response code: (1) A write to a valid RAM address succeeds. (2) A
+    read targets address 0xDEAD_0000, which is in a memory-map hole. (3) A write targets a valid peripheral, but
+    the register is read-only. (4) An exclusive store completes with its reservation still intact.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Ask two questions per case: was a subordinate even reached (if not → DECERR)? If reached, did it succeed (OKAY/EXOKAY) or reject (SLVERR)? EXOKAY is only for successful exclusive accesses.</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <ul>
+        <li><strong>(1)</strong> OKAY — normal success.</li>
+        <li><strong>(2)</strong> DECERR — no subordinate at that address; generated by the interconnect decoder.</li>
+        <li><strong>(3)</strong> SLVERR — the subordinate was reached but rejected the write (read-only register).</li>
+        <li><strong>(4)</strong> EXOKAY — the exclusive access succeeded with the reservation honoured.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="c">
+    <p class="quiz-question">Beat 2 of a 4-beat read burst returns DECERR. What must the subordinate do?</p>
+    <div class="quiz-options">
+      <button data-opt="a">Stop immediately and drop the remaining beats</button>
+      <button data-opt="b">Restart the burst from beat 0</button>
+      <button data-opt="c">Continue driving beats 3 and 4 and assert RLAST on beat 4</button>
+      <button data-opt="d">Assert RLAST early on beat 2</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">An error never aborts a burst. All declared beats must be driven and RLAST asserted only on the true final beat. Dropping beats or asserting RLAST early hangs or confuses the manager — itself a serious protocol bug.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Inject SLVERR/DECERR with a weighted distribution and verify the manager recovers and reports correctly.</p><p class="practice-why"><em>Why: error-recovery paths are the least-tested RTL and the most common silicon escapes.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Only testing OKAY responses.</p><p class="practice-why"><em>Why it hurts: the entire error-handling datapath ships unverified — and that's exactly where field failures originate.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Run a per-transaction timeout and treat a missing response as a failure.</p><p class="practice-why"><em>Why: a dropped transaction hangs silently; without a timeout it just burns simulation time with no signal of what broke.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Treating a mid-burst error as a reason to stop checking the rest of the burst.</p><p class="practice-why"><em>Why it hurts: the protocol requires the burst to complete; your checker must still verify beat count and RLAST placement even on error.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 7 ===== -->
+<section class="module" id="m7">
+  <div class="mod-num">MODULE 7</div>
+  <h2 class="mod-title">AXI5 Features</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Understand the AXI5 atomic transactions and how they replace the exclusive-only model.</li>
+      <li>Explain QoS, regions, and user signals and their verification angles.</li>
+      <li>Describe the modern sideband features: cache-stashing, MTE, poison, wake-up, NSAID.</li>
+      <li>Know what each feature means for stimulus, checking, and coverage.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — upgrading a highway.</strong> AXI4 was a great highway. AXI5 adds toll-free express lanes
+    (QoS), pre-stocking shops near where you're headed (cache stashing), tamper-evident seals on cargo (poison
+    &amp; MTE), and a way to wake a closed depot just before you arrive (wake-up signaling). The road is the same;
+    the features make it smarter and safer.
+  </div>
+
+  <h3>Atomic transactions (AtomicOps)</h3>
+  <p>Earlier AXI offered only <strong>exclusive access</strong>: a read-then-write pair, where the write succeeds
+  (EXOKAY) only if nothing else touched the location in between. It works but needs a round trip and an exclusive
+  monitor. AXI5 adds true <strong>atomic transactions</strong> that perform a read-modify-write <em>at the
+  endpoint</em> in one transaction:</p>
+  <table>
+    <tr><th>Atomic op</th><th>What it does</th></tr>
+    <tr><td><code>AtomicStore</code></td><td>Apply an operation (add, AND, OR, XOR, max, min…) to the target location with the supplied data. No data returned.</td></tr>
+    <tr><td><code>AtomicLoad</code></td><td>Same as AtomicStore but returns the original value before the operation.</td></tr>
+    <tr><td><code>AtomicSwap</code></td><td>Unconditionally swap the target with the supplied value, returning the old value.</td></tr>
+    <tr><td><code>AtomicCompare</code></td><td>Compare-and-swap: write only if the current value matches an expected value; returns the original.</td></tr>
+  </table>
+  <p>These map directly onto the atomic instructions CPUs need for locks and lock-free data structures. Signaling
+  uses <code>AWATOP</code> on the write-address channel, with the operation encoded and the result (for the
+  load-style ops) returned on the read data channel.</p>
+  <p>An atomic looks like a write that also returns data — the endpoint does the read-modify-write in one indivisible step:</p>
+
+  <figure>
+    <svg viewBox="0 0 616 346" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:616px;font-family:'JetBrains Mono',monospace;">
+<defs><marker id="wa" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker><marker id="we" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c62828"/></marker></defs>
+<line x1="100" y1="16" x2="100" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="154" y1="16" x2="154" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="208" y1="16" x2="208" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="262" y1="16" x2="262" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="316" y1="16" x2="316" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="370" y1="16" x2="370" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="424" y1="16" x2="424" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="478" y1="16" x2="478" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="532" y1="16" x2="532" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<line x1="586" y1="16" x2="586" y2="298" stroke="#e2e0db" stroke-width="1"/>
+<text x="127" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T0</text>
+<text x="181" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T1</text>
+<text x="235" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T2</text>
+<text x="289" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T3</text>
+<text x="343" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T4</text>
+<text x="397" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T5</text>
+<text x="451" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T6</text>
+<text x="505" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T7</text>
+<text x="559" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T8</text>
+<text x="10" y="45" font-size="12" fill="#1a4fa0">ACLK</text>
+<polyline points="100,30 100,8 127.0,8 127.0,30 154,30 154,8 181.0,8 181.0,30 208,30 208,8 235.0,8 235.0,30 262,30 262,8 289.0,8 289.0,30 316,30 316,8 343.0,8 343.0,30 370,30 370,8 397.0,8 397.0,30 424,30 424,8 451.0,8 451.0,30 478,30 478,8 505.0,8 505.0,30 532,30 532,8 559.0,8 559.0,30 586,30" fill="none" stroke="#1a4fa0" stroke-width="2"/>
+<text x="10" y="91" font-size="12" fill="#1c1c1e">AWVALID</text>
+<polyline points="100,76 154,76 154,76 154,54 208,54 208,54 208,76 262,76 316,76 370,76 424,76 478,76 532,76 586,76" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="137" font-size="12" fill="#1c1c1e">AWATOP</text>
+<rect x="154" y="100" width="108" height="22" rx="2" fill="#f3e8f4" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="208" y="115" font-size="10" text-anchor="middle" fill="#6a1b9a">AtomicLoad ADD</text>
+<text x="10" y="183" font-size="12" fill="#1c1c1e">WDATA</text>
+<rect x="208" y="146" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="235" y="161" font-size="10" text-anchor="middle" fill="#1a4fa0">+1 (operand)</text>
+<text x="10" y="229" font-size="12" fill="#1c1c1e">RVALID</text>
+<polyline points="100,214 154,214 208,214 262,214 316,214 370,214 424,214 424,214 424,192 478,192 478,192 478,214 532,214 586,214" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="275" font-size="12" fill="#1c1c1e">RDATA/RRESP</text>
+<rect x="424" y="238" width="54" height="22" rx="2" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.5"/>
+<text x="451" y="253" font-size="10" text-anchor="middle" fill="#2e7d32">old value / OKAY</text>
+<line x1="208" y1="16" x2="208" y2="298" stroke="#6a1b9a" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="208" cy="16" r="4" fill="#6a1b9a"/>
+<text x="208" y="311" font-size="9" fill="#6a1b9a" text-anchor="middle">atomic issued</text>
+<line x1="478" y1="16" x2="478" y2="298" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="478" cy="16" r="4" fill="#2e7d32"/>
+<text x="478" y="311" font-size="9" fill="#2e7d32" text-anchor="middle">original value returned</text>
+<text x="343.0" y="336" font-size="9.5" fill="#5c5c66" text-anchor="middle">AXI5 AtomicLoad(ADD): the add happens at the endpoint; the ORIGINAL value is returned on the read data channel. Indivisible.</text>
+</svg>
+    <figcaption>Timing — AXI5 AtomicLoad(ADD). The operation and operand are issued on the write channels (AWATOP); the endpoint performs the add and returns the ORIGINAL value on the read data channel. One indivisible op.</figcaption>
+  </figure>
+
+
+  <div class="callout warn">
+    <strong>Verification angle for atomics:</strong> atomicity is the whole point, so your checks must prove the
+    read-modify-write is indivisible — no other transaction may interleave at that location during the op. Build
+    a reference model of each AtomicOp, and stress concurrent access to the <em>same</em> address from multiple
+    managers. Endianness and the byte-lane behaviour of the operation are rich corner cases.
+  </div>
+
+  <h3>QoS — Quality of Service</h3>
+  <p><code>AxQOS</code> is a 4-bit priority hint. Higher values request higher priority through the interconnect.
+  It is a <em>hint</em>, not a guarantee — the protocol does not mandate a specific arbitration outcome. For
+  verification this means you can't assert "higher QoS always wins"; instead you cover that the field is
+  transported intact and you measure arbitration behaviour against the interconnect's documented policy.</p>
+
+  <h3>Regions</h3>
+  <p><code>AxREGION</code> lets a single subordinate present several logical regions (e.g. control vs data
+  apertures) without re-decoding the address. The interconnect sets it based on the address map. Check that the
+  region value matches what the memory map says for each address.</p>
+
+  <h3>User signals</h3>
+  <p><code>AWUSER/WUSER/BUSER/ARUSER/RUSER</code> are user-defined sideband with no protocol-defined meaning.
+  They are commonly used for parity, custom IDs, or routing hints. Because they're project-specific, your VIP must
+  be configured with the local definition; a generic checker can only verify they're transported, not interpreted.</p>
+
+  <h3>Cache stashing</h3>
+  <p>Cache stashing lets an initiator <em>push</em> data into another agent's cache before that agent needs it —
+  for example, a network controller stashing an incoming packet straight into the CPU's L2 so the first access
+  hits instead of missing. It needs coherency support (ties into ACE/CHI). Verification must confirm the stash
+  lands in the right cache and that coherency state stays correct.</p>
+
+  <h3>MTE — Memory Tagging Extension</h3>
+  <p>MTE attaches small <em>tags</em> to memory regions and pointers; a mismatch signals a memory-safety
+  violation (use-after-free, buffer overflow). AXI5 carries the tag traffic. For verification, model the tag
+  store and check tag-check transactions return the right match/mismatch outcome.</p>
+
+  <h3>Poison</h3>
+  <p>A <strong>poison</strong> bit marks data as known-corrupt (e.g. from an uncorrectable ECC error) without
+  immediately faulting. The poison propagates with the data; consuming poisoned data triggers an error at the
+  point of use. Verify that poison is carried end-to-end and that it neither appears spuriously on clean data nor
+  gets lost on corrupt data.</p>
+
+  <h3>Wake-up signaling (low power)</h3>
+  <p><code>AWAKEUP</code> lets an interface signal activity is coming so a powered-down or clock-gated component
+  can wake before transactions arrive — saving power without adding latency on the critical path. Verify wake/sleep
+  handshakes don't drop or delay transactions and don't deadlock at the power-state boundaries.</p>
+
+  <h3>NSAID / TrustZone</h3>
+  <p><code>AxPROT[1]</code> already distinguishes secure vs non-secure. AXI5 adds finer-grained
+  <strong>NSAID</strong> (Non-Secure Access IDentity) for Realm/secure-world partitioning. Verification must prove
+  isolation: a non-secure access must never reach a secure-only region, and the access-identity must be carried
+  faithfully — a security property, so it's checked as an assertion, not just covered.</p>
+
+  <div class="activity">
+    <h4>Activity — choose the mechanism</h4>
+    <p>A CPU needs to atomically increment a shared counter at 0x9000 that several cores hammer concurrently.
+    Should it use AXI exclusive access or an AXI5 AtomicStore(add)? Give one verification scenario that would
+    stress whichever you choose.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Exclusive access needs a read, a local modify, then a conditional write — and it can fail and retry under contention. An AtomicStore performs the add at the endpoint in one transaction. Which scales better under heavy contention, and what concurrency must your test create?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>AtomicStore(add)</strong> is the better fit: the increment happens atomically at the endpoint in a
+      single transaction, with no read-modify-write round trip and no retry storm under heavy contention.</p>
+      <p><strong>Stress scenario:</strong> have N managers each issue many AtomicStore(add, +1) to 0x9000
+      concurrently, with randomized back-pressure and interleaving. The reference model predicts the final value =
+      initial + total number of adds. Any lost update (final value too low) proves the atomicity guarantee is
+      broken — the single most important property to verify for atomics.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="b">
+    <p class="quiz-question">What is the key advantage of an AXI5 AtomicStore over the older exclusive-access mechanism?</p>
+    <div class="quiz-options">
+      <button data-opt="a">It uses fewer wires on the bus</button>
+      <button data-opt="b">The read-modify-write happens atomically at the endpoint in one transaction, with no retry round-trip</button>
+      <button data-opt="c">It does not require an address</button>
+      <button data-opt="d">It is only available on read channels</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Exclusive access is a read, then a conditional write that can fail and retry under contention. An AtomicStore performs the operation at the target in a single indivisible transaction — simpler and far more scalable when many agents contend for the same location.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>For each AXI5 feature the DUT claims to support, build a reference model and a concurrency stress test — especially for atomics and coherent stashing.</p><p class="practice-why"><em>Why: these features are about behaviour under contention; a single-threaded directed test proves almost nothing about atomicity or coherency.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Treating QoS as a hard guarantee and asserting "higher QoS always wins."</p><p class="practice-why"><em>Why it hurts: QoS is a hint; the protocol mandates no specific outcome. That assertion will fire on perfectly legal arbitration and waste debug time.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Verify security properties (NSAID, secure/non-secure) with assertions, not just coverage.</p><p class="practice-why"><em>Why: isolation is a must-never-happen property; coverage tells you a case was hit, an assertion proves the illegal case never occurs.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Letting poison or MTE tags be silently dropped by the testbench model.</p><p class="practice-why"><em>Why it hurts: if your model discards them, you can't tell whether the DUT propagates them correctly — the safety feature ships unverified.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 8 ===== -->
+<section class="module" id="m8">
+  <div class="mod-num">MODULE 8</div>
+  <h2 class="mod-title">ACE &amp; Cache Coherency</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Explain why cache coherency is needed and what problem it solves.</li>
+      <li>Describe how ACE extends AXI with snoop channels.</li>
+      <li>Understand cache-line states (MOESI-style) at an introductory level.</li>
+      <li>See how ACE bridges toward CHI (the next course).</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — shared document, local copies.</strong> Several people each photocopy a shared document and
+    edit their copy. If person A changes a line, everyone else's copy is now stale. Coherency is the rule-set that
+    keeps all the copies consistent: when A edits, others are told to discard or update their copy. The caches are
+    the photocopies; snoops are the "your copy is stale" messages.
+  </div>
+
+  <h3>The coherency problem</h3>
+  <p>Each CPU core has its own cache — a fast private copy of recently used memory. When two cores cache the same
+  address and one writes it, the other's cached copy becomes <strong>stale</strong>. Without coordination, the
+  second core reads an old value and the program breaks. <strong>Cache coherency</strong> hardware guarantees that
+  all cores see a single, consistent view of memory despite their private caches.</p>
+
+  <h3>ACE = AXI Coherency Extensions</h3>
+  <p><strong>ACE</strong> extends AXI with the signaling needed for coherency. It keeps the five AXI channels and
+  adds extra fields on the address channels (to declare coherent intent) plus <strong>three snoop channels</strong>
+  that let the interconnect interrogate a cache:</p>
+  <table>
+    <tr><th>Snoop channel</th><th>Direction</th><th>Purpose</th></tr>
+    <tr><td><span class="tag">AC</span> (snoop address)</td><td>Interconnect → cached manager</td><td>"Do you have address X? Here's what I need you to do with it."</td></tr>
+    <tr><td><span class="tag">CR</span> (snoop response)</td><td>Cached manager → interconnect</td><td>"Here's my cache's state for X" (do I have it, is it dirty…).</td></tr>
+    <tr><td><span class="tag">CD</span> (snoop data)</td><td>Cached manager → interconnect</td><td>If I have dirty data, here it is — to supply to the requester or memory.</td></tr>
+  </table>
+  <h3>Timing diagram — a snoop transaction</h3>
+  <p>The three snoop channels in motion: the interconnect asks (AC), the cache answers (CR) and hands over dirty data (CD):</p>
+
+  <figure>
+    <svg viewBox="0 0 670 392" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:670px;font-family:'JetBrains Mono',monospace;">
+<defs><marker id="wa" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker><marker id="we" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c62828"/></marker></defs>
+<line x1="100" y1="16" x2="100" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="154" y1="16" x2="154" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="208" y1="16" x2="208" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="262" y1="16" x2="262" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="316" y1="16" x2="316" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="370" y1="16" x2="370" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="424" y1="16" x2="424" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="478" y1="16" x2="478" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="532" y1="16" x2="532" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="586" y1="16" x2="586" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<line x1="640" y1="16" x2="640" y2="344" stroke="#e2e0db" stroke-width="1"/>
+<text x="127" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T0</text>
+<text x="181" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T1</text>
+<text x="235" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T2</text>
+<text x="289" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T3</text>
+<text x="343" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T4</text>
+<text x="397" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T5</text>
+<text x="451" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T6</text>
+<text x="505" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T7</text>
+<text x="559" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T8</text>
+<text x="613" y="12" font-size="9" fill="#5c5c66" text-anchor="middle">T9</text>
+<text x="10" y="45" font-size="12" fill="#1a4fa0">ACLK</text>
+<polyline points="100,30 100,8 127.0,8 127.0,30 154,30 154,8 181.0,8 181.0,30 208,30 208,8 235.0,8 235.0,30 262,30 262,8 289.0,8 289.0,30 316,30 316,8 343.0,8 343.0,30 370,30 370,8 397.0,8 397.0,30 424,30 424,8 451.0,8 451.0,30 478,30 478,8 505.0,8 505.0,30 532,30 532,8 559.0,8 559.0,30 586,30 586,8 613.0,8 613.0,30 640,30" fill="none" stroke="#1a4fa0" stroke-width="2"/>
+<text x="10" y="91" font-size="12" fill="#1c1c1e">ACVALID</text>
+<polyline points="100,76 154,76 154,76 154,54 208,54 208,54 208,76 262,76 316,76 370,76 424,76 478,76 532,76 586,76 640,76" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="137" font-size="12" fill="#1c1c1e">ACADDR/SNOOP</text>
+<rect x="154" y="100" width="108" height="22" rx="2" fill="#fdecea" stroke="#c62828" stroke-width="1.5"/>
+<text x="208" y="115" font-size="10" text-anchor="middle" fill="#c62828">0x40 ReadShared</text>
+<text x="10" y="183" font-size="12" fill="#1c1c1e">CRVALID</text>
+<polyline points="100,168 154,168 208,168 262,168 316,168 316,168 316,146 370,146 370,146 370,168 424,168 478,168 532,168 586,168 640,168" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="229" font-size="12" fill="#1c1c1e">CRRESP</text>
+<rect x="316" y="192" width="54" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="343" y="207" font-size="10" text-anchor="middle" fill="#1a4fa0">hasDirty=1</text>
+<text x="10" y="275" font-size="12" fill="#1c1c1e">CDVALID</text>
+<polyline points="100,260 154,260 208,260 262,260 316,260 370,260 370,260 370,238 424,238 478,238 478,238 478,260 532,260 586,260 640,260" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+<text x="10" y="321" font-size="12" fill="#1c1c1e">CDDATA</text>
+<rect x="370" y="284" width="108" height="22" rx="2" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+<text x="424" y="299" font-size="10" text-anchor="middle" fill="#1a4fa0">dirty line data</text>
+<line x1="208" y1="16" x2="208" y2="344" stroke="#c62828" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="208" cy="16" r="4" fill="#c62828"/>
+<text x="208" y="357" font-size="9" fill="#c62828" text-anchor="middle">AC snoop in</text>
+<line x1="370" y1="16" x2="370" y2="344" stroke="#0e7d6e" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="370" cy="16" r="4" fill="#0e7d6e"/>
+<text x="370" y="357" font-size="9" fill="#0e7d6e" text-anchor="middle">CR state</text>
+<line x1="478" y1="16" x2="478" y2="344" stroke="#0e7d6e" stroke-width="1.5" stroke-dasharray="3 2"/>
+<circle cx="478" cy="16" r="4" fill="#0e7d6e"/>
+<text x="478" y="357" font-size="9" fill="#0e7d6e" text-anchor="middle">CD dirty data out</text>
+<text x="370.0" y="382" font-size="9.5" fill="#5c5c66" text-anchor="middle">ACE snoop: interconnect drives AC (snoop addr+type); the cached manager answers on CR (its state) and supplies dirty data on CD.</text>
+</svg>
+    <figcaption>Timing — an ACE snoop. The interconnect drives AC (snoop address + type). The cached manager answers on CR with its line state, then supplies the dirty line on CD so the requester gets current data.</figcaption>
+  </figure>
+
+
+  <figure>
+    <svg viewBox="0 0 700 270" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <rect x="40" y="50" width="130" height="70" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="105" y="80" text-anchor="middle" font-size="13" fill="#1a4fa0" font-weight="600">Core A</text>
+      <text x="105" y="100" text-anchor="middle" font-size="10" fill="#5c5c66">cache (dirty X)</text>
+      <rect x="40" y="160" width="130" height="70" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="105" y="190" text-anchor="middle" font-size="13" fill="#1a4fa0" font-weight="600">Core B</text>
+      <text x="105" y="210" text-anchor="middle" font-size="10" fill="#5c5c66">wants X</text>
+      <rect x="300" y="95" width="140" height="90" rx="6" fill="#f3f0fa" stroke="#6a1b9a" stroke-width="2"/>
+      <text x="370" y="130" text-anchor="middle" font-size="13" fill="#6a1b9a" font-weight="600">Coherent</text>
+      <text x="370" y="148" text-anchor="middle" font-size="13" fill="#6a1b9a" font-weight="600">Interconnect</text>
+      <rect x="560" y="110" width="110" height="60" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="615" y="145" text-anchor="middle" font-size="12" fill="#0e7d6e" font-weight="600">Memory</text>
+
+      <!-- B requests -->
+      <line x1="170" y1="195" x2="300" y2="160" stroke="#1a4fa0" stroke-width="2" marker-end="url(#ar8)"/>
+      <text x="225" y="190" font-size="9" fill="#1a4fa0">1. read X</text>
+      <!-- snoop AC to A -->
+      <line x1="300" y1="120" x2="170" y2="95" stroke="#c62828" stroke-width="2" marker-end="url(#ar8r)"/>
+      <text x="225" y="100" font-size="9" fill="#c62828">2. AC snoop</text>
+      <!-- CR/CD from A -->
+      <line x1="170" y1="110" x2="300" y2="135" stroke="#0e7d6e" stroke-width="2" marker-end="url(#ar8g)"/>
+      <text x="225" y="135" font-size="9" fill="#0e7d6e">3. CR+CD (dirty data)</text>
+      <!-- supply to B -->
+      <line x1="300" y1="175" x2="170" y2="205" stroke="#6a1b9a" stroke-width="2" marker-end="url(#ar8p)"/>
+      <text x="240" y="225" font-size="9" fill="#6a1b9a">4. data → B</text>
+      <defs>
+        <marker id="ar8" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#1a4fa0"/></marker>
+        <marker id="ar8r" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c62828"/></marker>
+        <marker id="ar8g" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#0e7d6e"/></marker>
+        <marker id="ar8p" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#6a1b9a"/></marker>
+      </defs>
+    </svg>
+    <figcaption>A coherent read: B asks for X, the interconnect snoops A (which has dirty X), A supplies it, and B gets current data — not the stale value in memory.</figcaption>
+  </figure>
+
+  <h3>Cache-line states (MOESI)</h3>
+  <p>Coherency protocols track the state of each cache line. The common model is <strong>MOESI</strong>:</p>
+  <table>
+    <tr><th>State</th><th>Meaning</th></tr>
+    <tr><td><strong>M</strong>odified</td><td>This cache has the only copy and it's dirty (differs from memory). Must write back.</td></tr>
+    <tr><td><strong>O</strong>wned</td><td>Dirty and shared — this cache is responsible for it, but others may hold read copies.</td></tr>
+    <tr><td><strong>E</strong>xclusive</td><td>Only copy, clean (matches memory). Can be written without telling anyone (then becomes M).</td></tr>
+    <tr><td><strong>S</strong>hared</td><td>Possibly cached elsewhere too; clean read-only copy.</td></tr>
+    <tr><td><strong>I</strong>nvalid</td><td>Not present / stale. A read must fetch it.</td></tr>
+  </table>
+  <p>Snoops cause state transitions: a snoop for a write may force another cache from Shared to Invalid; a snoop
+  for a read may move Modified to Owned or Shared while supplying the dirty data. Verifying these transitions —
+  for every state, every snoop type, every race — is the heart of coherency verification.</p>
+
+  <div class="callout">
+    <strong>Bridge to CHI:</strong> ACE bolts coherency onto AXI's signal-based, channel-per-wire structure. That
+    works for a handful of coherent managers, but as core counts grow, the wiring and snoop broadcast cost
+    explode. <strong>CHI</strong> (Course 3) re-imagines the whole thing as a packet/flit-based protocol with a
+    home node that tracks ownership — far more scalable. ACE is the conceptual stepping-stone: same coherency
+    ideas, different (more scalable) delivery.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — predict the snoop</h4>
+    <p>Core A holds line X in Modified (dirty). Core B issues a read of X that requires a coherent, up-to-date
+    copy. Walk through what must happen so B gets correct data, and name the likely final states of X in A and B.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Memory is stale (A's copy is dirty), so B must not read memory directly. The interconnect has to involve A. After A supplies the data, can both A and B legally hold a clean shared copy? What happens to "who owns the dirty data"?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <ol>
+        <li>B's coherent read reaches the interconnect.</li>
+        <li>The interconnect sends an <strong>AC snoop</strong> to A for X.</li>
+        <li>A responds on <strong>CR</strong> (I have it, it's dirty) and supplies the data on <strong>CD</strong>.</li>
+        <li>The interconnect forwards that current data to B (and may update memory).</li>
+      </ol>
+      <p><strong>Final states (one legal outcome):</strong> if the dirty data is written back to memory, both end
+      in <strong>Shared</strong> (clean). If not written back, A moves to <strong>Owned</strong> (still
+      responsible for the dirty data) and B becomes <strong>Shared</strong>. The exact outcome depends on the
+      snoop type the interconnect issued — which is precisely the kind of detail a coherency scoreboard must model.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="a">
+    <p class="quiz-question">What do ACE's snoop channels (AC/CR/CD) let the interconnect do?</p>
+    <div class="quiz-options">
+      <button data-opt="a">Interrogate a manager's cache and retrieve dirty data so all cores see a consistent view</button>
+      <button data-opt="b">Increase the clock frequency of the bus</button>
+      <button data-opt="c">Replace the need for a memory controller</button>
+      <button data-opt="d">Encrypt cache contents</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Snoop channels let the interconnect ask a cache about a line (AC), hear its state (CR), and collect dirty data (CD) — the machinery that keeps every core's view of memory coherent. It's about consistency, not speed or encryption.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Model cache-line state in the scoreboard and check the state after every snoop, not just the data returned.</p><p class="practice-why"><em>Why: a read can return correct data while leaving the line in the wrong state — a latent bug that breaks the next access. Data-only checks miss it.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Reading memory directly in the scoreboard to predict expected data in a coherent system.</p><p class="practice-why"><em>Why it hurts: memory may be stale when another cache holds the dirty copy; the scoreboard must model cache ownership, not raw memory.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Stress concurrent access to the same line from multiple coherent managers with randomized snoop timing.</p><p class="practice-why"><em>Why: coherency bugs are races; they only appear when snoops, reads, and writes to one line overlap in time.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Verifying coherency only with one manager active at a time.</p><p class="practice-why"><em>Why it hurts: with no contention there's nothing to be coherent about — the entire snoop/ownership mechanism goes untested.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 9 ===== -->
+<section class="module" id="m9">
+  <div class="mod-num">MODULE 9</div>
+  <h2 class="mod-title">Verifying AXI — Putting It All Together</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Assemble a complete AXI verification environment: stimulus, checkers, coverage.</li>
+      <li>Architect an out-of-order scoreboard and a protocol-assertion layer.</li>
+      <li>Build a functional coverage model that reflects a real test plan.</li>
+      <li>Apply the "try to break it" mindset to AXI-specific corners and debug.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a customs checkpoint.</strong> Your verification environment is a customs operation. The
+    driver sends traffic (stimulus), monitors inspect every vehicle without interfering (passive checking),
+    assertions are the rules printed on the wall that instantly flag a violation, the scoreboard is the manifest
+    that proves what went in came out, and coverage is the logbook proving you actually inspected every category
+    of cargo — not just waved trucks through.
+  </div>
+
+  <h3>The complete environment</h3>
+  <figure>
+    <svg viewBox="0 0 700 320" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <rect x="20" y="20" width="660" height="280" rx="8" fill="none" stroke="#5c5c66" stroke-dasharray="4 3"/>
+      <text x="35" y="40" font-size="11" fill="#5c5c66">UVM environment</text>
+
+      <rect x="50" y="60" width="150" height="60" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="125" y="85" text-anchor="middle" font-size="12" fill="#1a4fa0" font-weight="600">Manager agent</text>
+      <text x="125" y="103" text-anchor="middle" font-size="9" fill="#5c5c66">driver + sequencer</text>
+
+      <rect x="280" y="130" width="150" height="70" rx="6" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+      <text x="355" y="160" text-anchor="middle" font-size="13" fill="#a86a00" font-weight="700">DUT (AXI)</text>
+      <text x="355" y="180" text-anchor="middle" font-size="9" fill="#5c5c66">interconnect / IP</text>
+
+      <rect x="500" y="60" width="150" height="60" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="575" y="85" text-anchor="middle" font-size="12" fill="#0e7d6e" font-weight="600">Subordinate agent</text>
+      <text x="575" y="103" text-anchor="middle" font-size="9" fill="#5c5c66">responder + errors</text>
+
+      <rect x="50" y="160" width="150" height="50" rx="6" fill="#fff" stroke="#1a4fa0"/>
+      <text x="125" y="190" text-anchor="middle" font-size="11" fill="#1a4fa0">Monitor (passive)</text>
+
+      <rect x="500" y="160" width="150" height="50" rx="6" fill="#fff" stroke="#0e7d6e"/>
+      <text x="575" y="190" text-anchor="middle" font-size="11" fill="#0e7d6e">Monitor (passive)</text>
+
+      <rect x="220" y="240" width="270" height="50" rx="6" fill="#f3f0fa" stroke="#6a1b9a" stroke-width="2"/>
+      <text x="355" y="262" text-anchor="middle" font-size="12" fill="#6a1b9a" font-weight="600">Scoreboard + Coverage</text>
+      <text x="355" y="280" text-anchor="middle" font-size="9" fill="#5c5c66">per-ID queues · functional cover groups</text>
+
+      <!-- assertions banner -->
+      <rect x="280" y="210" width="150" height="22" rx="4" fill="#fdecea" stroke="#c62828"/>
+      <text x="355" y="225" text-anchor="middle" font-size="10" fill="#c62828">bound protocol assertions (SVA)</text>
+
+      <!-- arrows -->
+      <line x1="200" y1="90" x2="280" y2="140" stroke="#1a4fa0" stroke-width="1.5" marker-end="url(#e9)"/>
+      <line x1="430" y1="140" x2="500" y2="90" stroke="#0e7d6e" stroke-width="1.5" marker-end="url(#e9g)"/>
+      <line x1="125" y1="185" x2="125" y2="160" stroke="#5c5c66" stroke-width="1"/>
+      <line x1="200" y1="185" x2="220" y2="255" stroke="#6a1b9a" stroke-width="1.2" marker-end="url(#e9p)"/>
+      <line x1="500" y1="185" x2="490" y2="255" stroke="#6a1b9a" stroke-width="1.2" marker-end="url(#e9p)"/>
+      <defs>
+        <marker id="e9" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#1a4fa0"/></marker>
+        <marker id="e9g" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#0e7d6e"/></marker>
+        <marker id="e9p" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#6a1b9a"/></marker>
+      </defs>
+    </svg>
+    <figcaption>A typical AXI UVM environment: agents drive and observe, bound SVA catches protocol violations cycle-accurately, the scoreboard checks data end-to-end, coverage proves completeness.</figcaption>
+  </figure>
+
+  <h3>The three pillars</h3>
+  <p><strong>1. Stimulus.</strong> Constrained-random sequences generate protocol-legal traffic: mixed
+  read/write, all burst types, narrow and unaligned transfers, many IDs, deep outstanding, random back-pressure on
+  every channel. Directed tests pin down specific corners (4KB-boundary-adjacent bursts, max-length bursts, atomic
+  contention). The constraints encode the legal space (Module 4's rules); the randomness explores it.</p>
+
+  <p><strong>2. Checking.</strong> Two complementary layers:</p>
+  <ul>
+    <li><strong>Protocol assertions (SVA)</strong> bound to the interface — handshake stability, payload
+    stability, no 4KB crossing, WRAP alignment, RLAST placement, exactly-one-B-per-write, response legality.
+    These fire at the exact failing cycle.</li>
+    <li><strong>Scoreboard</strong> — end-to-end data integrity with per-ID queues for out-of-order, a reference
+    memory model honouring WSTRB, and per-transaction timeouts.</li>
+  </ul>
+
+  <p><strong>3. Coverage.</strong> Functional coverage tied to the test plan proves you actually exercised the
+  space — not just that nothing failed.</p>
+
+  <pre><code class="language-sv"><span class="cmt">// A slice of an AXI functional coverage model</span>
+covergroup axi_cg @(posedge clk);
+  burst_type : coverpoint tr.burst { bins fixed={FIXED}; bins incr={INCR}; bins wrap={WRAP}; }
+  len_cp     : coverpoint tr.len   { bins one={0}; bins small={[1:15]}; bins large={[16:255]}; }
+  size_cp    : coverpoint tr.size  { bins all[] = {[0:7]}; }
+  resp_cp    : coverpoint tr.resp  { bins ok={OKAY}; bins exok={EXOKAY}; bins slv={SLVERR}; bins dec={DECERR}; }
+  <span class="cmt">// crosses: bugs live at the intersections</span>
+  size_x_burst : <span class="kw">cross</span> size_cp, burst_type;       <span class="cmt">// narrow WRAP? narrow FIXED?</span>
+  len_x_resp   : <span class="kw">cross</span> len_cp, resp_cp;            <span class="cmt">// error on a long burst?</span>
+endgroup</code></pre>
+  <p><strong>Why the crosses matter:</strong> covering each field alone tells you that FIXED happened and that
+  SLVERR happened — but not that a SLVERR ever occurred on a FIXED burst. Bugs cluster at exactly those
+  intersections, which is why a real coverage model is mostly crosses.</p>
+
+  <h3>Commercial VIP</h3>
+  <p>In practice you rarely hand-write all of this. Commercial AXI VIP (Synopsys VC VIP, Cadence UVM VIP, Siemens
+  questa VIP) ships a configurable manager/subordinate, hundreds of bundled protocol assertions, and a coverage
+  model. Your protocol knowledge — everything in Modules 1–8 — is what lets you <em>configure</em> it correctly
+  (right AXI version, widths, ID space, outstanding limits), interpret its failures, and know what its coverage
+  numbers actually mean. The VIP is a power tool; understanding the protocol is knowing how to hold it.</p>
+
+  <h3>The "try to break it" corners for AXI</h3>
+  <ul>
+    <li>Maximum outstanding transactions, then one more — does ID tracking overflow?</li>
+    <li>Back-pressure every channel simultaneously, mid-burst — does anything deadlock?</li>
+    <li>Different-ID responses returning fully reversed — does the scoreboard stay correct?</li>
+    <li>Reset asserted in the middle of an active burst — do in-flight transactions drain or get cleanly dropped?</li>
+    <li>Bursts ending exactly one byte before a 4KB boundary; WRAP at every legal length.</li>
+    <li>Concurrent atomics to the same address from many managers — any lost updates?</li>
+  </ul>
+
+  <h3>A debug walkthrough</h3>
+  <div class="callout">
+    <strong>Scenario:</strong> a regression fails with a scoreboard data mismatch on ID=3, but only when the test
+    seed produces heavy different-ID traffic. The handshake assertions are all silent.<br><br>
+    <strong>Diagnosis path:</strong> silent protocol assertions mean the bus behaviour is legal — so suspect the
+    <em>testbench</em> or an ordering assumption first. Heavy different-ID traffic + mismatch on one ID points at
+    out-of-order handling. Top hypotheses: (1) the scoreboard is using a single global FIFO instead of per-ID
+    queues and mis-pairing a legally-reordered response; (2) an off-by-one in per-beat address reconstruction for
+    a WRAP burst on that ID; (3) WSTRB not modelled, so a sub-word write looks like a mismatch. Reproduce with the
+    logged seed, dump the per-ID queue state at the mismatch cycle, and check whether the "mismatch" is actually a
+    legal reordering the scoreboard mishandled.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — design a coverage cross</h4>
+    <p>You're verifying an AXI interconnect and worry about error handling on unusual bursts. Propose one
+    functional coverage <em>cross</em> (two or three coverpoints) that would prove you've exercised the riskiest
+    error-on-burst combinations, and justify it.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Errors are reported differently for reads (per beat) vs writes (one B). The risky combos involve which beat of a multi-beat burst carries the error, and which burst type. Think about crossing burst type × response code × maybe beat position.</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p>A strong cross: <code>burst_type × resp_code × error_beat_position</code>, where
+      <code>error_beat_position</code> bins the location of the first error beat (first / middle / last / none).</p>
+      <p><strong>Justification:</strong> the dangerous corners are an error on the <em>last</em> beat (does RLAST
+      still assert correctly?), an error in the <em>middle</em> of a WRAP burst (does the burst still complete all
+      beats?), and a DECERR vs SLVERR on different burst types. Crossing these three coverpoints proves you didn't
+      just see "a SLVERR somewhere" but actually hit, say, "SLVERR on the middle beat of a WRAP read" — exactly the
+      combination where beat-count and RLAST bugs hide. Covering the fields independently would report 100% while
+      never having tested that specific, bug-prone intersection.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="c">
+    <p class="quiz-question">Your protocol (SVA) assertions are all silent, but the scoreboard reports a data mismatch. What's the most reasonable first hypothesis?</p>
+    <div class="quiz-options">
+      <button data-opt="a">The DUT clock has stopped</button>
+      <button data-opt="b">A handshake rule was violated</button>
+      <button data-opt="c">The bus behaviour is protocol-legal, so suspect a testbench/ordering assumption (e.g. scoreboard mishandling legal out-of-order)</button>
+      <button data-opt="d">The assertions must be disabled</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Silent protocol assertions mean the observed bus traffic obeys the protocol — so a data mismatch most likely comes from the checking side: a scoreboard that assumes in-order completion, mismodels WSTRB, or miscomputes WRAP beat addresses. Always suspect legal-but-unhandled behaviour before assuming a deep DUT bug.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Layer checking: bound SVA for protocol legality <em>and</em> a scoreboard for data integrity.</p><p class="practice-why"><em>Why: assertions catch protocol bugs cycle-accurately; the scoreboard catches functional/data bugs. Neither alone is sufficient.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Declaring "done" on code coverage alone.</p><p class="practice-why"><em>Why it hurts: code coverage shows what executed, not what was verified. Functional coverage tied to the test plan is what tells you the intended scenarios were actually hit.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Log the random seed on every run and treat any timeout as a failure.</p><p class="practice-why"><em>Why: an unreproducible failing seed is a verification escape; a silent hang with no timeout burns CI with no diagnostic.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Configuring commercial VIP for the wrong AXI version or ID width and trusting its green coverage.</p><p class="practice-why"><em>Why it hurts: a misconfigured VIP cheerfully reports passing while either generating illegal traffic or never exercising the features your DUT actually implements.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="alert('That completes the AXI deep-dive. Next course: CHI overview.');">Finish ✓</button></div>
+</section>
+
+</main>
+</div>
+
+<script>
+const modules = ['m1','m2','m3','m4','m5','m6','m7','m8','m9'];
+let visited = new Set();
+function showModule(id){
+  document.querySelectorAll('section.module').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.sidebar a').forEach(a=>a.classList.toggle('active', a.dataset.target===id));
+  visited.add(id); updateProgress();
+  window.scrollTo({top:0,behavior:'smooth'});
+  document.querySelector('.sidebar').classList.remove('open');
+}
+function currentIndex(){return modules.indexOf(document.querySelector('section.module.active').id);}
+function goNext(){const i=currentIndex();if(i<modules.length-1)showModule(modules[i+1]);}
+function goPrev(){const i=currentIndex();if(i>0)showModule(modules[i-1]);}
+function updateProgress(){
+  const pct=Math.round(visited.size/modules.length*100);
+  document.getElementById('pfill').style.width=pct+'%';
+  document.getElementById('plabel').textContent=pct+'%';
+  document.querySelectorAll('.sidebar a').forEach(a=>{
+    if(visited.has(a.dataset.target)&&!a.querySelector('.vbadge')){
+      const b=document.createElement('span');b.className='vbadge';b.textContent='✓';a.appendChild(b);
+    }
+  });
+}
+document.querySelectorAll('.sidebar a').forEach(a=>a.addEventListener('click',()=>showModule(a.dataset.target)));
+document.querySelectorAll('.quiz-block').forEach(block=>{
+  const correct=block.dataset.correct;const fb=block.querySelector('.quiz-feedback');
+  block.querySelectorAll('.quiz-options button').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const chosen=btn.dataset.opt;
+      block.querySelectorAll('.quiz-options button').forEach(b=>{b.disabled=true;if(b.dataset.opt===correct)b.classList.add('correct');});
+      if(chosen!==correct)btn.classList.add('wrong');
+      fb.hidden=false;
+      fb.querySelector('.feedback-text').textContent=(chosen===correct)?'✓ Correct':'✗ Not quite';
+    });
+  });
+});
+document.querySelectorAll('.activity').forEach(act=>{
+  const hintBtn=act.querySelector('.hint-btn');const hintBox=act.querySelector('.hint-box');
+  const solBtn=act.querySelector('.solution-btn');const solBox=act.querySelector('.solution-box');
+  if(hintBtn)hintBtn.addEventListener('click',()=>{hintBox.hidden=false;hintBtn.style.display='none';if(solBtn)solBtn.hidden=false;});
+  if(solBtn)solBtn.addEventListener('click',()=>{solBox.hidden=false;solBtn.style.display='none';});
+});
+updateProgress();
+</script>
+</body>
+</html>

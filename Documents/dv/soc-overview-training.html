@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoC Overview — A Verification Engineer's Introduction</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root{
+  --bg:#f9f8f6; --surface:#ffffff; --border:#e2e0db;
+  --primary:#1a4fa0; --accent:#0e7d6e; --code-bg:#f4f3ef;
+  --text-main:#1c1c1e; --text-muted:#5c5c66;
+  --good-bg:#e8f5e9; --good-border:#2e7d32;
+  --bad-bg:#fdecea; --bad-border:#c62828;
+  --hint-bg:#fff8e1; --quiz-right:#e8f5e9; --quiz-wrong:#fdecea;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text-main);font-family:'Source Serif 4',serif;line-height:1.6;font-size:16px;}
+
+/* top bar */
+.topbar{position:fixed;top:0;left:0;right:0;height:56px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;z-index:100;gap:16px;}
+.topbar h1{font-family:'IBM Plex Sans',sans-serif;font-size:16px;font-weight:600;color:var(--primary);flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hamburger{display:none;font-size:22px;background:none;border:none;cursor:pointer;color:var(--primary);}
+.progress-wrap{flex:1;max-width:340px;margin-left:auto;display:flex;align-items:center;gap:10px;}
+.progress-track{flex:1;height:8px;background:var(--code-bg);border-radius:4px;overflow:hidden;}
+.progress-fill{height:100%;width:0;background:var(--accent);transition:width .3s ease;}
+.progress-label{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);white-space:nowrap;}
+
+/* layout */
+.layout{display:flex;margin-top:56px;}
+.sidebar{position:fixed;top:56px;bottom:0;left:0;width:250px;background:var(--surface);border-right:1px solid var(--border);
+  overflow-y:auto;padding:16px 0;}
+.sidebar a{display:block;padding:9px 20px;font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;color:var(--text-muted);
+  text-decoration:none;border-left:3px solid transparent;cursor:pointer;transition:all .15s;}
+.sidebar a:hover{background:var(--code-bg);color:var(--text-main);}
+.sidebar a.active{color:var(--primary);border-left-color:var(--primary);background:#eef3fb;font-weight:600;}
+.sidebar a .vbadge{color:var(--good-border);font-weight:700;margin-left:6px;}
+.sidebar .grp{font-family:'IBM Plex Sans',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--text-muted);padding:14px 20px 6px;font-weight:600;}
+
+.content{margin-left:250px;flex:1;padding:36px 48px 120px;max-width:980px;}
+section.module{display:none;animation:fade .35s ease;}
+section.module.active{display:block;}
+@keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+h2.mod-title{font-family:'IBM Plex Sans',sans-serif;font-size:27px;font-weight:700;color:var(--primary);margin-bottom:6px;}
+.mod-num{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent);font-weight:500;}
+h3{font-family:'IBM Plex Sans',sans-serif;font-size:19px;font-weight:600;margin:28px 0 10px;color:var(--text-main);}
+h4{font-family:'IBM Plex Sans',sans-serif;font-size:15.5px;font-weight:600;margin:18px 0 8px;}
+p{margin:10px 0;}
+ul,ol{margin:10px 0 10px 26px;}
+li{margin:5px 0;}
+strong{font-weight:600;}
+a.inline{color:var(--primary);}
+
+.objectives{background:#eef3fb;border:1px solid #d3e0f2;border-radius:8px;padding:16px 20px;margin:18px 0;}
+.objectives h4{margin-top:0;color:var(--primary);}
+.objectives ul{margin-bottom:0;}
+
+.analogy{background:#f3f0fa;border-left:4px solid #6a1b9a;padding:14px 18px;margin:18px 0;border-radius:0 6px 6px 0;font-style:italic;}
+.analogy strong{color:#6a1b9a;font-style:normal;}
+
+.keybox{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin:18px 0;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+
+figure{margin:22px 0;text-align:center;}
+figure svg{max-width:100%;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;}
+figcaption{font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'IBM Plex Sans',sans-serif;}
+
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:14px 0;}
+code{font-family:'JetBrains Mono',monospace;font-size:13px;}
+p code,li code,td code{background:var(--code-bg);padding:1px 6px;border-radius:4px;font-size:13px;color:#6a1b9a;}
+.kw{color:#1a4fa0;font-weight:500;}.type{color:#6a1b9a;}.num{color:#0e7d6e;}
+.str{color:#c62828;}.cmt{color:#5c5c66;font-style:italic;}.dir{color:#f57f17;}
+
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px;}
+th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top;}
+th{background:#eef3fb;font-family:'IBM Plex Sans',sans-serif;font-weight:600;color:var(--primary);}
+tr:nth-child(even) td{background:#fbfaf8;}
+
+.activity{background:#fffdf7;border:1px solid #f0e6c8;border-radius:8px;padding:18px 20px;margin:22px 0;}
+.activity h4{margin-top:0;color:#a86a00;}
+.activity h4::before{content:"✎ ";}
+.hint-btn,.solution-btn{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:500;background:var(--surface);
+  border:1px solid var(--border);border-radius:6px;padding:7px 14px;cursor:pointer;margin:8px 8px 0 0;color:var(--primary);}
+.hint-btn:hover,.solution-btn:hover{background:var(--code-bg);}
+.hint-box{background:var(--hint-bg);border-left:4px solid #f5a623;padding:12px 16px;margin-top:12px;border-radius:0 6px 6px 0;}
+.solution-box{background:#eef7f4;border-left:4px solid var(--accent);padding:12px 16px;margin-top:12px;border-radius:0 6px 6px 0;}
+
+.quiz-block{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px 20px;margin:22px 0;}
+.quiz-question{font-weight:600;font-family:'IBM Plex Sans',sans-serif;margin-bottom:12px;}
+.quiz-question::before{content:"? ";color:var(--accent);font-weight:700;}
+.quiz-options{display:flex;flex-direction:column;gap:8px;}
+.quiz-options button{font-family:'Source Serif 4',serif;font-size:14.5px;text-align:left;background:var(--surface);
+  border:1px solid var(--border);border-radius:6px;padding:10px 14px;cursor:pointer;transition:all .15s;}
+.quiz-options button:hover:not(:disabled){border-color:var(--primary);background:#f5f8fd;}
+.quiz-options button:disabled{cursor:default;opacity:.92;}
+.quiz-options button.correct{background:var(--quiz-right);border-color:var(--good-border);font-weight:600;}
+.quiz-options button.wrong{background:var(--quiz-wrong);border-color:var(--bad-border);}
+.quiz-feedback{margin-top:14px;padding:12px 16px;border-radius:6px;background:var(--code-bg);}
+.feedback-text{font-weight:600;font-family:'IBM Plex Sans',sans-serif;}
+.feedback-explain{margin-top:6px;font-size:14px;}
+
+.practices-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0;}
+.practice-card{border-radius:8px;padding:16px 18px;}
+.practice-card.good{background:var(--good-bg);border:1px solid var(--good-border);}
+.practice-card.bad{background:var(--bad-bg);border:1px solid var(--bad-border);}
+.practice-card h4{margin-top:0;}
+.practice-card.good h4{color:var(--good-border);}
+.practice-card.bad h4{color:var(--bad-border);}
+.practice-why{margin-top:8px;font-size:13.5px;color:var(--text-muted);}
+.practices-section>h3::before{content:"⚖ ";}
+
+.navbtns{display:flex;justify-content:space-between;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);}
+.navbtns button{font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:500;background:var(--primary);color:#fff;
+  border:none;border-radius:6px;padding:10px 20px;cursor:pointer;transition:opacity .15s;}
+.navbtns button:hover{opacity:.88;}
+.navbtns button:disabled{background:var(--border);color:var(--text-muted);cursor:not-allowed;}
+
+.callout{border-left:4px solid var(--accent);background:#eef7f4;padding:12px 16px;margin:16px 0;border-radius:0 6px 6px 0;}
+.callout.warn{border-left-color:#f5a623;background:var(--hint-bg);}
+.tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;background:#eef3fb;color:var(--primary);
+  border:1px solid #d3e0f2;border-radius:4px;padding:1px 7px;margin:0 2px;}
+
+@media(max-width:880px){
+  .sidebar{transform:translateX(-100%);transition:transform .25s;z-index:90;}
+  .sidebar.open{transform:none;}
+  .content{margin-left:0;padding:24px 18px 100px;}
+  .hamburger{display:block;}
+  .practices-grid{grid-template-columns:1fr;}
+  .progress-wrap{max-width:160px;}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <h1>SoC Overview — A Verification Engineer's Introduction</h1>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="pfill"></div></div>
+    <span class="progress-label" id="plabel">0%</span>
+  </div>
+</div>
+
+<div class="layout">
+<nav class="sidebar" id="sidebar">
+  <div class="grp">Foundations</div>
+  <a data-target="m1" class="active">1 · What is an SoC?</a>
+  <a data-target="m2">2 · The Interconnect</a>
+  <a data-target="m3">3 · Memory Map & Decode</a>
+  <div class="grp">System View</div>
+  <a data-target="m4">4 · The AMBA Family</a>
+  <a data-target="m5">5 · Clocks, Reset, Power</a>
+  <div class="grp">Verification</div>
+  <a data-target="m6">6 · Verifying an SoC</a>
+</nav>
+
+<main class="content">
+
+<!-- ============ MODULE 1 ============ -->
+<section class="module active" id="m1">
+  <div class="mod-num">MODULE 1</div>
+  <h2 class="mod-title">What is an SoC?</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Describe what a System-on-Chip is and why the industry moved to it.</li>
+      <li>Identify the major building blocks of a typical SoC.</li>
+      <li>Understand the role each block plays and how they relate to each other.</li>
+      <li>See where a verification engineer's work fits into the picture.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a city.</strong> An SoC is like a small city built onto a single piece of silicon.
+    The CPUs are the workers, the memories are warehouses, the peripherals are the shops and ports that
+    connect to the outside world, and the interconnect is the road network that lets everyone move goods
+    around. A city with brilliant workers but no roads does nothing. The same is true of a chip.
+  </div>
+
+  <h3>From boards to chips</h3>
+  <p>Twenty-five years ago, a "system" meant a printed circuit board with separate chips: a processor here,
+  a memory chip there, a USB controller in the corner, all wired together with copper traces. It worked, but
+  it was big, slow, power-hungry, and expensive.</p>
+
+  <p>A <strong>System-on-Chip (SoC)</strong> takes all of those separate chips and integrates them onto a
+  <em>single</em> piece of silicon. Your phone's main chip contains CPUs, a GPU, memory controllers, camera
+  pipelines, modems, security blocks, and dozens of smaller controllers — all on one die a few millimetres
+  across.</p>
+
+  <p>The payoff is enormous: shorter wires mean faster communication and lower power; integration means lower
+  cost and smaller size. The cost is complexity. A modern SoC can contain tens of billions of transistors,
+  and verifying that they all work together is one of the hardest problems in engineering — which is why your
+  job exists.</p>
+
+  <h3>The major building blocks</h3>
+
+  <figure>
+    <svg viewBox="0 0 720 420" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <!-- interconnect spine -->
+      <rect x="60" y="190" width="600" height="40" rx="6" fill="#1a4fa0" opacity="0.9"/>
+      <text x="360" y="215" text-anchor="middle" font-size="15" fill="#fff" font-weight="600">Interconnect (AMBA: AXI / CHI)</text>
+
+      <!-- CPUs -->
+      <rect x="60" y="60" width="130" height="80" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="125" y="95" text-anchor="middle" font-size="14" fill="#1a4fa0" font-weight="600">CPU Cluster</text>
+      <text x="125" y="115" text-anchor="middle" font-size="11" fill="#5c5c66">cores + caches</text>
+      <line x1="125" y1="140" x2="125" y2="190" stroke="#5c5c66" stroke-width="2"/>
+
+      <!-- GPU -->
+      <rect x="220" y="60" width="120" height="80" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="280" y="95" text-anchor="middle" font-size="14" fill="#1a4fa0" font-weight="600">GPU / NPU</text>
+      <text x="280" y="115" text-anchor="middle" font-size="11" fill="#5c5c66">accelerators</text>
+      <line x1="280" y1="140" x2="280" y2="190" stroke="#5c5c66" stroke-width="2"/>
+
+      <!-- DMA -->
+      <rect x="370" y="60" width="120" height="80" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="430" y="95" text-anchor="middle" font-size="14" fill="#1a4fa0" font-weight="600">DMA</text>
+      <text x="430" y="115" text-anchor="middle" font-size="11" fill="#5c5c66">bulk movers</text>
+      <line x1="430" y1="140" x2="430" y2="190" stroke="#5c5c66" stroke-width="2"/>
+
+      <!-- Mem ctrl -->
+      <rect x="520" y="60" width="140" height="80" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="590" y="95" text-anchor="middle" font-size="14" fill="#0e7d6e" font-weight="600">Memory Ctrl</text>
+      <text x="590" y="115" text-anchor="middle" font-size="11" fill="#5c5c66">→ DRAM</text>
+      <line x1="590" y1="140" x2="590" y2="190" stroke="#5c5c66" stroke-width="2"/>
+
+      <!-- bottom row -->
+      <rect x="60" y="280" width="130" height="80" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="125" y="315" text-anchor="middle" font-size="14" fill="#0e7d6e" font-weight="600">On-chip SRAM</text>
+      <text x="125" y="335" text-anchor="middle" font-size="11" fill="#5c5c66">scratch / boot</text>
+      <line x1="125" y1="230" x2="125" y2="280" stroke="#5c5c66" stroke-width="2"/>
+
+      <rect x="220" y="280" width="120" height="80" rx="6" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+      <text x="280" y="315" text-anchor="middle" font-size="13" fill="#a86a00" font-weight="600">Peripherals</text>
+      <text x="280" y="335" text-anchor="middle" font-size="11" fill="#5c5c66">UART/SPI/I2C</text>
+      <line x1="280" y1="230" x2="280" y2="280" stroke="#5c5c66" stroke-width="2"/>
+
+      <rect x="370" y="280" width="120" height="80" rx="6" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+      <text x="430" y="315" text-anchor="middle" font-size="13" fill="#a86a00" font-weight="600">I/O</text>
+      <text x="430" y="335" text-anchor="middle" font-size="11" fill="#5c5c66">USB/PCIe/Eth</text>
+      <line x1="430" y1="230" x2="430" y2="280" stroke="#5c5c66" stroke-width="2"/>
+
+      <rect x="520" y="280" width="140" height="80" rx="6" fill="#f3e8f4" stroke="#6a1b9a" stroke-width="2"/>
+      <text x="590" y="315" text-anchor="middle" font-size="13" fill="#6a1b9a" font-weight="600">Security</text>
+      <text x="590" y="335" text-anchor="middle" font-size="11" fill="#5c5c66">crypto / root-of-trust</text>
+      <line x1="590" y1="230" x2="590" y2="280" stroke="#5c5c66" stroke-width="2"/>
+
+      <text x="360" y="395" text-anchor="middle" font-size="11" fill="#5c5c66">Blue = compute initiators · Teal = memory · Orange = I/O · Purple = security</text>
+    </svg>
+    <figcaption>A simplified SoC. Everything talks through the interconnect — nothing connects point-to-point.</figcaption>
+  </figure>
+
+  <table>
+    <tr><th>Block</th><th>What it does</th><th>Role on the bus</th></tr>
+    <tr><td><strong>CPU cluster</strong></td><td>Runs software — the operating system and applications. Contains cores and their caches.</td><td>Initiator (issues reads/writes)</td></tr>
+    <tr><td><strong>GPU / NPU</strong></td><td>Massively parallel compute for graphics or AI.</td><td>Initiator</td></tr>
+    <tr><td><strong>DMA engine</strong></td><td>Moves large blocks of data without bothering the CPU.</td><td>Initiator</td></tr>
+    <tr><td><strong>Memory controller</strong></td><td>Translates bus transactions into DRAM commands (DDR/LPDDR).</td><td>Target</td></tr>
+    <tr><td><strong>On-chip SRAM</strong></td><td>Fast local memory for scratch space or boot code.</td><td>Target</td></tr>
+    <tr><td><strong>Peripherals</strong></td><td>UART, SPI, I2C, timers, GPIO — slow control interfaces.</td><td>Target</td></tr>
+    <tr><td><strong>I/O controllers</strong></td><td>USB, PCIe, Ethernet — high-speed links to the outside world.</td><td>Initiator <em>and</em> target</td></tr>
+    <tr><td><strong>Security</strong></td><td>Crypto engines, key storage, root-of-trust, secure boot.</td><td>Both</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>Initiator vs target.</strong> A block that <em>starts</em> a transaction (issues a read or write request)
+    is an <strong>initiator</strong> — older docs say "master." A block that <em>responds</em> to requests is a
+    <strong>target</strong> — older docs say "slave." Arm's current terminology is <span class="tag">Manager</span>
+    and <span class="tag">Subordinate</span>. You'll see all three vocabularies in real projects; they mean the same
+    pair of roles. This course uses manager/subordinate, noting master/slave where the signal names still use them.
+  </div>
+
+  <h3>Where verification fits</h3>
+  <p>Every one of these blocks is designed by an RTL team and verified by a DV team. But integrating them is a
+  separate, enormous verification problem: does the CPU's view of memory match what the memory controller
+  actually stores? Does a DMA transfer corrupt data when the GPU is hammering the same bus? These are
+  <em>system-level</em> questions, and they all flow through the interconnect — which is why understanding the
+  interconnect (and its protocols, AXI and CHI) is the spine of this whole course series.</p>
+
+  <h3>The life of a single transaction</h3>
+  <p>To make the abstract concrete, follow one ordinary event — a CPU reading a 64-bit value from DRAM — across
+  the whole chip. Almost every SoC concept appears somewhere in this journey:</p>
+  <ol>
+    <li>The CPU core executes a load instruction. The address misses in its L1 and L2 caches, so the request
+    leaves the core as a bus transaction.</li>
+    <li>The request enters the <strong>interconnect</strong>, carrying an address, a size, an ID, and attributes
+    (is it cacheable? secure?).</li>
+    <li>The interconnect's <strong>decoder</strong> inspects the address and routes the request toward the DRAM
+    region (Module 3).</li>
+    <li>If the path crosses a clock-domain or width boundary, the interconnect <strong>converts</strong> it
+    (Module 2 &amp; 5).</li>
+    <li>The <strong>memory controller</strong> receives the request and translates it into DRAM commands
+    (activate, read), obeying the timing rules of the DRAM standard.</li>
+    <li>DRAM returns the data; the memory controller hands it back to the interconnect, which routes it to the
+    requesting core using the transaction's ID.</li>
+    <li>The core fills its cache line and completes the load. The instruction retires.</li>
+  </ol>
+  <p>A verification engineer must ask, at <em>every</em> arrow in that chain: what if the step is slow? what if
+  two requests collide here? what if reset hits mid-flight? what if the address was one byte off? Each question
+  is a test. The interconnect is where most of those questions live, which is why it dominates SoC verification.</p>
+
+  <h3>How an SoC is built — and verified — end to end</h3>
+  <p>An SoC is not written in one sitting; it flows through a pipeline of teams and stages. Knowing where you sit
+  in it tells you what your tests are responsible for.</p>
+
+  <figure>
+    <svg viewBox="0 0 720 170" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <defs><marker id="flowarr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker></defs>
+      <g font-size="11" text-anchor="middle">
+        <rect x="20" y="55" width="110" height="56" rx="6" fill="#f3e8f4" stroke="#6a1b9a" stroke-width="2"/>
+        <text x="75" y="78" fill="#6a1b9a" font-weight="600">Spec &amp;</text><text x="75" y="94" fill="#6a1b9a" font-weight="600">Architecture</text>
+        <rect x="160" y="55" width="110" height="56" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+        <text x="215" y="78" fill="#1a4fa0" font-weight="600">RTL Design</text><text x="215" y="94" fill="#5c5c66" font-size="9">(Verilog/SV)</text>
+        <rect x="300" y="55" width="110" height="56" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+        <text x="355" y="78" fill="#0e7d6e" font-weight="600">Verification</text><text x="355" y="94" fill="#0e7d6e" font-size="9">★ you are here</text>
+        <rect x="440" y="55" width="110" height="56" rx="6" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+        <text x="495" y="78" fill="#a86a00" font-weight="600">Synthesis &amp;</text><text x="495" y="94" fill="#a86a00" font-weight="600">Phys. Design</text>
+        <rect x="580" y="55" width="120" height="56" rx="6" fill="#eef3fb" stroke="#1a4fa0" stroke-width="2"/>
+        <text x="640" y="78" fill="#1a4fa0" font-weight="600">Tape-out &amp;</text><text x="640" y="94" fill="#1a4fa0" font-weight="600">Silicon</text>
+      </g>
+      <g stroke="#5c5c66" stroke-width="1.5">
+        <line x1="130" y1="83" x2="158" y2="83" marker-end="url(#flowarr)"/>
+        <line x1="270" y1="83" x2="298" y2="83" marker-end="url(#flowarr)"/>
+        <line x1="410" y1="83" x2="438" y2="83" marker-end="url(#flowarr)"/>
+        <line x1="550" y1="83" x2="578" y2="83" marker-end="url(#flowarr)"/>
+      </g>
+      <!-- feedback loop from verification back to RTL -->
+      <path d="M340,111 Q280,150 230,111" fill="none" stroke="#c62828" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#flowarr)"/>
+      <text x="285" y="150" text-anchor="middle" font-size="9" fill="#c62828">bug found → fix RTL</text>
+      <text x="360" y="30" text-anchor="middle" font-size="11" fill="#5c5c66">Every bug caught left of "Silicon" is cheap. A bug found in silicon can cost a multi-million-dollar respin.</text>
+    </svg>
+    <figcaption>The SoC flow. Verification sits between design and physical implementation, and feeds bugs back to RTL. Its mandate: let nothing escape to silicon.</figcaption>
+  </figure>
+
+  <p>The economic logic that drives the whole discipline: the cost of a bug rises by roughly an order of
+  magnitude at each stage it escapes. A bug caught in a block-level simulation costs an engineer an afternoon. The
+  same bug found after tape-out can mean a <strong>respin</strong> — re-fabricating the chip — costing months and
+  millions. This asymmetry is why companies spend more effort on verification than on design itself, and why
+  "shift left" (catch it as early as possible) is the field's mantra.</p>
+
+
+  <div class="activity">
+    <h4>Activity — classify the blocks</h4>
+    <p>You are handed the block list for a new automotive SoC: a quad-core CPU cluster, an LPDDR5 controller,
+    a CAN-FD controller, an image signal processor (ISP) for the camera, and a boot ROM. For each, decide
+    whether it is primarily an <strong>initiator</strong>, a <strong>target</strong>, or <strong>both</strong>.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Ask one question per block: "Does this block <em>start</em> bus transactions, <em>respond</em> to them, or both?" A block that processes incoming camera data and writes results to memory is doing both — it responds to configuration writes and initiates data writes.</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <ul>
+        <li><strong>CPU cluster</strong> — initiator. It issues all the reads/writes to run software.</li>
+        <li><strong>LPDDR5 controller</strong> — target. It responds to memory accesses.</li>
+        <li><strong>CAN-FD controller</strong> — both. The CPU configures it (so it's a target for those writes), and it DMAs received frames into memory (so it's an initiator too).</li>
+        <li><strong>ISP</strong> — both. Configured as a target; writes processed frames as an initiator.</li>
+        <li><strong>Boot ROM</strong> — target. The CPU reads boot code from it; it never initiates.</li>
+      </ul>
+      The lesson: "initiator vs target" is a <em>per-interface role</em>, not a fixed property of a block. Many blocks have one of each.
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="c">
+    <p class="quiz-question">Why did the industry move from multi-chip boards to Systems-on-Chip?</p>
+    <div class="quiz-options">
+      <button data-opt="a">SoCs are easier to verify than separate chips</button>
+      <button data-opt="b">Software no longer needs a CPU on an SoC</button>
+      <button data-opt="c">Integration gives lower power, lower cost, smaller size, and faster on-chip communication</button>
+      <button data-opt="d">SoCs eliminate the need for an interconnect</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Shorter on-chip wires are faster and lower-power than board traces, and integration cuts cost and size. The trade-off is a steep rise in <em>verification</em> complexity — SoCs are harder to verify, not easier, and they need a more capable interconnect than ever.</p>
+    </div>
+  </div>
+
+  <div class="navbtns"><button disabled>← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ============ MODULE 2 ============ -->
+<section class="module" id="m2">
+  <div class="mod-num">MODULE 2</div>
+  <h2 class="mod-title">The Interconnect — the Heart of the SoC</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Explain why every SoC needs an interconnect rather than point-to-point wiring.</li>
+      <li>Describe the manager/subordinate model and arbitration.</li>
+      <li>Distinguish a crossbar from a shared bus from a network-on-chip (NoC).</li>
+      <li>Understand why interconnect verification is uniquely hard.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — the road network.</strong> If every building in a city had a private dedicated road to
+    every other building, you'd pave the whole city. Instead, cities share roads and use traffic rules and
+    intersections. The interconnect is the SoC's shared road network: shared wires, arbitration (traffic
+    lights), and routing (signposts) so that N managers can reach M subordinates without N×M dedicated links.
+  </div>
+
+  <h3>Why not just wire blocks together?</h3>
+  <p>Imagine 8 managers each needing to reach 12 subordinates. Point-to-point would need up to 96 separate
+  bus connections, each with its own wires across the chip. That's impossible to route, impossible to time,
+  and impossible to verify. The interconnect solves this by being a shared, managed fabric.</p>
+
+  <p>The interconnect has three core jobs:</p>
+  <ul>
+    <li><strong>Routing</strong> — look at a transaction's address and send it to the right subordinate.</li>
+    <li><strong>Arbitration</strong> — when two managers want the same subordinate at once, decide who goes first.</li>
+    <li><strong>Protocol conversion</strong> — bridge between a fast AXI manager and a slow APB peripheral, or between different data widths and clock domains.</li>
+  </ul>
+
+  <h3>Three interconnect topologies</h3>
+
+  <figure>
+    <svg viewBox="0 0 720 260" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <!-- shared bus -->
+      <text x="120" y="25" text-anchor="middle" font-size="13" fill="#1a4fa0" font-weight="600">Shared Bus</text>
+      <line x1="40" y1="90" x2="200" y2="90" stroke="#1a4fa0" stroke-width="4"/>
+      <rect x="45" y="55" width="40" height="22" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="65" y="70" text-anchor="middle" font-size="9">M0</text>
+      <rect x="100" y="55" width="40" height="22" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="120" y="70" text-anchor="middle" font-size="9">M1</text>
+      <rect x="45" y="103" width="40" height="22" rx="3" fill="#e8f4f1" stroke="#0e7d6e"/><text x="65" y="118" text-anchor="middle" font-size="9">S0</text>
+      <rect x="100" y="103" width="40" height="22" rx="3" fill="#e8f4f1" stroke="#0e7d6e"/><text x="120" y="118" text-anchor="middle" font-size="9">S1</text>
+      <rect x="155" y="103" width="40" height="22" rx="3" fill="#e8f4f1" stroke="#0e7d6e"/><text x="175" y="118" text-anchor="middle" font-size="9">S2</text>
+      <text x="120" y="160" text-anchor="middle" font-size="10" fill="#5c5c66">One at a time.</text>
+      <text x="120" y="174" text-anchor="middle" font-size="10" fill="#5c5c66">Simple, low bandwidth.</text>
+
+      <!-- crossbar -->
+      <text x="360" y="25" text-anchor="middle" font-size="13" fill="#1a4fa0" font-weight="600">Crossbar</text>
+      <rect x="320" y="70" width="80" height="60" rx="4" fill="#1a4fa0" opacity="0.85"/>
+      <text x="360" y="105" text-anchor="middle" font-size="11" fill="#fff">XBAR</text>
+      <rect x="300" y="40" width="36" height="20" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="318" y="54" text-anchor="middle" font-size="9">M0</text>
+      <rect x="384" y="40" width="36" height="20" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="402" y="54" text-anchor="middle" font-size="9">M1</text>
+      <line x1="318" y1="60" x2="335" y2="70" stroke="#5c5c66"/><line x1="402" y1="60" x2="385" y2="70" stroke="#5c5c66"/>
+      <rect x="300" y="140" width="36" height="20" rx="3" fill="#e8f4f1" stroke="#0e7d6e"/><text x="318" y="154" text-anchor="middle" font-size="9">S0</text>
+      <rect x="384" y="140" width="36" height="20" rx="3" fill="#e8f4f1" stroke="#0e7d6e"/><text x="402" y="154" text-anchor="middle" font-size="9">S1</text>
+      <line x1="335" y1="130" x2="318" y2="140" stroke="#5c5c66"/><line x1="385" y1="130" x2="402" y2="140" stroke="#5c5c66"/>
+      <text x="360" y="190" text-anchor="middle" font-size="10" fill="#5c5c66">Many in parallel.</text>
+      <text x="360" y="204" text-anchor="middle" font-size="10" fill="#5c5c66">Fast, area-costly.</text>
+
+      <!-- NoC -->
+      <text x="600" y="25" text-anchor="middle" font-size="13" fill="#1a4fa0" font-weight="600">Network-on-Chip</text>
+      <g stroke="#1a4fa0" stroke-width="2" fill="#e8f0fe">
+        <rect x="540" y="50" width="26" height="26" rx="3"/><rect x="600" y="50" width="26" height="26" rx="3"/>
+        <rect x="540" y="110" width="26" height="26" rx="3"/><rect x="600" y="110" width="26" height="26" rx="3"/>
+      </g>
+      <line x1="566" y1="63" x2="600" y2="63" stroke="#5c5c66" stroke-width="2"/>
+      <line x1="566" y1="123" x2="600" y2="123" stroke="#5c5c66" stroke-width="2"/>
+      <line x1="553" y1="76" x2="553" y2="110" stroke="#5c5c66" stroke-width="2"/>
+      <line x1="613" y1="76" x2="613" y2="110" stroke="#5c5c66" stroke-width="2"/>
+      <text x="553" y="67" text-anchor="middle" font-size="8">R</text><text x="613" y="67" text-anchor="middle" font-size="8">R</text>
+      <text x="553" y="127" text-anchor="middle" font-size="8">R</text><text x="613" y="127" text-anchor="middle" font-size="8">R</text>
+      <text x="600" y="175" text-anchor="middle" font-size="10" fill="#5c5c66">Routers + links.</text>
+      <text x="600" y="189" text-anchor="middle" font-size="10" fill="#5c5c66">Scales to 100s of nodes.</text>
+    </svg>
+    <figcaption>Three ways to build a fabric. Real SoCs mix them: a NoC backbone with crossbars and APB bridges at the edges.</figcaption>
+  </figure>
+
+  <table>
+    <tr><th>Topology</th><th>How it works</th><th>Best for</th><th>Protocol</th></tr>
+    <tr><td>Shared bus</td><td>One transaction at a time on shared wires</td><td>Small, low-traffic subsystems</td><td>AHB, APB</td></tr>
+    <tr><td>Crossbar</td><td>Dedicated switched paths; many transfers in parallel</td><td>A handful of high-bandwidth managers</td><td>AXI</td></tr>
+    <tr><td>Network-on-Chip</td><td>Packets routed hop-by-hop through routers</td><td>Many-core, large SoCs</td><td>CHI (and AXI carried over NoC)</td></tr>
+  </table>
+
+  <h3>Inside the interconnect</h3>
+  <p>"The interconnect" sounds like one block, but it's really a collection of cooperating pieces. Knowing them
+  by name makes interconnect bugs far easier to localise.</p>
+  <table>
+    <tr><th>Component</th><th>What it does</th><th>What can go wrong</th></tr>
+    <tr><td><strong>Decoder</strong></td><td>Maps each address to a destination port (Module 3).</td><td>Overlaps, holes, wrong routing.</td></tr>
+    <tr><td><strong>Arbiter</strong></td><td>Picks a winner when several managers contend for one subordinate.</td><td>Starvation (a low-priority manager never wins), priority inversion.</td></tr>
+    <tr><td><strong>Buffers / FIFOs</strong></td><td>Hold outstanding requests and responses so channels can decouple.</td><td>Overflow, underflow, deadlock when full.</td></tr>
+    <tr><td><strong>Width converter</strong></td><td>Adapts a 128-bit manager to a 32-bit subordinate (and back).</td><td>Lost/duplicated bytes, wrong strobe steering.</td></tr>
+    <tr><td><strong>Clock-domain bridge</strong></td><td>Safely carries transactions between two clock domains (Module 5).</td><td>Metastability, data corruption, lost transactions.</td></tr>
+    <tr><td><strong>Protocol bridge</strong></td><td>Converts between AXI, AHB, and APB.</td><td>Dropped attributes, illegal conversions, response mistranslation.</td></tr>
+  </table>
+
+  <h3>Arbitration — deciding who goes first</h3>
+  <p>When two managers want the same subordinate in the same cycle, the arbiter must choose. The scheme matters
+  for both performance and fairness:</p>
+  <ul>
+    <li><strong>Fixed priority</strong> — manager 0 always beats manager 1. Simple, but the loser can
+    <em>starve</em> (never get through) if the winner is always busy.</li>
+    <li><strong>Round-robin</strong> — take turns. Fair, prevents starvation, slightly more logic.</li>
+    <li><strong>QoS-weighted</strong> — honour the transaction's priority field (AXI's <span class="tag">AxQOS</span>),
+    giving latency-critical traffic (like a display refresh) precedence over bulk traffic.</li>
+  </ul>
+  <p>For a verification engineer, arbitration is a goldmine of corner cases: prove no manager starves under
+  sustained contention, prove priority is actually honoured, and prove the arbiter never deadlocks when every
+  manager and subordinate applies back-pressure at once.</p>
+
+  <div class="callout warn">
+    <strong>Deadlock — the interconnect's nightmare.</strong> A <em>deadlock</em> is a cycle of dependencies where
+    everyone waits forever: manager A holds a buffer slot and waits for B's resource; B holds a slot and waits for
+    A's. Nothing moves. Deadlocks don't corrupt data — they hang the chip — so they slip past data-checking and
+    must be hunted with dedicated stress (fill every buffer, back-pressure every channel) and simulation timeouts.
+  </div>
+
+  <h3>Why interconnect verification is hard</h3>
+  <p>The interconnect is where <em>everything interacts</em>. A bug in a UART affects the UART. A bug in the
+  interconnect can corrupt any transaction from any manager to any subordinate. The verification challenge is
+  combinatorial: every manager × every subordinate × every transaction type × every concurrency scenario ×
+  every ordering case. You cannot test all of it directly, which is why constrained-random stimulus and
+  protocol assertions (covered later) are essential.</p>
+
+  <p>A useful way to size the problem: a modest fabric with 8 managers, 12 subordinates, 3 transaction types and
+  even a handful of concurrency states already has hundreds of thousands of meaningful combinations — and that's
+  before bursts, IDs, errors, and reset interactions multiply it further. This is precisely why the field leans on
+  <em>coverage-driven constrained-random</em> verification: you let a constrained generator explore the space
+  automatically and measure (via functional coverage) which combinations you've actually hit, rather than trying
+  to hand-write a directed test for each.</p>
+
+  <div class="activity">
+    <h4>Activity — pick a topology</h4>
+    <p>A new SoC has: 2 CPU clusters, 1 GPU, 1 NPU, 4 memory controllers, and ~30 slow peripherals (timers,
+    GPIO, UARTs). Sketch what topology you would use for (a) the compute-to-memory paths and (b) the
+    peripherals, and say why.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>The compute-to-memory paths are few in number but extremely high bandwidth — they need parallelism. The 30 peripherals are numerous but each is tiny and slow. Does it make sense to give each peripheral a full high-bandwidth port?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>(a) Compute-to-memory:</strong> a high-bandwidth crossbar or NoC carrying AXI/CHI. These paths
+      carry the bulk of the chip's traffic and must run in parallel, so they justify the area cost.</p>
+      <p><strong>(b) Peripherals:</strong> put all 30 behind a single <strong>APB bridge</strong> hanging off the
+      main fabric. The peripherals are slow and infrequently accessed, so they share one low-cost path. Spending
+      crossbar area on a GPIO block would be wasteful.</p>
+      <p>This "fast fabric + slow bridge" split is the single most common SoC interconnect pattern you'll see.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="b">
+    <p class="quiz-question">A crossbar's main advantage over a shared bus is:</p>
+    <div class="quiz-options">
+      <button data-opt="a">It uses fewer wires</button>
+      <button data-opt="b">Multiple manager-subordinate transfers can happen simultaneously</button>
+      <button data-opt="c">It removes the need for address decoding</button>
+      <button data-opt="d">It is always lower power</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">A crossbar provides concurrent paths, so M0→S0 and M1→S1 can transfer at the same time. The cost is more wires and silicon area — the opposite of "fewer wires." It still decodes addresses to route, and it is not inherently lower power.</p>
+    </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ============ MODULE 3 ============ -->
+<section class="module" id="m3">
+  <div class="mod-num">MODULE 3</div>
+  <h2 class="mod-title">Memory Map &amp; Address Decoding</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Define a memory map and explain why it is the contract of an SoC.</li>
+      <li>Trace how an address turns into a routing decision.</li>
+      <li>Understand decode errors and why they matter for verification.</li>
+      <li>Read a simple memory map table and spot overlaps and holes.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — postal addresses.</strong> Every subordinate in the SoC lives at a range of addresses,
+    just like every house has a street address. When a manager issues a transaction, it writes the destination
+    address on the "envelope." The interconnect is the postal sorting office: it reads the address and routes
+    the envelope to the right house. If the address belongs to no house, the letter comes back stamped
+    "no such address" — that's a decode error.</p>
+  </div>
+
+  <h3>The memory map</h3>
+  <p>A <strong>memory map</strong> assigns every subordinate a unique, non-overlapping range in a single global
+  address space. It is the master contract of the SoC: software, RTL, and verification all rely on it being
+  exactly right. A one-bit error in a memory map can make an entire chip unbootable.</p>
+
+  <table>
+    <tr><th>Region</th><th>Base address</th><th>Size</th><th>Target</th></tr>
+    <tr><td>Boot ROM</td><td><code>0x0000_0000</code></td><td>64 KB</td><td>ROM</td></tr>
+    <tr><td>On-chip SRAM</td><td><code>0x0001_0000</code></td><td>256 KB</td><td>SRAM</td></tr>
+    <tr><td>Peripherals (APB)</td><td><code>0x4000_0000</code></td><td>16 MB</td><td>APB bridge</td></tr>
+    <tr><td>DRAM</td><td><code>0x8000_0000</code></td><td>2 GB</td><td>Memory controller</td></tr>
+  </table>
+
+  <h3>How an address becomes a route</h3>
+  <p>When a transaction arrives, the interconnect's <strong>decoder</strong> compares the address against each
+  region. The comparison is usually just looking at the upper address bits. For the map above, address bit
+  patterns select the target:</p>
+
+  <pre><code class="language-sv"><span class="cmt">// Illustrative address decode — combinational logic in the interconnect</span>
+<span class="kw">always_comb</span> <span class="kw">begin</span>
+  sel = NONE;                              <span class="cmt">// default: no target selected</span>
+  <span class="kw">if</span> (addr[<span class="num">31</span>:<span class="num">16</span>] == <span class="num">16'h0000</span>) sel = ROM;      <span class="cmt">// 0x0000_0000 .. 0x0000_FFFF</span>
+  <span class="kw">else if</span> (addr[<span class="num">31</span>:<span class="num">16</span>] inside {[<span class="num">16'h0001</span>:<span class="num">16'h0004</span>]}) sel = SRAM;
+  <span class="kw">else if</span> (addr[<span class="num">31</span>:<span class="num">24</span>] == <span class="num">8'h40</span>) sel = APB;
+  <span class="kw">else if</span> (addr[<span class="num">31</span>]    == <span class="num">1'b1</span>)   sel = DRAM;     <span class="cmt">// 0x8000_0000 and up</span>
+  <span class="kw">else</span> sel = DECODE_ERROR;                <span class="cmt">// address belongs to no region</span>
+<span class="kw">end</span></code></pre>
+
+  <p><strong>What this builds in hardware:</strong> a small block of comparators and priority logic. Its output
+  selects which subordinate port the transaction is forwarded to. If nothing matches, it raises a decode error,
+  and the interconnect returns an error response to the manager rather than hanging.</p>
+
+  <div class="callout warn">
+    <strong>Two classic memory-map bugs:</strong> an <em>overlap</em> (two regions claim the same address — the
+    decoder's behaviour becomes ambiguous) and a <em>hole</em> (an address that should be valid falls outside
+    every region — accesses get decode errors). Both are prime targets for verification.
+  </div>
+
+  <h3>Decode errors and the verification angle</h3>
+  <p>A correct interconnect must never <em>hang</em> on an unmapped access. It must return a clean error
+  response (in AXI, a <span class="tag">DECERR</span>) so the manager can recover. A common system bug: an
+  access to a hole causes the bus to lock up because no subordinate responds and the interconnect forgot to
+  generate the error itself. Your tests must deliberately poke unmapped addresses to prove the chip survives.</p>
+
+  <h3>Address interleaving (striping)</h3>
+  <p>A high-performance SoC rarely sends all DRAM traffic to one memory controller — that controller would become
+  a bottleneck. Instead the address space is <strong>interleaved</strong> (striped) across several controllers:
+  consecutive cache-line-sized chunks of the address space are handed to different controllers in rotation. A
+  linear sweep through memory then spreads evenly across all of them, multiplying bandwidth.</p>
+  <pre><code class="language-sv"><span class="cmt">// 4-way interleave on bits [8:7] (256-byte granularity, 4 channels)</span>
+<span class="kw">always_comb</span> mc_select = addr[<span class="num">8</span>:<span class="num">7</span>];   <span class="cmt">// 0,1,2,3 → MC0..MC3</span>
+<span class="cmt">// addr 0x..000 → MC0, 0x..080 → MC1, 0x..100 → MC2, 0x..180 → MC3, 0x..200 → MC0 ...</span></code></pre>
+  <p><strong>Verification angle:</strong> interleaving means a single logical region now maps to several physical
+  targets depending on address bits. Your reference model must reproduce the exact interleave function, and your
+  coverage must confirm every channel is exercised — a decode bug that sends two stripes to the same controller
+  silently halves bandwidth and may corrupt data under contention.</p>
+
+  <h3>More than one view of memory</h3>
+  <p>The map is not always the same for everyone. Modern SoCs expose <em>different views</em> of the address space
+  depending on the requester's privilege:</p>
+  <ul>
+    <li><strong>Secure vs Non-secure (TrustZone).</strong> A secure region (keys, secure boot code) must be
+    invisible to non-secure accesses. The <span class="tag">AxPROT</span> attribute carries the security level, and
+    the decode + a protection unit together decide whether the access is even allowed to reach the target.</li>
+    <li><strong>Virtual vs physical.</strong> Software sees <em>virtual</em> addresses; an MMU/SMMU translates
+    them to <em>physical</em> addresses before they hit the memory map. The interconnect decodes physical
+    addresses.</li>
+    <li><strong>Per-master maps.</strong> Some fabrics give different managers slightly different views (e.g. a
+    DSP that can't see the secure region at all).</li>
+  </ul>
+  <div class="callout warn">
+    <strong>Security is a "must-never-happen" property.</strong> A non-secure access reaching a secure region is
+    not a performance bug — it's a security breach. These properties are verified with assertions (prove the
+    illegal access is always blocked), not merely with coverage (which only shows a case was hit). This mindset
+    carries straight into the AXI course's treatment of <span class="tag">AxPROT</span> and NSAID.
+  </div>
+
+  <h3>Alignment and access size</h3>
+  <p>The map also constrains <em>how</em> a region may be accessed. A 32-bit control register typically must be
+  accessed as an aligned 4-byte word; a byte write to it may be illegal and return an error. Memory regions are
+  usually flexible (any size, any alignment, via byte strobes), while peripheral registers are strict. Tests must
+  probe each region with legal and illegal sizes/alignments and confirm the response matches the spec.</p>
+
+  <div class="activity">
+    <h4>Activity — find the bug in this map</h4>
+    <p>Review this fragment and identify the problem:</p>
+    <pre><code class="language-sv">SRAM      : 0x0001_0000  size 256 KB   <span class="cmt">// ends at 0x0004_FFFF</span>
+TIMER     : 0x0004_0000  size 4 KB      <span class="cmt">// ???</span>
+DRAM      : 0x8000_0000  size 2 GB</code></pre>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Compute the end address of the SRAM region (base + size − 1) and compare it to the TIMER base address. Do the two ranges share any addresses?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>Overlap.</strong> SRAM spans <code>0x0001_0000</code> to <code>0x0004_FFFF</code> (256 KB). The
+      TIMER is placed at <code>0x0004_0000</code> — which is <em>inside</em> the SRAM range. An access to
+      <code>0x0004_0000</code> is ambiguous: depending on decoder priority it goes to SRAM or TIMER, and the
+      behaviour may differ between RTL, software, and your reference model. This is exactly the kind of bug a
+      memory-map consistency check (often auto-generated from a single source-of-truth spec) is designed to
+      catch before tape-out.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="d">
+    <p class="quiz-question">A manager accesses an address that falls in a "hole" (no region). What should a correct interconnect do?</p>
+    <div class="quiz-options">
+      <button data-opt="a">Silently drop the transaction</button>
+      <button data-opt="b">Route it to the nearest region</button>
+      <button data-opt="c">Hang until reset</button>
+      <button data-opt="d">Return a decode error response so the manager can recover</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">An unmapped access must produce a clean error response (DECERR in AXI), never a hang or a silent drop. Hanging the bus on a stray access is a severe system bug — and a deliberate verification target.</p>
+    </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ============ MODULE 4 ============ -->
+<section class="module" id="m4">
+  <div class="mod-num">MODULE 4</div>
+  <h2 class="mod-title">The AMBA Family Landscape</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Place APB, AHB, AXI, ACE, and CHI on a single capability spectrum.</li>
+      <li>Choose the right protocol for a given block.</li>
+      <li>Understand why higher-performance protocols are more complex to verify.</li>
+      <li>See how this course series maps onto the family (AXI deep-dive, then CHI).</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — modes of transport.</strong> APB is a bicycle: simple, cheap, slow, perfect for short
+    local trips (configuring a timer). AXI is a multi-lane highway: many vehicles flowing in parallel at speed.
+    CHI is a national logistics network with tracking, coordination between warehouses, and guaranteed
+    consistency of inventory across the whole country. You pick the transport that matches the journey.
+  </div>
+
+  <h3>AMBA — Arm's interconnect standard</h3>
+  <p><strong>AMBA</strong> (Advanced Microcontroller Bus Architecture) is the family of interconnect protocols
+  defined by Arm and used across most of the industry. The members differ mainly in performance and the
+  problems they solve.</p>
+
+  <figure>
+    <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <!-- spectrum arrow -->
+      <line x1="60" y1="250" x2="680" y2="250" stroke="#5c5c66" stroke-width="2" marker-end="url(#a4)"/>
+      <text x="60" y="278" font-size="11" fill="#5c5c66">simpler · lower bandwidth</text>
+      <text x="680" y="278" text-anchor="end" font-size="11" fill="#5c5c66">complex · highest bandwidth · coherent</text>
+      <defs><marker id="a4" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker></defs>
+
+      <!-- APB -->
+      <rect x="60" y="170" width="100" height="60" rx="6" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+      <text x="110" y="195" text-anchor="middle" font-size="14" fill="#a86a00" font-weight="600">APB</text>
+      <text x="110" y="214" text-anchor="middle" font-size="10" fill="#5c5c66">config / peripherals</text>
+      <!-- AHB -->
+      <rect x="190" y="150" width="100" height="80" rx="6" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+      <text x="240" y="180" text-anchor="middle" font-size="14" fill="#a86a00" font-weight="600">AHB</text>
+      <text x="240" y="199" text-anchor="middle" font-size="10" fill="#5c5c66">single-channel</text>
+      <text x="240" y="213" text-anchor="middle" font-size="10" fill="#5c5c66">pipelined bus</text>
+      <!-- AXI -->
+      <rect x="320" y="110" width="120" height="120" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2.5"/>
+      <text x="380" y="150" text-anchor="middle" font-size="16" fill="#1a4fa0" font-weight="700">AXI</text>
+      <text x="380" y="172" text-anchor="middle" font-size="10" fill="#5c5c66">5 channels</text>
+      <text x="380" y="186" text-anchor="middle" font-size="10" fill="#5c5c66">bursts, OOO IDs</text>
+      <text x="380" y="200" text-anchor="middle" font-size="10" fill="#5c5c66">★ Course 2</text>
+      <!-- ACE -->
+      <rect x="470" y="90" width="110" height="140" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="525" y="125" text-anchor="middle" font-size="14" fill="#1a4fa0" font-weight="600">ACE</text>
+      <text x="525" y="144" text-anchor="middle" font-size="10" fill="#5c5c66">AXI + cache</text>
+      <text x="525" y="158" text-anchor="middle" font-size="10" fill="#5c5c66">coherency</text>
+      <text x="525" y="172" text-anchor="middle" font-size="10" fill="#5c5c66">snoop channels</text>
+      <!-- CHI -->
+      <rect x="610" y="60" width="80" height="170" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2.5"/>
+      <text x="650" y="100" text-anchor="middle" font-size="14" fill="#0e7d6e" font-weight="700">CHI</text>
+      <text x="650" y="120" text-anchor="middle" font-size="9" fill="#5c5c66">packet-</text>
+      <text x="650" y="132" text-anchor="middle" font-size="9" fill="#5c5c66">based</text>
+      <text x="650" y="146" text-anchor="middle" font-size="9" fill="#5c5c66">scalable</text>
+      <text x="650" y="160" text-anchor="middle" font-size="9" fill="#5c5c66">coherent</text>
+      <text x="650" y="178" text-anchor="middle" font-size="9" fill="#0e7d6e">★ Course 3</text>
+    </svg>
+    <figcaption>The AMBA spectrum. Height roughly indicates capability and complexity. This series covers AXI (deep) and CHI (overview).</figcaption>
+  </figure>
+
+  <table>
+    <tr><th>Protocol</th><th>Full name</th><th>Key idea</th><th>Typical use</th></tr>
+    <tr><td><strong>APB</strong></td><td>Advanced Peripheral Bus</td><td>Dead-simple, low-power, single transfer at a time</td><td>Register config, slow peripherals</td></tr>
+    <tr><td><strong>AHB</strong></td><td>Advanced High-performance Bus</td><td>Pipelined single shared channel</td><td>Older designs, simple memory access</td></tr>
+    <tr><td><strong>AXI</strong></td><td>Advanced eXtensible Interface</td><td>5 independent channels, bursts, out-of-order via IDs</td><td>High-bandwidth memory and accelerators</td></tr>
+    <tr><td><strong>ACE</strong></td><td>AXI Coherency Extensions</td><td>AXI + hardware cache coherency (snoops)</td><td>Multi-core CPU clusters</td></tr>
+    <tr><td><strong>CHI</strong></td><td>Coherent Hub Interface</td><td>Packet/flit-based, scalable coherent fabric</td><td>Large many-core SoCs, server-class</td></tr>
+  </table>
+
+  <h3>The performance-vs-complexity trade</h3>
+  <p>Each step up the family buys performance but costs verification effort. APB has perhaps a dozen protocol
+  rules. AXI has hundreds, because five channels operating independently with out-of-order completion creates
+  an enormous space of legal behaviours. CHI is harder still, because coherency means the <em>correctness</em>
+  of one cache's data depends on what every other cache is doing. The verification cost grows faster than the
+  performance — which is exactly why protocol expertise is so valued.</p>
+
+  <div class="callout">
+    <strong>The whole-system view:</strong> a single SoC uses several of these at once. CPU clusters talk CHI
+    or ACE among themselves, the cluster presents AXI to the rest of the chip, high-bandwidth blocks use AXI,
+    and a sea of slow peripherals sit behind an APB bridge. Bridges convert between them.
+  </div>
+
+  <h3>One SoC, many protocols — a walkthrough</h3>
+  <p>Trace a real path to see how the family members coexist. Suppose software running on a CPU writes a
+  configuration register inside a UART:</p>
+  <ol>
+    <li>The CPU cores keep their caches coherent over <strong>CHI</strong> (or ACE) inside the cluster.</li>
+    <li>The cluster presents a single <strong>AXI</strong> manager port to the rest of the SoC.</li>
+    <li>The write travels the main <strong>AXI</strong> fabric and is decoded toward the peripheral aperture.</li>
+    <li>An <strong>AXI-to-APB bridge</strong> converts the burst-capable, out-of-order AXI transaction into a
+    simple, single-transfer <strong>APB</strong> access the UART understands.</li>
+    <li>The UART accepts the write on APB and returns a ready; the bridge translates that back into an AXI B
+    response that propagates all the way to the core.</li>
+  </ol>
+  <p>So one register write touches three protocols. The boundaries between them — the bridges — are where a
+  surprising share of system bugs live, because each conversion can drop information.</p>
+
+  <figure>
+    <svg viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <defs><marker id="pa" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker></defs>
+      <g font-size="11" text-anchor="middle">
+        <rect x="20" y="50" width="120" height="50" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+        <text x="80" y="72" fill="#0e7d6e" font-weight="600">CPU cluster</text><text x="80" y="89" font-size="9" fill="#5c5c66">internal: CHI/ACE</text>
+        <rect x="200" y="50" width="120" height="50" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+        <text x="260" y="72" fill="#1a4fa0" font-weight="600">AXI fabric</text><text x="260" y="89" font-size="9" fill="#5c5c66">crossbar / NoC</text>
+        <rect x="380" y="50" width="120" height="50" rx="6" fill="#f3e8f4" stroke="#6a1b9a" stroke-width="2"/>
+        <text x="440" y="72" fill="#6a1b9a" font-weight="600">AXI→APB</text><text x="440" y="89" font-size="9" fill="#5c5c66">bridge</text>
+        <rect x="560" y="50" width="120" height="50" rx="6" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+        <text x="620" y="72" fill="#a86a00" font-weight="600">UART</text><text x="620" y="89" font-size="9" fill="#5c5c66">APB peripheral</text>
+      </g>
+      <g stroke="#5c5c66" stroke-width="1.5">
+        <line x1="140" y1="75" x2="198" y2="75" marker-end="url(#pa)"/>
+        <line x1="320" y1="75" x2="378" y2="75" marker-end="url(#pa)"/>
+        <line x1="500" y1="75" x2="558" y2="75" marker-end="url(#pa)"/>
+      </g>
+      <text x="170" y="42" text-anchor="middle" font-size="9" fill="#0e7d6e">CHI/ACE → AXI</text>
+      <text x="350" y="42" text-anchor="middle" font-size="9" fill="#1a4fa0">AXI</text>
+      <text x="530" y="42" text-anchor="middle" font-size="9" fill="#6a1b9a">AXI → APB</text>
+      <text x="360" y="128" text-anchor="middle" font-size="10" fill="#5c5c66">Each arrow is a protocol boundary — and a place a conversion bug can hide.</text>
+    </svg>
+    <figcaption>A single register write crossing three AMBA protocols. Bridges convert between them in both directions.</figcaption>
+  </figure>
+
+  <h3>What a bridge must get right (and what to verify)</h3>
+  <table>
+    <tr><th>Conversion concern</th><th>What can go wrong</th></tr>
+    <tr><td>Burst → single transfers</td><td>An AXI burst must be split into several APB accesses; a bridge that mishandles the last beat drops data.</td></tr>
+    <tr><td>Out-of-order → in-order</td><td>APB has no IDs and is strictly ordered; the bridge must serialise AXI's out-of-order traffic correctly.</td></tr>
+    <tr><td>Width mismatch</td><td>A wide AXI write to a narrow APB register needs correct byte-lane selection via strobes.</td></tr>
+    <tr><td>Response mapping</td><td>An APB error (PSLVERR) must become the right AXI response (SLVERR), not get lost.</td></tr>
+    <tr><td>Attribute loss</td><td>Security/cacheability attributes may have no APB equivalent — the bridge must enforce them, not silently drop them.</td></tr>
+  </table>
+  <p>Verifying a bridge means driving the full richness of the upstream protocol (bursts, IDs, errors, odd sizes)
+  and checking that the downstream behaviour and the returned responses are exactly correct — a perfect motivation
+  for the deep AXI knowledge in the next course.</p>
+
+  <div class="activity">
+    <h4>Activity — match protocol to block</h4>
+    <p>For each block, name the most appropriate AMBA protocol: (1) a GPIO controller, (2) a high-bandwidth
+    GPU reading textures from DRAM, (3) a cluster of 16 coherent CPU cores in a server SoC, (4) a dual-core
+    cluster that must keep its two L1 caches consistent with each other.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Ask: does it need bandwidth? does it need cache coherency? does it need to scale to very many nodes? GPIO needs none of these. The 16-core server case is the scalability extreme.</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <ul>
+        <li><strong>(1) GPIO</strong> → APB. Slow, simple, configured occasionally.</li>
+        <li><strong>(2) GPU ↔ DRAM</strong> → AXI. Needs high bandwidth and bursts, but no coherency with CPUs in the simplest case.</li>
+        <li><strong>(3) 16 coherent cores, server</strong> → CHI. Scalability and coherency at large node counts is exactly CHI's purpose.</li>
+        <li><strong>(4) Dual-core, keep two caches consistent</strong> → ACE. Coherency at small scale; ACE extends AXI with snoops without going full CHI.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="a">
+    <p class="quiz-question">Why does verification effort grow as you move from APB → AXI → CHI?</p>
+    <div class="quiz-options">
+      <button data-opt="a">Each adds independent concurrency and/or coherency, vastly expanding the space of legal behaviours</button>
+      <button data-opt="b">Each uses more wires, and wires are hard to simulate</button>
+      <button data-opt="c">Newer protocols have worse documentation</button>
+      <button data-opt="d">They run at higher clock frequencies</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">The explosion comes from concurrency (AXI's independent channels and out-of-order completion) and coherency (CHI's cross-cache correctness). More legal states and interactions mean exponentially more scenarios to verify — not raw wire count or clock speed.</p>
+    </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ============ MODULE 5 ============ -->
+<section class="module" id="m5">
+  <div class="mod-num">MODULE 5</div>
+  <h2 class="mod-title">Clocks, Reset, and Power Domains</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Understand why an SoC has many clock domains, not one.</li>
+      <li>Explain clock domain crossing (CDC) and why it is dangerous.</li>
+      <li>Describe reset domains and the ordering problem.</li>
+      <li>Understand power domains and why blocks get switched off.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — time zones.</strong> A global company has offices in different time zones. When the New
+    York office hands a document to the Tokyo office, you can't just assume it arrives "now" — you need a
+    careful handoff that accounts for the time difference, or messages get garbled. Clock domains are the
+    SoC's time zones, and CDC is the careful handoff.
+  </div>
+
+  <h3>Why many clocks?</h3>
+  <p>Different blocks want different speeds. A CPU wants 3 GHz; a UART wants a few MHz; DRAM has its own clock
+  derived from the memory standard. Running everything at one clock would waste power (slow blocks clocked too
+  fast) and be impossible to time (fast blocks dragged down). So an SoC has dozens of <strong>clock
+  domains</strong>, each its own region of synchronous logic.</p>
+
+  <h3>Clock domain crossing (CDC)</h3>
+  <p>When a signal travels from one clock domain to another, it can be sampled <em>right as it changes</em>,
+  landing the receiving flop in a half-way "metastable" state — neither 0 nor 1. If that uncertain value
+  propagates, the chip behaves randomly. The fix is a <strong>synchronizer</strong> (typically two back-to-back
+  flops) that gives metastability time to settle.</p>
+
+  <figure>
+    <svg viewBox="0 0 700 220" xmlns="http://www.w3.org/2000/svg" style="font-family:'JetBrains Mono',monospace;">
+      <text x="10" y="35" font-size="12" fill="#1c1c1e">clk_A</text>
+      <text x="10" y="95" font-size="12" fill="#1c1c1e">data</text>
+      <text x="10" y="155" font-size="12" fill="#1c1c1e">clk_B</text>
+
+      <!-- clk A -->
+      <polyline points="80,40 80,20 110,20 110,40 140,40 140,20 170,20 170,40 200,40 200,20 230,20 230,40 260,40 260,20 290,20 290,40"
+                fill="none" stroke="#1a4fa0" stroke-width="2"/>
+      <!-- data changes -->
+      <polyline points="80,100 175,100 175,75 320,75 320,100 400,100" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <!-- clk B (different phase/freq) -->
+      <polyline points="80,160 80,140 125,140 125,160 170,160 170,140 215,140 215,160 260,160 260,140 305,140 305,160 350,160 350,140 395,140 395,160"
+                fill="none" stroke="#1a4fa0" stroke-width="2"/>
+
+      <!-- danger marker: clk_B edge near data transition -->
+      <line x1="170" y1="60" x2="170" y2="170" stroke="#c62828" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <circle cx="170" cy="140" r="6" fill="none" stroke="#c62828" stroke-width="2"/>
+      <text x="350" y="200" text-anchor="middle" font-size="11" fill="#c62828">⚠ clk_B samples data right as it changes → metastability risk</text>
+    </svg>
+    <figcaption>A capture edge in domain B lands near a data transition driven by domain A. Without a synchronizer, the captured value is undefined.</figcaption>
+  </figure>
+
+  <div class="callout">
+    <strong>Interconnect connection:</strong> the interconnect frequently bridges clock domains — a fast AXI
+    manager talking to a slower subordinate. AXI fabrics include clock-crossing components, and verifying that
+    transactions survive the crossing intact is part of interconnect verification.
+  </div>
+
+  <h3>Reset domains</h3>
+  <p>An SoC doesn't reset all at once. Different blocks have different reset signals released in a careful
+  <strong>sequence</strong> — for example, the clocks and power must be stable before logic comes out of reset,
+  and a CPU must not start fetching until the memory it boots from is ready. Getting reset ordering wrong is a
+  classic cause of chips that "sometimes don't boot."</p>
+
+  <h3>Power domains</h3>
+  <p>To save energy, an SoC switches <em>off</em> blocks that aren't in use — the GPU sleeps when you're not
+  gaming. These regions are <strong>power domains</strong>. Crossing from an always-on domain into a powered-off
+  one needs isolation cells (to stop floating values corrupting the live domain) and state-retention flops (to
+  remember settings while asleep). This is the realm of UPF/CPF power-intent verification.</p>
+
+  <h3>Reset sequencing in detail</h3>
+  <p>"Release reset" is really a choreography. A typical power-on sequence:</p>
+  <ol>
+    <li>Power rails stabilise; the power-management controller confirms voltages are good.</li>
+    <li>Clocks start and PLLs <em>lock</em> (reach a stable frequency) — logic must stay in reset until then.</li>
+    <li>Reset is released to the always-on domain and the boot infrastructure first.</li>
+    <li>The boot ROM and the memory it needs come out of reset <em>before</em> the CPU that will fetch from them.</li>
+    <li>The CPU is released last and begins fetching boot code.</li>
+  </ol>
+  <p>Get the order wrong and the chip "sometimes" fails to boot. Two reset styles matter: <strong>asynchronous
+  assertion</strong> (reset takes effect immediately, regardless of clock) with <strong>synchronous
+  deassertion</strong> (release is aligned to a clock edge to avoid a metastable release). Verifying reset means
+  asserting it at <em>every</em> phase — including in the middle of active transactions — and proving the design
+  comes back to a clean, known state every time.</p>
+
+  <div class="callout warn">
+    <strong>Reset-in-the-middle is a favourite bug hunt.</strong> Assert reset while a burst is mid-flight, while
+    a FIFO is half full, while a CDC synchroniser is resolving. A robust design drains or cleanly drops in-flight
+    work and re-initialises; a fragile one leaves a buffer pointer corrupted and fails on the next transaction.
+  </div>
+
+  <h3>Power states and the UPF intent</h3>
+  <p>Each power domain moves through defined states. The hardware that makes this safe — isolation cells,
+  level shifters, retention flops, power switches — is described in a <strong>UPF</strong> (Unified Power Format)
+  file, separate from the RTL, and verified as its own concern (power-aware simulation).</p>
+  <table>
+    <tr><th>State</th><th>Power</th><th>Logic / contents</th><th>Special cells needed</th></tr>
+    <tr><td>ON</td><td>Full</td><td>Running normally</td><td>—</td></tr>
+    <tr><td>Retention</td><td>Low (just enough)</td><td>Clock off, but flop state preserved</td><td>Retention flops</td></tr>
+    <tr><td>OFF</td><td>None</td><td>State lost; outputs would float</td><td>Isolation cells clamp outputs</td></tr>
+  </table>
+  <ul>
+    <li><strong>Isolation cells</strong> clamp the outputs of an off domain to a safe value so a live neighbour
+    doesn't read a floating <code>X</code>.</li>
+    <li><strong>Level shifters</strong> bridge domains running at different voltages.</li>
+    <li><strong>Retention flops</strong> hold critical state on a tiny always-on supply so a block can resume
+    instantly instead of cold-booting.</li>
+  </ul>
+  <p><strong>Verification angle:</strong> power-aware simulation injects the real power sequencing and checks that
+  isolation is enabled before power-down and disabled after power-up, that retained state survives a sleep/wake
+  cycle, and that no <code>X</code> escapes an off domain. This connects directly to AXI5's wake-up signaling
+  (<span class="tag">AWAKEUP</span>) covered later — the protocol-level handshake that lets the bus wake a sleeping
+  block without losing transactions.</p>
+
+  <div class="activity">
+    <h4>Activity — diagnose the intermittent boot</h4>
+    <p>A chip boots correctly 95% of the time but occasionally hangs at power-on. Power and clocks look fine on
+    the scope. List two SoC-level mechanisms from this module that could cause an <em>intermittent</em> (not
+    every time) failure, and why intermittency is the clue.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>"Intermittent" almost always means a timing race — something that depends on the exact alignment of two independent events. Which two mechanisms in this module are fundamentally about the relative timing of independent things?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>1. A CDC bug.</strong> Metastability is probabilistic — it only causes a failure when a capture
+      edge happens to land in the tiny metastability window. That naturally produces a "fails 5% of the time"
+      signature.</p>
+      <p><strong>2. A reset-sequencing race.</strong> If two reset deassertions race and the order isn't
+      guaranteed, the boot succeeds whenever they happen to land in the lucky order and fails otherwise.</p>
+      <p>The lesson: <em>intermittent</em> failures point to timing/ordering races, which is why CDC and reset
+      verification use dedicated static tools rather than relying on simulation to "happen to" hit the bad case.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="b">
+    <p class="quiz-question">What is the purpose of a two-flop synchronizer on a CDC path?</p>
+    <div class="quiz-options">
+      <button data-opt="a">To speed up the signal</button>
+      <button data-opt="b">To give a metastable value time to resolve before it is used</button>
+      <button data-opt="c">To convert the signal to a different voltage</button>
+      <button data-opt="d">To reset both clock domains together</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">The first flop may go metastable; the second flop samples it one cycle later, by which time the value has almost certainly resolved to a clean 0 or 1. It does not speed up, level-shift, or reset anything — it buys settling time.</p>
+    </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ============ MODULE 6 ============ -->
+<section class="module" id="m6">
+  <div class="mod-num">MODULE 6</div>
+  <h2 class="mod-title">Verifying an SoC</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Distinguish block-level, subsystem-level, and full-chip verification.</li>
+      <li>Understand where protocol VIP (verification IP) fits in.</li>
+      <li>Adopt the verification mindset for an interconnect-centric system.</li>
+      <li>See the bridge into the AXI and CHI courses that follow.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — testing a car.</strong> You test the engine on a bench (block level). You test the engine
+    + transmission + wheels as a drivetrain (subsystem level). Then you drive the whole car on a test track
+    (full-chip). Each level catches different bugs — a part can be perfect on the bench and still fail when
+    integrated.
+  </div>
+
+  <h3>The three levels of verification</h3>
+
+  <figure>
+    <svg viewBox="0 0 700 250" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <!-- nested boxes -->
+      <rect x="40" y="30" width="620" height="190" rx="8" fill="#f3f0fa" stroke="#6a1b9a" stroke-width="2"/>
+      <text x="55" y="52" font-size="13" fill="#6a1b9a" font-weight="600">Full-chip: run real firmware, all blocks, all traffic</text>
+
+      <rect x="80" y="70" width="540" height="130" rx="8" fill="#eef3fb" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="95" y="92" font-size="13" fill="#1a4fa0" font-weight="600">Subsystem: cluster + interconnect + memory together</text>
+
+      <rect x="130" y="110" width="200" height="70" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="230" y="140" text-anchor="middle" font-size="12" fill="#0e7d6e" font-weight="600">Block: one DUT</text>
+      <text x="230" y="160" text-anchor="middle" font-size="10" fill="#5c5c66">+ protocol VIP on each port</text>
+
+      <rect x="360" y="110" width="220" height="70" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="470" y="140" text-anchor="middle" font-size="12" fill="#0e7d6e" font-weight="600">Block: interconnect</text>
+      <text x="470" y="160" text-anchor="middle" font-size="10" fill="#5c5c66">VIP managers + VIP subordinates</text>
+    </svg>
+    <figcaption>Verification scopes nest. Bugs found cheaply at block level are far costlier to find at full-chip.</figcaption>
+  </figure>
+
+  <table>
+    <tr><th>Level</th><th>What's the DUT</th><th>Catches</th></tr>
+    <tr><td><strong>Block</strong></td><td>A single IP (e.g. the DMA, or the interconnect itself)</td><td>Functional bugs inside one block; protocol compliance on its ports</td></tr>
+    <tr><td><strong>Subsystem</strong></td><td>A few blocks wired together (e.g. CPU + interconnect + memory)</td><td>Integration bugs — wrong connections, mismatched parameters, ordering between blocks</td></tr>
+    <tr><td><strong>Full-chip</strong></td><td>The entire SoC running firmware</td><td>System scenarios, boot, software/hardware mismatch, performance under real traffic</td></tr>
+  </table>
+
+  <h3>Verification IP (VIP)</h3>
+  <p>You rarely verify an AXI block against a hand-written model. Instead you use <strong>VIP</strong>: a
+  pre-built, protocol-compliant agent that can act as an AXI manager (driving stimulus), an AXI subordinate
+  (responding), a <em>monitor</em> (checking every transaction against the spec), and a <em>coverage
+  collector</em>. Commercial VIP (from Synopsys, Cadence, Siemens) embeds hundreds of protocol assertions so
+  you don't have to re-derive the rulebook. Understanding the protocol — what the next two courses teach — is
+  what lets you <em>configure and trust</em> that VIP.</p>
+
+  <div class="callout">
+    <strong>The mindset (carry this into the AXI and CHI courses):</strong> your job is not to prove the design
+    works — it's to try your hardest to <em>break</em> it and document that you couldn't. For an interconnect,
+    "breaking it" means concurrent traffic, out-of-order completions, unmapped addresses, back-pressure on
+    every channel, and reset in the middle of a burst. The protocol rules tell you exactly which corners exist.
+  </div>
+
+  <h3>The verification engines — and when to use each</h3>
+  <p>"Verification" isn't one tool. Different engines trade speed for visibility and capacity, and a real project
+  uses all of them:</p>
+  <table>
+    <tr><th>Engine</th><th>What it is</th><th>Strength</th><th>Limit</th></tr>
+    <tr><td><strong>Simulation</strong></td><td>RTL run in a software simulator with a UVM testbench.</td><td>Full visibility, easy debug, constrained-random + coverage.</td><td>Slow — can't boot a full OS in reasonable time.</td></tr>
+    <tr><td><strong>Formal</strong></td><td>Mathematically proves properties hold for <em>all</em> inputs.</td><td>Exhaustive — no test case can be "missed."</td><td>Doesn't scale to whole SoCs; best on well-bounded blocks (arbiters, FIFOs, protocol rules).</td></tr>
+    <tr><td><strong>Emulation</strong></td><td>RTL mapped onto special-purpose hardware.</td><td>Millions of times faster than sim; can boot software.</td><td>Expensive; less visibility than simulation.</td></tr>
+    <tr><td><strong>FPGA prototype</strong></td><td>RTL on an FPGA board.</td><td>Near-real-time; great for software bring-up.</td><td>Long build times; hard to debug internal signals.</td></tr>
+  </table>
+  <p>A common division of labour: <strong>formal</strong> proves the interconnect's arbiter never deadlocks and
+  protocol rules always hold; <strong>simulation</strong> runs constrained-random traffic with scoreboards and
+  coverage; <strong>emulation/FPGA</strong> boots real firmware to catch system-level and software-visible bugs.
+  Each catches a class the others miss.</p>
+
+  <h3>The test pyramid and coverage closure</h3>
+  <p>Most verification effort lives at the bottom of a pyramid: a large number of fast, focused block-level tests;
+  fewer subsystem tests; a small number of slow, expensive full-chip/firmware tests at the top. Pushing effort
+  down the pyramid is the practical form of "shift left."</p>
+  <p>How do you know when you're <em>done</em>? Not when tests pass — tests passing only means the bugs you happened
+  to exercise weren't triggered. Completion is measured by <strong>coverage closure</strong>:</p>
+  <ul>
+    <li><strong>Code coverage</strong> — did simulation exercise every line, branch, and toggle of the RTL? A
+    necessary floor, but it only tells you what <em>ran</em>.</li>
+    <li><strong>Functional coverage</strong> — did you hit every scenario in the <em>test plan</em> (every burst
+    type, every error, every interesting cross of conditions)? This tells you what was actually <em>verified</em>.</li>
+    <li><strong>Assertion coverage</strong> — did your protocol assertions actually get exercised (not just never
+    fire because the condition never occurred)?</li>
+  </ul>
+  <p>A design "signs off" when functional coverage reaches its target with all tests passing and all assertions
+  exercised. The deep AXI and CHI courses build exactly these coverage models for their protocols.</p>
+
+  <div class="callout warn">
+    <strong>The trap of green.</strong> 100% code coverage with weak checks proves almost nothing — you ran the
+    code but never confirmed it produced the right answer. Coverage measures <em>exercise</em>; scoreboards and
+    assertions measure <em>correctness</em>. You need both, and the most dangerous project state is a wall of
+    green dashboards hiding a scoreboard that isn't really checking anything.
+  </div>
+
+  <h3>Where this series goes next</h3>
+  <ul>
+    <li><strong>Course 2 — AXI in depth:</strong> the five channels, the VALID/READY handshake, bursts, IDs and
+    out-of-order behaviour, error responses, the AXI5/ACE feature set (atomics, QoS, coherency), and how to
+    verify all of it.</li>
+    <li><strong>Course 3 — CHI overview:</strong> why coherent fabrics go packet-based, node types, the four
+    channel classes, the coherency model, and how CHI verification differs from AXI.</li>
+  </ul>
+
+  <div class="activity">
+    <h4>Activity — choose the right level</h4>
+    <p>You've found a bug: under heavy traffic, a DMA write to DRAM occasionally returns the wrong data when
+    the GPU is also writing nearby. At which verification level would you <em>ideally</em> have caught this,
+    and what stimulus would have exposed it?</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>The bug only appears when two initiators contend for the same target. Can a single-block testbench, with only one DUT and VIP on its ports, create contention between two real initiators? What's the smallest scope that contains both the DMA path and the GPU path through the interconnect?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>Subsystem level</strong> — the smallest scope that contains both initiators, the interconnect,
+      and the shared DRAM target. A pure block-level interconnect testbench could also catch it <em>if</em> its
+      VIP managers are configured to generate concurrent, overlapping-address traffic with full back-pressure
+      and out-of-order completion.</p>
+      <p>The exposing stimulus: two managers issuing writes to <em>nearby addresses concurrently</em>, with
+      randomized ready-delays on the write and response channels to shake out ordering/merging bugs. Relying on
+      full-chip firmware to stumble onto this is far too late and far too slow — which is the whole argument for
+      protocol-driven constrained-random testing at the lowest level that contains the bug.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="c">
+    <p class="quiz-question">What does a protocol VIP monitor primarily do?</p>
+    <div class="quiz-options">
+      <button data-opt="a">It generates the clock for the DUT</button>
+      <button data-opt="b">It replaces the need for a memory map</button>
+      <button data-opt="c">It observes every transaction and checks it against the protocol's rules, flagging violations</button>
+      <button data-opt="d">It speeds up simulation by skipping checks</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">A monitor passively watches the bus and checks compliance — every handshake, every ordering rule, every response code — and reports violations. It's the embodiment of "assertions are your safety net." It doesn't drive clocks or skip checks.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Catch each bug at the lowest verification level that can contain it — block, then subsystem, then full-chip.</p><p class="practice-why"><em>Why: a bug found at block level costs minutes; the same bug found in full-chip firmware costs days of triage across many interacting blocks.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Relying on full-chip firmware tests to stumble onto interconnect corner cases.</p><p class="practice-why"><em>Why it hurts: firmware exercises only typical traffic and runs slowly; out-of-order, back-pressure, and unmapped-address corners almost never arise by chance.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Use protocol VIP with bundled assertions and a coverage model rather than hand-rolling checks for a standard protocol.</p><p class="practice-why"><em>Why: commercial VIP encodes hundreds of protocol rules already verified across the industry — re-deriving them by hand is slow and error-prone.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Treating "all my directed tests pass" as "the SoC is verified."</p><p class="practice-why"><em>Why it hurts: directed tests only check what you thought of. Coverage-driven constrained-random is what exercises the scenarios you didn't anticipate — which is where silicon bugs hide.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="alert('That completes the SoC Overview course. Next: AXI in depth.');">Finish ✓</button></div>
+</section>
+
+</main>
+</div>
+
+<script>
+const modules = ['m1','m2','m3','m4','m5','m6'];
+let visited = new Set();
+
+function showModule(id){
+  document.querySelectorAll('section.module').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.sidebar a').forEach(a=>a.classList.toggle('active', a.dataset.target===id));
+  visited.add(id);
+  updateProgress();
+  window.scrollTo({top:0,behavior:'smooth'});
+  document.querySelector('.sidebar').classList.remove('open');
+}
+function currentIndex(){
+  const cur = document.querySelector('section.module.active').id;
+  return modules.indexOf(cur);
+}
+function goNext(){const i=currentIndex();if(i<modules.length-1)showModule(modules[i+1]);}
+function goPrev(){const i=currentIndex();if(i>0)showModule(modules[i-1]);}
+
+function updateProgress(){
+  const pct = Math.round(visited.size/modules.length*100);
+  document.getElementById('pfill').style.width = pct+'%';
+  document.getElementById('plabel').textContent = pct+'%';
+  document.querySelectorAll('.sidebar a').forEach(a=>{
+    if(visited.has(a.dataset.target) && !a.querySelector('.vbadge')){
+      const b=document.createElement('span');b.className='vbadge';b.textContent='✓';a.appendChild(b);
+    }
+  });
+}
+
+document.querySelectorAll('.sidebar a').forEach(a=>{
+  a.addEventListener('click',()=>showModule(a.dataset.target));
+});
+
+// quiz logic
+document.querySelectorAll('.quiz-block').forEach(block=>{
+  const correct = block.dataset.correct;
+  const fb = block.querySelector('.quiz-feedback');
+  block.querySelectorAll('.quiz-options button').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const chosen = btn.dataset.opt;
+      block.querySelectorAll('.quiz-options button').forEach(b=>{
+        b.disabled=true;
+        if(b.dataset.opt===correct)b.classList.add('correct');
+      });
+      if(chosen!==correct)btn.classList.add('wrong');
+      fb.hidden=false;
+      fb.querySelector('.feedback-text').textContent = (chosen===correct)?'✓ Correct':'✗ Not quite';
+    });
+  });
+});
+
+// activity hint/solution reveal
+document.querySelectorAll('.activity').forEach(act=>{
+  const hintBtn=act.querySelector('.hint-btn');
+  const hintBox=act.querySelector('.hint-box');
+  const solBtn=act.querySelector('.solution-btn');
+  const solBox=act.querySelector('.solution-box');
+  if(hintBtn)hintBtn.addEventListener('click',()=>{hintBox.hidden=false;hintBtn.style.display='none';if(solBtn)solBtn.hidden=false;});
+  if(solBtn)solBtn.addEventListener('click',()=>{solBox.hidden=false;solBtn.style.display='none';});
+});
+
+updateProgress();
+</script>
+</body>
+</html>

@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHI Overview — A Verification Engineer's Introduction</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#f9f8f6;--surface:#ffffff;--border:#e2e0db;--primary:#1a4fa0;--accent:#0e7d6e;--code-bg:#f4f3ef;
+  --text-main:#1c1c1e;--text-muted:#5c5c66;--good-bg:#e8f5e9;--good-border:#2e7d32;--bad-bg:#fdecea;
+  --bad-border:#c62828;--hint-bg:#fff8e1;--quiz-right:#e8f5e9;--quiz-wrong:#fdecea;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text-main);font-family:'Source Serif 4',serif;line-height:1.6;font-size:16px;}
+.topbar{position:fixed;top:0;left:0;right:0;height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;z-index:100;gap:16px;}
+.topbar h1{font-family:'IBM Plex Sans',sans-serif;font-size:16px;font-weight:600;color:var(--primary);flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hamburger{display:none;font-size:22px;background:none;border:none;cursor:pointer;color:var(--primary);}
+.progress-wrap{flex:1;max-width:340px;margin-left:auto;display:flex;align-items:center;gap:10px;}
+.progress-track{flex:1;height:8px;background:var(--code-bg);border-radius:4px;overflow:hidden;}
+.progress-fill{height:100%;width:0;background:var(--accent);transition:width .3s ease;}
+.progress-label{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);white-space:nowrap;}
+.layout{display:flex;margin-top:56px;}
+.sidebar{position:fixed;top:56px;bottom:0;left:0;width:260px;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:16px 0;}
+.sidebar a{display:block;padding:9px 20px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text-muted);text-decoration:none;border-left:3px solid transparent;cursor:pointer;transition:all .15s;}
+.sidebar a:hover{background:var(--code-bg);color:var(--text-main);}
+.sidebar a.active{color:var(--primary);border-left-color:var(--primary);background:#eef3fb;font-weight:600;}
+.sidebar a .vbadge{color:var(--good-border);font-weight:700;margin-left:6px;}
+.sidebar .grp{font-family:'IBM Plex Sans',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);padding:14px 20px 6px;font-weight:600;}
+.content{margin-left:260px;flex:1;padding:36px 48px 120px;max-width:1000px;}
+section.module{display:none;animation:fade .35s ease;}
+section.module.active{display:block;}
+@keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+h2.mod-title{font-family:'IBM Plex Sans',sans-serif;font-size:27px;font-weight:700;color:var(--primary);margin-bottom:6px;}
+.mod-num{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent);font-weight:500;}
+h3{font-family:'IBM Plex Sans',sans-serif;font-size:19px;font-weight:600;margin:28px 0 10px;color:var(--text-main);}
+h4{font-family:'IBM Plex Sans',sans-serif;font-size:15.5px;font-weight:600;margin:18px 0 8px;}
+p{margin:10px 0;}ul,ol{margin:10px 0 10px 26px;}li{margin:5px 0;}strong{font-weight:600;}
+.objectives{background:#eef3fb;border:1px solid #d3e0f2;border-radius:8px;padding:16px 20px;margin:18px 0;}
+.objectives h4{margin-top:0;color:var(--primary);}.objectives ul{margin-bottom:0;}
+.analogy{background:#f3f0fa;border-left:4px solid #6a1b9a;padding:14px 18px;margin:18px 0;border-radius:0 6px 6px 0;font-style:italic;}
+.analogy strong{color:#6a1b9a;font-style:normal;}
+.keybox{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin:18px 0;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+figure{margin:22px 0;text-align:center;}
+figure svg{max-width:100%;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;}
+figcaption{font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'IBM Plex Sans',sans-serif;}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:14px 0;}
+code{font-family:'JetBrains Mono',monospace;font-size:13px;}
+p code,li code,td code{background:var(--code-bg);padding:1px 6px;border-radius:4px;font-size:13px;color:#6a1b9a;}
+.kw{color:#1a4fa0;font-weight:500;}.type{color:#6a1b9a;}.num{color:#0e7d6e;}.str{color:#c62828;}.cmt{color:#5c5c66;font-style:italic;}.dir{color:#f57f17;}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.5px;}
+th,td{border:1px solid var(--border);padding:8px 11px;text-align:left;vertical-align:top;}
+th{background:#eef3fb;font-family:'IBM Plex Sans',sans-serif;font-weight:600;color:var(--primary);}
+tr:nth-child(even) td{background:#fbfaf8;}
+.activity{background:#fffdf7;border:1px solid #f0e6c8;border-radius:8px;padding:18px 20px;margin:22px 0;}
+.activity h4{margin-top:0;color:#a86a00;}.activity h4::before{content:"✎ ";}
+.hint-btn,.solution-btn{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:500;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 14px;cursor:pointer;margin:8px 8px 0 0;color:var(--primary);}
+.hint-btn:hover,.solution-btn:hover{background:var(--code-bg);}
+.hint-box{background:var(--hint-bg);border-left:4px solid #f5a623;padding:12px 16px;margin-top:12px;border-radius:0 6px 6px 0;}
+.solution-box{background:#eef7f4;border-left:4px solid var(--accent);padding:12px 16px;margin-top:12px;border-radius:0 6px 6px 0;}
+.quiz-block{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px 20px;margin:22px 0;}
+.quiz-question{font-weight:600;font-family:'IBM Plex Sans',sans-serif;margin-bottom:12px;}
+.quiz-question::before{content:"? ";color:var(--accent);font-weight:700;}
+.quiz-options{display:flex;flex-direction:column;gap:8px;}
+.quiz-options button{font-family:'Source Serif 4',serif;font-size:14.5px;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 14px;cursor:pointer;transition:all .15s;}
+.quiz-options button:hover:not(:disabled){border-color:var(--primary);background:#f5f8fd;}
+.quiz-options button:disabled{cursor:default;opacity:.92;}
+.quiz-options button.correct{background:var(--quiz-right);border-color:var(--good-border);font-weight:600;}
+.quiz-options button.wrong{background:var(--quiz-wrong);border-color:var(--bad-border);}
+.quiz-feedback{margin-top:14px;padding:12px 16px;border-radius:6px;background:var(--code-bg);}
+.feedback-text{font-weight:600;font-family:'IBM Plex Sans',sans-serif;}
+.feedback-explain{margin-top:6px;font-size:14px;}
+.practices-section>h3::before{content:"⚖ ";}
+.practices-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0;}
+.practice-card{border-radius:8px;padding:16px 18px;}
+.practice-card.good{background:var(--good-bg);border:1px solid var(--good-border);}
+.practice-card.bad{background:var(--bad-bg);border:1px solid var(--bad-border);}
+.practice-card h4{margin-top:0;}
+.practice-card.good h4{color:var(--good-border);}.practice-card.bad h4{color:var(--bad-border);}
+.practice-why{margin-top:8px;font-size:13.5px;color:var(--text-muted);}
+.navbtns{display:flex;justify-content:space-between;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);}
+.navbtns button{font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:500;background:var(--primary);color:#fff;border:none;border-radius:6px;padding:10px 20px;cursor:pointer;transition:opacity .15s;}
+.navbtns button:hover{opacity:.88;}
+.navbtns button:disabled{background:var(--border);color:var(--text-muted);cursor:not-allowed;}
+.callout{border-left:4px solid var(--accent);background:#eef7f4;padding:12px 16px;margin:16px 0;border-radius:0 6px 6px 0;}
+.callout.warn{border-left-color:#f5a623;background:var(--hint-bg);}
+.tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;background:#eef3fb;color:var(--primary);border:1px solid #d3e0f2;border-radius:4px;padding:1px 7px;margin:0 2px;}
+@media(max-width:880px){
+  .sidebar{transform:translateX(-100%);transition:transform .25s;z-index:90;}
+  .sidebar.open{transform:none;}
+  .content{margin-left:0;padding:24px 18px 100px;}
+  .hamburger{display:block;}.practices-grid{grid-template-columns:1fr;}.progress-wrap{max-width:160px;}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <h1>CHI Overview — A Verification Engineer's Introduction</h1>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="pfill"></div></div>
+    <span class="progress-label" id="plabel">0%</span>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar">
+  <div class="grp">Motivation</div>
+  <a data-target="m1" class="active">1 · Why CHI Exists</a>
+  <div class="grp">Structure</div>
+  <a data-target="m2">2 · Nodes &amp; Topology</a>
+  <a data-target="m3">3 · The Channel Classes</a>
+  <div class="grp">Behaviour</div>
+  <a data-target="m4">4 · Coherency in CHI</a>
+  <div class="grp">Verification</div>
+  <a data-target="m5">5 · Verifying CHI</a>
+</nav>
+<main class="content">
+
+<!-- ===== MODULE 1 ===== -->
+<section class="module active" id="m1">
+  <div class="mod-num">MODULE 1</div>
+  <h2 class="mod-title">Why CHI Exists</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Explain the scaling limits of AXI/ACE that motivated CHI.</li>
+      <li>Contrast signal-based protocols with packet/flit-based protocols.</li>
+      <li>State what CHI is for and where you'll encounter it.</li>
+      <li>Set expectations for how CHI verification differs from AXI.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — phone tree vs postal service.</strong> ACE coherency is like a phone tree: to find out who
+    has the latest news, you call everyone and wait for each to answer (broadcast snoops). That's fine for a few
+    people. For a city of millions, you need a postal service with addresses, sorting offices, and tracking
+    numbers — messages are packets routed through a network, and one office (the home node) keeps the master
+    record of who has what. CHI is that postal service.
+  </div>
+
+  <h3>Where ACE runs out of road</h3>
+  <p>ACE (Course 2, Module 8) extends AXI with snoop channels and works well for a small number of coherent
+  managers. But it inherits AXI's <strong>signal-based</strong> nature: every channel is a bundle of dedicated
+  wires, and coherency relies on the interconnect broadcasting snoops. As you scale to many cores and clusters,
+  three problems bite:</p>
+  <ul>
+    <li><strong>Snoop broadcast cost.</strong> Asking every cache about every line doesn't scale — traffic grows
+    with the number of agents.</li>
+    <li><strong>Wiring explosion.</strong> Dedicated wire bundles between many managers and a central interconnect
+    become impossible to route on a large die.</li>
+    <li><strong>No native fabric scalability.</strong> AXI/ACE describe a manager-to-interconnect interface, not a
+    scalable network of many nodes.</li>
+  </ul>
+
+  <h3>CHI's answer: a packet-based coherent network</h3>
+  <p><strong>CHI (Coherent Hub Interface)</strong> is Arm's protocol for large-scale coherent systems. Two big
+  ideas set it apart from AXI:</p>
+  <ol>
+    <li><strong>Packet/flit-based, not signal-based.</strong> Instead of driving address/data on dedicated
+    channel wires with VALID/READY per field, CHI sends <em>messages</em> (packets, transported as
+    <strong>flits</strong> — flow-control units) over a network. A request is a packet with fields, not a bundle
+    of pins held stable across cycles.</li>
+    <li><strong>A home node tracks coherency.</strong> Rather than broadcasting snoops to everyone, a
+    <strong>Home Node</strong> for each address keeps a record of which caches hold the line and sends
+    <em>directed</em> snoops only to those that matter. This is the key scalability win.</li>
+  </ol>
+
+  <figure>
+    <svg viewBox="0 0 700 240" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <!-- signal based -->
+      <text x="170" y="25" text-anchor="middle" font-size="13" fill="#1a4fa0" font-weight="600">AXI/ACE — signal-based</text>
+      <rect x="60" y="45" width="90" height="40" rx="5" fill="#e8f0fe" stroke="#1a4fa0"/><text x="105" y="70" text-anchor="middle" font-size="11">Manager</text>
+      <rect x="240" y="45" width="90" height="40" rx="5" fill="#e8f4f1" stroke="#0e7d6e"/><text x="285" y="70" text-anchor="middle" font-size="11">Subord.</text>
+      <g stroke="#5c5c66" stroke-width="1.3">
+        <line x1="150" y1="52" x2="240" y2="52"/><line x1="150" y1="59" x2="240" y2="59"/>
+        <line x1="150" y1="66" x2="240" y2="66"/><line x1="150" y1="73" x2="240" y2="73"/>
+        <line x1="150" y1="80" x2="240" y2="80"/>
+      </g>
+      <text x="195" y="105" text-anchor="middle" font-size="9" fill="#5c5c66">many dedicated wires, held stable</text>
+
+      <!-- packet based -->
+      <text x="520" y="25" text-anchor="middle" font-size="13" fill="#0e7d6e" font-weight="600">CHI — packet/flit-based</text>
+      <rect x="410" y="45" width="80" height="36" rx="5" fill="#e8f0fe" stroke="#1a4fa0"/><text x="450" y="68" text-anchor="middle" font-size="10">RN</text>
+      <rect x="560" y="45" width="80" height="36" rx="5" fill="#e8f4f1" stroke="#0e7d6e"/><text x="600" y="68" text-anchor="middle" font-size="10">HN</text>
+      <rect x="495" y="52" width="26" height="16" rx="3" fill="#fdf3e8" stroke="#a86a00"/><text x="508" y="64" text-anchor="middle" font-size="8">flit</text>
+      <rect x="528" y="52" width="26" height="16" rx="3" fill="#fdf3e8" stroke="#a86a00"/><text x="541" y="64" text-anchor="middle" font-size="8">flit</text>
+      <line x1="490" y1="60" x2="560" y2="60" stroke="#5c5c66" stroke-width="1" stroke-dasharray="3 2"/>
+      <text x="525" y="105" text-anchor="middle" font-size="9" fill="#5c5c66">discrete packets routed as flits</text>
+
+      <text x="350" y="150" text-anchor="middle" font-size="11" fill="#1c1c1e" font-weight="600">RN = Request Node (has caches) · HN = Home Node (tracks coherency)</text>
+      <text x="350" y="180" text-anchor="middle" font-size="11" fill="#5c5c66">CHI scales by routing directed messages through a network with a coherency directory,</text>
+      <text x="350" y="198" text-anchor="middle" font-size="11" fill="#5c5c66">instead of holding wide signal bundles and broadcasting snoops to everyone.</text>
+    </svg>
+    <figcaption>The fundamental shift: from wide, stable signal bundles (AXI/ACE) to routed packets/flits with a coherency-tracking home node (CHI).</figcaption>
+  </figure>
+
+  <h3>Where you'll meet CHI</h3>
+  <p>CHI is the backbone of server and high-end SoCs: Arm's Neoverse server cores, large mobile application
+  processors, automotive compute, and anything with many coherent cores and clusters. The on-chip network that
+  carries it is typically a <strong>mesh</strong> (e.g. Arm's CMN family — Coherent Mesh Network). If you verify
+  CPU clusters or large interconnects, you'll meet CHI.</p>
+
+  <div class="callout">
+    <strong>What changes for you as a verification engineer:</strong> AXI verification is largely about
+    <em>per-channel handshake legality and transaction reconstruction</em>. CHI verification adds a whole layer:
+    <em>flit/packet-level field checking, transaction flows made of multiple message exchanges, and a coherency
+    model with a directory</em>. The coherency thinking from ACE carries over; the delivery mechanism and the
+    scale are what's new. This course builds that mental model — it's an overview, not the full 600-page spec.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — why not just scale ACE?</h4>
+    <p>An architect proposes connecting 32 coherent CPU cores using ACE, with the interconnect broadcasting every
+    snoop to all 32 caches. Give two concrete reasons this won't scale well, and name the CHI mechanism that
+    addresses each.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Think about (a) how much snoop traffic 32 caches generate if every coherent access snoops all of them, and (b) how many dedicated wires a central interconnect needs to 32 managers. What CHI concept lets you snoop only the caches that actually hold a line? What lets you avoid wide dedicated bundles?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>1. Snoop broadcast traffic.</strong> Broadcasting every snoop to 32 caches means most snoops go to
+      caches that don't hold the line — wasted bandwidth that grows with core count. <em>CHI mechanism:</em> the
+      <strong>Home Node directory</strong> tracks which caches hold each line and sends <em>directed</em> snoops
+      only to those, not a broadcast.</p>
+      <p><strong>2. Wiring/routing.</strong> Dedicated ACE signal bundles from a central interconnect to 32
+      managers are physically unroutable on a large die. <em>CHI mechanism:</em> a <strong>packet/flit-based mesh
+      network</strong> carries messages over shared, routed links instead of point-to-point wire bundles.</p>
+      <p>Together these are exactly why large coherent systems use CHI rather than scaled-up ACE.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="c">
+    <p class="quiz-question">What is the most fundamental difference between AXI/ACE and CHI?</p>
+    <div class="quiz-options">
+      <button data-opt="a">CHI is slower but uses less power</button>
+      <button data-opt="b">CHI removes the need for caches</button>
+      <button data-opt="c">CHI is packet/flit-based with a coherency-tracking home node, vs AXI's signal-based channels and snoop broadcast</button>
+      <button data-opt="d">CHI does not support coherency</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">CHI replaces wide, held signal bundles with routed packets (flits) and replaces snoop broadcast with a home node that tracks who holds each line and sends directed snoops. That's what lets it scale to many coherent cores — it very much supports coherency; that's its whole purpose.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Carry your ACE coherency mental model into CHI, but re-learn the <em>delivery</em>: flits, packets, and transaction flows.</p><p class="practice-why"><em>Why: the coherency concepts (states, snoops, ownership) transfer directly; assuming the signal-level mechanics also transfer leads to broken checkers.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Treating a CHI transaction as a single AXI-style beat with VALID/READY.</p><p class="practice-why"><em>Why it hurts: a CHI transaction is a <em>flow</em> of several messages across channel classes; modelling it as one handshake misses most of the protocol.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Start CHI verification by mapping out complete transaction flows (request → snoop → data → completion) before writing checks.</p><p class="practice-why"><em>Why: CHI correctness is about whole flows and their ordering, not isolated signals; the flow map is your specification for the scoreboard.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Trying to verify a CHI system at full scale from day one.</p><p class="practice-why"><em>Why it hurts: coherency bugs are easier to isolate with 2–3 nodes; bring up the model small, then scale. Starting at 32 nodes makes every failure a needle in a haystack.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button disabled>← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 2 ===== -->
+<section class="module" id="m2">
+  <div class="mod-num">MODULE 2</div>
+  <h2 class="mod-title">Node Types &amp; Topology</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Identify the main CHI node types and what each does.</li>
+      <li>Explain the role of the Home Node as the coherency point.</li>
+      <li>Understand how nodes connect via a mesh network.</li>
+      <li>Recognise which nodes a verification environment must model.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a logistics company.</strong> Request Nodes are the branch offices that ask for goods. The
+    Home Node is regional headquarters: it knows where every item is stored and who currently has it, and it
+    coordinates transfers. Subordinate Nodes are the warehouses that physically hold inventory (memory). The mesh
+    is the road network linking them all.
+  </div>
+
+  <h3>The node types</h3>
+  <p>CHI describes a system as a set of <strong>nodes</strong> connected by a network. Each node has a role. The
+  names use a Request/Home/Subordinate scheme, with <code>-F</code> (fully coherent) and <code>-I</code> (I/O or
+  non-coherent) variants:</p>
+
+  <table>
+    <tr><th>Node</th><th>Name</th><th>Role</th></tr>
+    <tr><td><span class="tag">RN-F</span></td><td>Request Node, Fully coherent</td><td>An agent with a coherent cache that issues requests — e.g. a CPU core/cluster. Participates fully in coherency (can be snooped).</td></tr>
+    <tr><td><span class="tag">RN-I</span></td><td>Request Node, I/O coherent</td><td>A requester without a coherent cache — e.g. an I/O bridge or a DMA-style master. Issues requests but isn't snooped the same way.</td></tr>
+    <tr><td><span class="tag">RN-D</span></td><td>Request Node with DVM</td><td>Like RN-F/I but also handles Distributed Virtual Memory messages (TLB/MMU maintenance).</td></tr>
+    <tr><td><span class="tag">HN-F</span></td><td>Home Node, Fully coherent</td><td>The coherency point for a range of addresses. Holds the directory/snoop filter, issues directed snoops, often integrates a system-level cache.</td></tr>
+    <tr><td><span class="tag">HN-I</span></td><td>Home Node, I/O</td><td>Home for an I/O / peripheral address region; manages ordering to that region without full coherency.</td></tr>
+    <tr><td><span class="tag">SN-F</span></td><td>Subordinate Node, Fully coherent region</td><td>The actual memory endpoint — e.g. the DRAM controller behind an HN-F.</td></tr>
+  </table>
+
+  <h3>The Home Node — the heart of CHI coherency</h3>
+  <p>The <strong>HN-F</strong> is the single most important node to understand. For its slice of the address
+  space, it is the <em>point of coherency</em>: every coherent request for those addresses goes through it. It
+  keeps a <strong>directory</strong> (or snoop filter) recording which RN-Fs currently cache each line and in what
+  state. When a request arrives, the HN-F decides what to do — supply from its system cache, snoop the owning RN-F,
+  or fetch from the SN-F (memory) — and sends <em>directed</em> messages rather than broadcasting. Address space is
+  typically <strong>interleaved across multiple HN-Fs</strong> so no single home node is a bottleneck.</p>
+
+  <figure>
+    <svg viewBox="0 0 700 320" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <!-- mesh of routers 3x2 -->
+      <g>
+        <!-- routers -->
+        <g fill="#f3f0fa" stroke="#6a1b9a" stroke-width="1.5">
+          <rect x="120" y="80" width="40" height="40" rx="5"/>
+          <rect x="330" y="80" width="40" height="40" rx="5"/>
+          <rect x="540" y="80" width="40" height="40" rx="5"/>
+          <rect x="120" y="220" width="40" height="40" rx="5"/>
+          <rect x="330" y="220" width="40" height="40" rx="5"/>
+          <rect x="540" y="220" width="40" height="40" rx="5"/>
+        </g>
+        <g font-size="9" fill="#6a1b9a" text-anchor="middle">
+          <text x="140" y="104">R</text><text x="350" y="104">R</text><text x="560" y="104">R</text>
+          <text x="140" y="244">R</text><text x="350" y="244">R</text><text x="560" y="244">R</text>
+        </g>
+        <!-- mesh links -->
+        <g stroke="#6a1b9a" stroke-width="2">
+          <line x1="160" y1="100" x2="330" y2="100"/><line x1="370" y1="100" x2="540" y2="100"/>
+          <line x1="160" y1="240" x2="330" y2="240"/><line x1="370" y1="240" x2="540" y2="240"/>
+          <line x1="140" y1="120" x2="140" y2="220"/><line x1="350" y1="120" x2="350" y2="220"/><line x1="560" y1="120" x2="560" y2="220"/>
+        </g>
+      </g>
+      <!-- attached nodes -->
+      <rect x="95" y="25" width="90" height="34" rx="5" fill="#e8f0fe" stroke="#1a4fa0"/><text x="140" y="47" text-anchor="middle" font-size="11" fill="#1a4fa0">RN-F (CPU)</text>
+      <line x1="140" y1="59" x2="140" y2="80" stroke="#5c5c66"/>
+      <rect x="305" y="25" width="90" height="34" rx="5" fill="#e8f0fe" stroke="#1a4fa0"/><text x="350" y="47" text-anchor="middle" font-size="11" fill="#1a4fa0">RN-F (CPU)</text>
+      <line x1="350" y1="59" x2="350" y2="80" stroke="#5c5c66"/>
+      <rect x="515" y="25" width="90" height="34" rx="5" fill="#fdf3e8" stroke="#a86a00"/><text x="560" y="47" text-anchor="middle" font-size="11" fill="#a86a00">RN-I (I/O)</text>
+      <line x1="560" y1="59" x2="560" y2="80" stroke="#5c5c66"/>
+
+      <rect x="95" y="281" width="90" height="34" rx="5" fill="#e8f4f1" stroke="#0e7d6e"/><text x="140" y="303" text-anchor="middle" font-size="11" fill="#0e7d6e">HN-F</text>
+      <line x1="140" y1="260" x2="140" y2="281" stroke="#5c5c66"/>
+      <rect x="305" y="281" width="90" height="34" rx="5" fill="#e8f4f1" stroke="#0e7d6e"/><text x="350" y="303" text-anchor="middle" font-size="11" fill="#0e7d6e">HN-F</text>
+      <line x1="350" y1="260" x2="350" y2="281" stroke="#5c5c66"/>
+      <rect x="515" y="281" width="90" height="34" rx="5" fill="#e8f4f1" stroke="#0e7d6e"/><text x="560" y="303" text-anchor="middle" font-size="11" fill="#0e7d6e">SN-F (DRAM)</text>
+      <line x1="560" y1="260" x2="560" y2="281" stroke="#5c5c66"/>
+    </svg>
+    <figcaption>A small CHI mesh. Routers (purple) form the network; RNs, HNs, and SNs attach at the edges. Real systems (Arm CMN) scale this to large grids.</figcaption>
+  </figure>
+
+  <h3>The mesh network</h3>
+  <p>Nodes connect through a <strong>mesh</strong> of routers — a grid where each router links to its neighbours.
+  A flit travels hop-by-hop from source to destination. Meshes scale far better than a central crossbar: adding
+  nodes adds local links rather than widening one shared structure. The trade-off is that latency now depends on
+  distance (hop count), which matters for performance verification.</p>
+
+  <div class="callout warn">
+    <strong>Verification implication:</strong> because address space is interleaved across multiple HN-Fs and
+    traffic is routed over many hops, the <em>same</em> logical transaction can take different physical paths and
+    interact with different home nodes depending on address. Your environment must model the HN-F directory
+    behaviour and cover traffic to multiple home nodes — not just a single path.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — assign the node types</h4>
+    <p>You're modelling a CHI subsystem with: two CPU clusters with coherent L2 caches, one PCIe bridge that does
+    DMA into memory, the DRAM controller, and the block that holds the coherency directory for the DRAM address
+    range. Assign a CHI node type to each.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Coherent cache + issues requests = RN-F. Issues requests but no coherent cache (an I/O master) = RN-I. The directory/point-of-coherency for an address range = HN-F. The actual memory endpoint = SN-F.</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <ul>
+        <li><strong>Each CPU cluster (coherent L2)</strong> → <span class="tag">RN-F</span> — coherent requester, can be snooped.</li>
+        <li><strong>PCIe bridge doing DMA</strong> → <span class="tag">RN-I</span> — issues requests but has no coherent cache to snoop.</li>
+        <li><strong>DRAM controller</strong> → <span class="tag">SN-F</span> — the memory endpoint.</li>
+        <li><strong>Coherency directory for the DRAM range</strong> → <span class="tag">HN-F</span> — the point of coherency that tracks who caches each line and issues directed snoops.</li>
+      </ul>
+      <p>Note the request path: an RN-F's coherent access goes to the HN-F, which consults its directory and only
+      then talks to the SN-F or snoops another RN-F.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="b">
+    <p class="quiz-question">What is the primary role of an HN-F (Home Node, Fully coherent)?</p>
+    <div class="quiz-options">
+      <button data-opt="a">It stores the bulk DRAM data</button>
+      <button data-opt="b">It is the point of coherency for its address range — tracks which caches hold each line and issues directed snoops</button>
+      <button data-opt="c">It generates the system clock</button>
+      <button data-opt="d">It is a CPU core</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">The HN-F is the coherency point: it owns a directory/snoop filter for its slice of addresses, decides how each coherent request is satisfied, and snoops only the caches that hold the line. The bulk data lives in the SN-F (memory); the RN-F is the requester.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Model the HN-F directory in your reference model and check it after each transaction.</p><p class="practice-why"><em>Why: most CHI coherency bugs are directory/snoop-filter errors; if you don't model expected directory state you can't detect them.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Assuming a single home node for the whole address space.</p><p class="practice-why"><em>Why it hurts: real systems interleave addresses across many HN-Fs; a single-home model misses interleaving bugs and under-covers the routing space.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Cover traffic to multiple HN-Fs and across multiple mesh hops.</p><p class="practice-why"><em>Why: path- and home-dependent behaviour (latency, ordering) only shows up when you exercise different routes, not one fixed path.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Ignoring RN-I vs RN-F differences when generating stimulus.</p><p class="practice-why"><em>Why it hurts: they participate in coherency differently; treating an I/O requester like a fully-coherent one generates illegal or unrepresentative traffic.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 3 ===== -->
+<section class="module" id="m3">
+  <div class="mod-num">MODULE 3</div>
+  <h2 class="mod-title">The Channel Classes — REQ, RSP, SNP, DAT</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Name the four CHI channel classes and what each carries.</li>
+      <li>Understand flits as the unit of transport.</li>
+      <li>Trace a simple read as a flow of messages across channels.</li>
+      <li>Contrast this with AXI's five-channel handshake model.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a courier service with four form types.</strong> Instead of one giant form, every
+    interaction uses one of four standard slips: a Request slip ("please send me X"), a Response slip
+    ("acknowledged / here's your status"), a Snoop slip ("HQ asking a branch: do you have X?"), and a Data slip
+    (the actual goods). Every transaction is a sequence of these slips passed between nodes.
+  </div>
+
+  <h3>From channels-as-wires to channel classes</h3>
+  <p>AXI has five channels that are <em>physical bundles of signals</em>. CHI has four <strong>channel
+  classes</strong> that are <em>categories of message</em> carried as packets over the network. The distinction
+  matters: a CHI "channel" is a logical message type, and many transactions' messages share the same physical
+  network links.</p>
+
+  <table>
+    <tr><th>Class</th><th>Name</th><th>Carries</th><th>Typical direction</th></tr>
+    <tr><td><span class="tag">REQ</span></td><td>Request</td><td>Read/write/atomic/coherent requests — the opening message of a transaction.</td><td>RN → HN</td></tr>
+    <tr><td><span class="tag">RSP</span></td><td>Response</td><td>Acknowledgements, completion, coherency responses without data.</td><td>HN ↔ RN, etc.</td></tr>
+    <tr><td><span class="tag">SNP</span></td><td>Snoop</td><td>Directed snoop requests from a Home Node to a caching RN.</td><td>HN → RN-F</td></tr>
+    <tr><td><span class="tag">DAT</span></td><td>Data</td><td>The actual data payload — read data, write data, snoop data.</td><td>any ↔ any</td></tr>
+  </table>
+
+  <h3>Flits — the unit of flow control</h3>
+  <p>Messages travel as <strong>flits</strong> (flow-control units). A control message (like a REQ) is typically a
+  single flit carrying the address, opcode, source/target IDs, transaction ID, and attributes. A data message
+  (DAT) is one or more flits carrying a chunk of the cache line. Flow control is credit-based: a sender may only
+  send a flit when it holds a credit proving the receiver has buffer space — this prevents overflow without the
+  held-VALID-until-READY model AXI uses.</p>
+
+  <div class="callout">
+    <strong>Key contrast with AXI:</strong> AXI holds a field stable on dedicated wires until VALID &amp; READY
+    coincide. CHI instead <em>injects a flit</em> into the network when it has a credit; the flit then routes to
+    its destination. There's no "hold the address stable for N cycles" — the information is packetised and moves.
+    This changes what your monitor samples: you capture and decode flits, not levels held across cycles.
+  </div>
+
+  <h3>A simple coherent read as a message flow</h3>
+  <p>Watch how one read becomes a sequence of messages across classes:</p>
+  <pre><code class="language-sv"><span class="cmt">// RN-F (CPU) reads a line that another RN-F holds dirty</span>
+<span class="num">1.</span> RN-F  --REQ(ReadShared, addr)-->  HN-F        <span class="cmt">// request to the home node</span>
+<span class="num">2.</span> HN-F  --SNP(SnpShared, addr)-->   owner RN-F  <span class="cmt">// directed snoop (directory knew the owner)</span>
+<span class="num">3.</span> owner --DAT(dirty line)-->         HN-F        <span class="cmt">// owner returns its dirty copy</span>
+<span class="num">4.</span> HN-F  --DAT(line data)-->          RN-F        <span class="cmt">// home supplies data to requester</span>
+<span class="num">5.</span> RN-F  --RSP(CompAck)-->            HN-F        <span class="cmt">// requester acknowledges completion</span></code></pre>
+  <p><strong>What to notice:</strong> a single read is <em>five messages</em> spanning REQ, SNP, DAT, and RSP — and
+  the home node consulted its directory to snoop only the one owner, not everybody. In AXI this would be an AR beat
+  and some R beats; in CHI it's a coordinated flow. Verifying CHI means verifying these <em>flows</em> are
+  well-formed and correctly ordered, on top of checking individual flit fields.</p>
+
+  <figure>
+    <svg viewBox="0 0 700 250" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <!-- lifelines -->
+      <text x="90" y="30" text-anchor="middle" font-size="12" fill="#1a4fa0" font-weight="600">RN-F (req)</text>
+      <text x="350" y="30" text-anchor="middle" font-size="12" fill="#0e7d6e" font-weight="600">HN-F</text>
+      <text x="610" y="30" text-anchor="middle" font-size="12" fill="#1a4fa0" font-weight="600">RN-F (owner)</text>
+      <line x1="90" y1="40" x2="90" y2="230" stroke="#ccc"/>
+      <line x1="350" y1="40" x2="350" y2="230" stroke="#ccc"/>
+      <line x1="610" y1="40" x2="610" y2="230" stroke="#ccc"/>
+      <!-- messages -->
+      <line x1="90" y1="60" x2="350" y2="60" stroke="#1a4fa0" stroke-width="2" marker-end="url(#m3a)"/>
+      <text x="220" y="52" text-anchor="middle" font-size="10" fill="#1a4fa0">1. REQ ReadShared</text>
+      <line x1="350" y1="95" x2="610" y2="95" stroke="#c62828" stroke-width="2" marker-end="url(#m3r)"/>
+      <text x="480" y="87" text-anchor="middle" font-size="10" fill="#c62828">2. SNP SnpShared</text>
+      <line x1="610" y1="130" x2="350" y2="130" stroke="#a86a00" stroke-width="2" marker-end="url(#m3o)"/>
+      <text x="480" y="122" text-anchor="middle" font-size="10" fill="#a86a00">3. DAT dirty line</text>
+      <line x1="350" y1="165" x2="90" y2="165" stroke="#a86a00" stroke-width="2" marker-end="url(#m3o)"/>
+      <text x="220" y="157" text-anchor="middle" font-size="10" fill="#a86a00">4. DAT line data</text>
+      <line x1="90" y1="200" x2="350" y2="200" stroke="#0e7d6e" stroke-width="2" marker-end="url(#m3g)"/>
+      <text x="220" y="192" text-anchor="middle" font-size="10" fill="#0e7d6e">5. RSP CompAck</text>
+      <defs>
+        <marker id="m3a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#1a4fa0"/></marker>
+        <marker id="m3r" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c62828"/></marker>
+        <marker id="m3o" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#a86a00"/></marker>
+        <marker id="m3g" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#0e7d6e"/></marker>
+      </defs>
+    </svg>
+    <figcaption>One coherent read as a CHI message flow across REQ, SNP, DAT, and RSP classes. The home node coordinates; the directory told it whom to snoop.</figcaption>
+  </figure>
+
+  <div class="activity">
+    <h4>Activity — classify the messages</h4>
+    <p>For a write where the requester must first gain ownership of a line, label each step with its channel class
+    (REQ / RSP / SNP / DAT): (1) RN asks the HN for write permission. (2) HN tells other caches to invalidate
+    their copies. (3) HN tells the RN it now has permission. (4) RN sends the write data.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>"Asks for something" = REQ. "Tells a cache to do something with a line" = SNP. "Grants/acknowledges, no data" = RSP. "Carries the actual bytes" = DAT.</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <ul>
+        <li><strong>(1)</strong> <span class="tag">REQ</span> — the requester opens the transaction asking for write permission.</li>
+        <li><strong>(2)</strong> <span class="tag">SNP</span> — the home node sends directed snoops telling other caches to invalidate.</li>
+        <li><strong>(3)</strong> <span class="tag">RSP</span> — the home node grants permission/completion, no data.</li>
+        <li><strong>(4)</strong> <span class="tag">DAT</span> — the requester sends the actual write data.</li>
+      </ul>
+      <p>That's the four classes in one transaction — the typical shape of a coherent write flow.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="d">
+    <p class="quiz-question">In CHI, what is a "flit"?</p>
+    <div class="quiz-options">
+      <button data-opt="a">A type of cache</button>
+      <button data-opt="b">A coherency state</button>
+      <button data-opt="c">A node that tracks ownership</button>
+      <button data-opt="d">A flow-control unit — the packetised chunk in which messages travel over the network</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">A flit (flow-control unit) is the unit of transport: a control message is usually one flit, a data message is one or more. Credit-based flow control governs when flits may be sent. It's not a cache, a state, or a node.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Build your monitor to capture and decode flits, then reassemble them into transaction flows.</p><p class="practice-why"><em>Why: CHI correctness lives at the flow level; a monitor that only logs individual flits without reassembly can't check ordering or completion.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Modelling CHI flow control as AXI-style VALID/READY hold.</p><p class="practice-why"><em>Why it hurts: CHI uses credit-based flit flow control; assuming held-stable signals leads to a checker that misreads legal traffic as violations.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Cover all four channel classes and the opcodes within each (ReadShared, ReadUnique, SnpShared, etc.).</p><p class="practice-why"><em>Why: each opcode triggers a different flow; covering only "a read happened" leaves most of the protocol's behaviour unexercised.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Checking only that data is correct, ignoring the RSP/CompAck handshakes that close a flow.</p><p class="practice-why"><em>Why it hurts: a missing or mis-ordered completion response is a real bug that corrupts ordering even when the data bytes happen to be right.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 4 ===== -->
+<section class="module" id="m4">
+  <div class="mod-num">MODULE 4</div>
+  <h2 class="mod-title">Coherency in CHI</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Understand the cache-line states CHI uses and how they relate to MOESI.</li>
+      <li>Explain how the home node and its directory drive coherency.</li>
+      <li>Follow how snoops change cache-line state.</li>
+      <li>Appreciate why ordering and hazards make CHI coherency hard to verify.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a library with a central catalogue.</strong> The home node is the librarian with the master
+    catalogue. Each branch (cache) can borrow a book (cache line) as "reference only" (shared, read-only) or
+    "checked out for edits" (unique, writable). The catalogue records who has what. If someone wants to edit a
+    book others are reading, the librarian recalls all the reference copies first. That recall is a snoop, and the
+    catalogue is the directory.
+  </div>
+
+  <h3>CHI cache-line states</h3>
+  <p>CHI uses a state model closely related to <strong>MOESI</strong> (Course 2, Module 8). Each cached line is in
+  one of a small set of states describing whether it's valid, whether this cache may write it, whether it's dirty,
+  and whether others may share it:</p>
+  <table>
+    <tr><th>CHI state</th><th>Valid?</th><th>Writable (Unique)?</th><th>Dirty?</th><th>MOESI analogue</th></tr>
+    <tr><td><strong>I</strong> — Invalid</td><td>No</td><td>—</td><td>—</td><td>I</td></tr>
+    <tr><td><strong>SC</strong> — Shared Clean</td><td>Yes</td><td>No (shared)</td><td>No</td><td>S</td></tr>
+    <tr><td><strong>UC</strong> — Unique Clean</td><td>Yes</td><td>Yes</td><td>No</td><td>E</td></tr>
+    <tr><td><strong>UD</strong> — Unique Dirty</td><td>Yes</td><td>Yes</td><td>Yes</td><td>M</td></tr>
+    <tr><td><strong>SD</strong> — Shared Dirty</td><td>Yes</td><td>No</td><td>Yes (this cache responsible)</td><td>O</td></tr>
+  </table>
+  <p>The two axes to keep straight: <strong>Unique vs Shared</strong> (am I the only cacher → may I write without
+  telling anyone?) and <strong>Clean vs Dirty</strong> (does my copy differ from memory → must I write it back?).
+  A write needs a Unique state; if the line is Shared, the requester must first upgrade to Unique, which forces
+  other copies to Invalid.</p>
+
+  <h3>The home node drives transitions</h3>
+  <p>The HN-F's directory records, per line, which RN-Fs hold it and roughly in what state. When a request
+  arrives, the home node:</p>
+  <ol>
+    <li>Looks up the line in its directory.</li>
+    <li>Issues directed snoops to the RN-Fs that hold it (to invalidate for a write, or to fetch dirty data for a read).</li>
+    <li>Collects snoop responses/data, supplies the requester, and updates the directory to the new state.</li>
+  </ol>
+
+  <figure>
+    <svg viewBox="0 0 700 250" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <!-- states as circles -->
+      <circle cx="110" cy="125" r="34" fill="#fdecea" stroke="#c62828" stroke-width="2"/><text x="110" y="130" text-anchor="middle" font-size="13" fill="#c62828">I</text>
+      <circle cx="300" cy="60" r="34" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2"/><text x="300" y="65" text-anchor="middle" font-size="12" fill="#2e7d32">SC</text>
+      <circle cx="300" cy="195" r="34" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/><text x="300" y="200" text-anchor="middle" font-size="12" fill="#1a4fa0">UC</text>
+      <circle cx="520" cy="125" r="34" fill="#f3f0fa" stroke="#6a1b9a" stroke-width="2"/><text x="520" y="130" text-anchor="middle" font-size="12" fill="#6a1b9a">UD</text>
+
+      <path d="M140,110 Q210,75 268,68" fill="none" stroke="#5c5c66" stroke-width="1.5" marker-end="url(#s4)"/>
+      <text x="195" y="80" font-size="9" fill="#5c5c66">ReadShared</text>
+      <path d="M140,140 Q210,180 268,190" fill="none" stroke="#5c5c66" stroke-width="1.5" marker-end="url(#s4)"/>
+      <text x="195" y="180" font-size="9" fill="#5c5c66">ReadUnique</text>
+      <path d="M330,75 Q430,95 495,110" fill="none" stroke="#5c5c66" stroke-width="1.5" marker-end="url(#s4)"/>
+      <text x="420" y="88" font-size="9" fill="#5c5c66">store → upgrade</text>
+      <path d="M330,185 Q430,160 492,138" fill="none" stroke="#5c5c66" stroke-width="1.5" marker-end="url(#s4)"/>
+      <text x="425" y="178" font-size="9" fill="#5c5c66">write data</text>
+      <path d="M500,150 Q400,230 140,158" fill="none" stroke="#c62828" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#s4r)"/>
+      <text x="320" y="240" font-size="9" fill="#c62828">snoop invalidate → I</text>
+      <defs>
+        <marker id="s4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker>
+        <marker id="s4r" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c62828"/></marker>
+      </defs>
+    </svg>
+    <figcaption>Simplified state transitions. A read for sharing lands in SC; a read-for-write path leads to UC then UD; a snoop can invalidate any held copy back to I.</figcaption>
+  </figure>
+
+  <h3>Why coherency verification is hard</h3>
+  <p>The difficulty isn't any single transition — it's the <strong>races</strong>. While the home node is snooping
+  for one request, another request to the same line can arrive. CHI defines <strong>hazarding</strong> and
+  ordering rules to serialise conflicting accesses at the home node, and getting these right is the crux of
+  coherent-interconnect design. The space of (state × request type × concurrent-request × snoop-timing) is
+  enormous, which is why coherency verification leans heavily on constrained-random stress plus formal methods.</p>
+
+  <div class="callout warn">
+    <strong>The classic coherency bug:</strong> two cores write the same line "at the same time." If the home
+    node's hazarding lets both believe they gained Unique ownership, one write is lost and the caches disagree
+    about memory — a coherency violation that may surface millions of cycles later as impossible software
+    behaviour. Recreating and catching this needs targeted same-line concurrent stress and a reference model that
+    tracks the single legal serialisation.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — predict the state transitions</h4>
+    <p>Line X starts Invalid in all caches. Core A issues a store to X (needs to write). Then Core B issues a load
+    of X (just wants to read). Describe the coherency actions and the final state of X in A and B.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>A store needs a Unique (writable) state. After A writes, its line is Unique Dirty. Now B wants to read — memory is stale, A has the only good copy. What must the home node do, and can both end up sharing?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <ol>
+        <li>A's store sends a REQ for write ownership (e.g. ReadUnique/MakeUnique). The HN-F sees no other holders,
+        grants it; A's line becomes <strong>UD</strong> (Unique Dirty) after the write.</li>
+        <li>B's load sends a REQ (ReadShared) to the HN-F. The directory shows A holds X dirty, so the HN-F sends a
+        directed <strong>SNP</strong> to A.</li>
+        <li>A returns its dirty data (DAT) and, for a shared read, downgrades. The HN-F supplies B and updates memory
+        (or marks an owner).</li>
+        <li><strong>Final states (one legal outcome):</strong> both A and B in <strong>SC</strong> (Shared Clean) if
+        the dirty data was written back; or A in <strong>SD</strong> (Shared Dirty, still responsible) and B in
+        <strong>SC</strong> if not. Either way B got A's up-to-date value, never stale memory.</li>
+      </ol>
+      <p>Your scoreboard must accept the legal outcomes and reject anything where B reads stale data or both remain Unique.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="a">
+    <p class="quiz-question">Before a cache can write a line, what kind of state must it hold?</p>
+    <div class="quiz-options">
+      <button data-opt="a">A Unique state (it must be the only cacher), forcing other copies to Invalid</button>
+      <button data-opt="b">A Shared state</button>
+      <button data-opt="c">An Invalid state</button>
+      <button data-opt="d">Any state — writes are always allowed</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Writing requires Unique ownership so no other cache holds a conflicting copy. If the line is Shared, the writer must upgrade to Unique first, which invalidates every other copy — this is what keeps the system coherent.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Maintain a full reference model of every cache's line state and the home directory; check state after each flow.</p><p class="practice-why"><em>Why: coherency bugs hide in state, not data — a read can return right bytes but leave illegal state that breaks the next access.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Verifying only one outstanding transaction to a line at a time.</p><p class="practice-why"><em>Why it hurts: the hazarding/serialisation logic — where the hardest bugs live — is only exercised by concurrent conflicting access to the same line.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Use formal methods for the coherency hazard/ordering rules alongside simulation.</p><p class="practice-why"><em>Why: the race space is too large to cover by random simulation alone; formal can prove ordering properties exhaustively for a line.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Accepting only one "expected" final state when several are legal.</p><p class="practice-why"><em>Why it hurts: CHI permits multiple legal outcomes (e.g. SC/SC vs SD/SC); a too-strict scoreboard reports false failures on correct hardware.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 5 ===== -->
+<section class="module" id="m5">
+  <div class="mod-num">MODULE 5</div>
+  <h2 class="mod-title">Verifying CHI — What Changes vs AXI</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Summarise how a CHI verification environment differs from an AXI one.</li>
+      <li>Describe flit-level checking and transaction-flow reconstruction.</li>
+      <li>Understand the coherency scoreboard and reference model.</li>
+      <li>Know what CHI VIP provides and how to apply the "try to break it" mindset to coherency.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — auditing a bank vs a single shop.</strong> Verifying AXI is like auditing one shop's
+    till: did the cash in match the cash out? Verifying CHI is like auditing an entire bank: not just each
+    transaction, but that every branch's ledger agrees, no money was created or lost across accounts, and the
+    order of operations never let two people spend the same balance. The scope and the consistency requirements
+    are a different order of magnitude.
+  </div>
+
+  <h3>What carries over from AXI</h3>
+  <p>The verification <em>mindset</em> is identical: try to break it, coverage ≠ correctness, assertions are your
+  safety net, constrained-random with legal stimulus, log seeds, use timeouts. The UVM structure (agents,
+  monitors, scoreboard, coverage) is the same shape. Much of Course 2's discipline applies directly.</p>
+
+  <h3>What's genuinely new</h3>
+  <table>
+    <tr><th>Aspect</th><th>AXI</th><th>CHI</th></tr>
+    <tr><td>Unit observed</td><td>Signal levels held across cycles</td><td>Flits decoded into messages</td></tr>
+    <tr><td>Transaction</td><td>Channels of one transfer (AW+W+B…)</td><td>A <em>flow</em> of messages (REQ→SNP→DAT→RSP)</td></tr>
+    <tr><td>Checking focus</td><td>Handshake legality, burst/address, ordering by ID</td><td>Flow well-formedness, coherency state, hazarding/ordering at the home node</td></tr>
+    <tr><td>Scoreboard</td><td>Per-ID queues, reference memory + WSTRB</td><td>Per-line state model + home directory + memory; accept multiple legal outcomes</td></tr>
+    <tr><td>Hardest bugs</td><td>OOO reorder handling, error recovery</td><td>Same-line race serialisation, snoop/response ordering, deadlock across the mesh</td></tr>
+  </table>
+
+  <h3>Flit-level checking and flow reconstruction</h3>
+  <p>The CHI monitor captures flits and decodes their fields (opcode, addresses, source/target/transaction IDs,
+  coherency attributes). It then <strong>reassembles flows</strong>: matching a REQ to the snoops it triggered, the
+  data that returned, and the completion that closed it — using the transaction ID and address as the key. Only
+  once a flow is reconstructed can the scoreboard ask the real questions: did the requester get the up-to-date
+  data, and is every cache's state legal afterward?</p>
+
+  <pre><code class="language-sv"><span class="cmt">// CHI scoreboard skeleton — flow + coherency tracking (conceptual)</span>
+<span class="kw">class</span> chi_line_model;
+  state_e state [<span class="type">int</span>];          <span class="cmt">// per-RN cache state for this line</span>
+  <span class="type">bit</span> [<span class="num">511</span>:<span class="num">0</span>] data;          <span class="cmt">// the line's true data</span>
+  <span class="type">bit</span> dirty;
+<span class="kw">endclass</span>
+
+<span class="kw">function</span> <span class="type">void</span> on_flow_complete(chi_flow f);
+  chi_line_model m = lines[f.addr];
+  <span class="cmt">// 1. data check: requester must have received current line value</span>
+  <span class="kw">if</span> (f.is_read &amp;&amp; f.rx_data !== m.data)
+    `uvm_error("CHI_SB", "requester read stale/incorrect data")
+  <span class="cmt">// 2. coherency invariant: at most one cache may be Unique-writable</span>
+  <span class="kw">if</span> (count_unique(m.state) &gt; <span class="num">1</span>)
+    `uvm_error("CHI_SB", "two caches hold Unique — coherency broken")
+  <span class="cmt">// 3. update model from the legal effect of this flow</span>
+  apply_transition(m, f);
+<span class="kw">endfunction</span></code></pre>
+  <p><strong>The crucial invariant</strong> is line 2: never may two caches simultaneously hold a writable
+  (Unique) copy of the same line. If that ever happens, coherency is broken — and this single check catches a
+  whole family of the most dangerous bugs.</p>
+
+  <h3>CHI VIP</h3>
+  <p>As with AXI, you'll typically use commercial CHI VIP (Synopsys, Cadence, Siemens) configured as RN/HN/SN
+  nodes, with bundled protocol checks for flit formatting, flow legality, credit/flow-control, and coherency
+  rules. Your job is to configure it for the right CHI issue/version and node types, drive representative and
+  adversarial traffic, and interpret coherency failures. The protocol understanding from this course is what makes
+  those failure messages meaningful.</p>
+
+  <h3>The "try to break it" corners for CHI</h3>
+  <ul>
+    <li><strong>Same-line concurrency:</strong> many RNs reading and writing one line at once — does hazarding
+    serialise them into one legal order, or does an update get lost?</li>
+    <li><strong>Snoop vs request races:</strong> a snoop for one transaction arriving while the snooped cache has
+    its own in-flight request for the same line.</li>
+    <li><strong>Credit/flow-control stress:</strong> starve credits on a channel — does the network stall safely
+    or deadlock?</li>
+    <li><strong>Mesh deadlock:</strong> fill multiple routers with interdependent traffic; CHI's channel-class
+    separation and ordering rules exist to prevent deadlock — prove they hold.</li>
+    <li><strong>Directory pressure:</strong> exceed the snoop-filter capacity to force evictions and back-snoops.</li>
+    <li><strong>Multiple legal outcomes:</strong> ensure the scoreboard accepts every legal serialisation, not one
+    hard-coded answer.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Bringing it full circle.</strong> Course 1 showed the SoC and why the interconnect is its heart.
+    Course 2 made you fluent in AXI — channels, handshake, bursts, IDs, errors, AXI5 features, and ACE coherency.
+    This course extended coherency to the scale where it needs CHI: packetised flits, a network of nodes, and a
+    home node with a directory. The throughline is the verification engineer's creed — your job is to try your
+    hardest to break it, and the protocol's rules are the map of exactly where to push.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — design the killer coherency test</h4>
+    <p>You must convince yourself a CHI interconnect never loses a write under contention. Design a test and the
+    reference check that would expose a lost update, and explain why a naive "write then read back" test is
+    insufficient.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>A lost update happens when two writers to the same line both think they succeeded but only one survives. You need concurrency to the same line and a way to know the exact number of successful writes. A single writer reading its own value back can't reveal a race that needs two writers.</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>Test:</strong> N RN-Fs each perform many writes (or atomic increments) to the <em>same</em> line X
+      concurrently, with randomized timing, interleaving, and snoop delays. Keep a count of the total number of
+      writes issued across all RNs.</p>
+      <p><strong>Reference check:</strong> model the single legal serialisation — whatever order the home node
+      commits the conflicting writes, the <em>number</em> of committed updates must equal the number issued, and
+      the final value must equal the result of applying all of them in some valid order. If the final value
+      reflects fewer updates than were issued, a write was lost → coherency/hazarding bug. Also assert the
+      invariant that two caches never simultaneously hold Unique.</p>
+      <p><strong>Why "write then read back" fails:</strong> a single writer reading its own value back exercises no
+      contention — the hazarding logic that serialises conflicting writers is never triggered, so the very
+      mechanism most likely to be buggy goes completely untested. Lost-update bugs are fundamentally about
+      <em>concurrent</em> conflicting access.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="b">
+    <p class="quiz-question">What is the single most important coherency invariant a CHI scoreboard should enforce?</p>
+    <div class="quiz-options">
+      <button data-opt="a">Every transaction completes within 10 cycles</button>
+      <button data-opt="b">Never may two caches simultaneously hold the same line in a Unique (writable) state</button>
+      <button data-opt="c">All caches must always hold every line</button>
+      <button data-opt="d">Reads are always faster than writes</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Two simultaneous Unique copies of one line means two caches each think they can write it independently — the definition of broken coherency and the root of lost updates. Latency and ordering matter too, but this invariant is the bedrock correctness property.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Reconstruct full transaction flows before checking, and verify the "no two Unique" invariant continuously.</p><p class="practice-why"><em>Why: flow-level reconstruction is the only way to check coherency, and the Unique invariant catches the most dangerous class of bugs.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Porting an AXI scoreboard's in-order, per-ID, memory-only model straight to CHI.</p><p class="practice-why"><em>Why it hurts: CHI needs per-line cache-state tracking and a home directory model; a memory-only scoreboard can't even express the properties that matter.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Bring the model up on a 2–3 node system, then scale to a full mesh once flows and coherency check out.</p><p class="practice-why"><em>Why: coherency failures are far easier to root-cause with few nodes; scaling first turns every bug into a haystack search.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Neglecting credit/flow-control and mesh-deadlock testing because "the data looked right."</p><p class="practice-why"><em>Why it hurts: deadlocks and credit leaks don't corrupt data — they hang the system. They need explicit stress and timeouts, not data checks, to find.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="alert('That completes the CHI overview — and the three-course series. Well done!');">Finish ✓</button></div>
+</section>
+
+</main>
+</div>
+
+<script>
+const modules = ['m1','m2','m3','m4','m5'];
+let visited = new Set();
+function showModule(id){
+  document.querySelectorAll('section.module').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.sidebar a').forEach(a=>a.classList.toggle('active', a.dataset.target===id));
+  visited.add(id); updateProgress();
+  window.scrollTo({top:0,behavior:'smooth'});
+  document.querySelector('.sidebar').classList.remove('open');
+}
+function currentIndex(){return modules.indexOf(document.querySelector('section.module.active').id);}
+function goNext(){const i=currentIndex();if(i<modules.length-1)showModule(modules[i+1]);}
+function goPrev(){const i=currentIndex();if(i>0)showModule(modules[i-1]);}
+function updateProgress(){
+  const pct=Math.round(visited.size/modules.length*100);
+  document.getElementById('pfill').style.width=pct+'%';
+  document.getElementById('plabel').textContent=pct+'%';
+  document.querySelectorAll('.sidebar a').forEach(a=>{
+    if(visited.has(a.dataset.target)&&!a.querySelector('.vbadge')){
+      const b=document.createElement('span');b.className='vbadge';b.textContent='✓';a.appendChild(b);
+    }
+  });
+}
+document.querySelectorAll('.sidebar a').forEach(a=>a.addEventListener('click',()=>showModule(a.dataset.target)));
+document.querySelectorAll('.quiz-block').forEach(block=>{
+  const correct=block.dataset.correct;const fb=block.querySelector('.quiz-feedback');
+  block.querySelectorAll('.quiz-options button').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const chosen=btn.dataset.opt;
+      block.querySelectorAll('.quiz-options button').forEach(b=>{b.disabled=true;if(b.dataset.opt===correct)b.classList.add('correct');});
+      if(chosen!==correct)btn.classList.add('wrong');
+      fb.hidden=false;
+      fb.querySelector('.feedback-text').textContent=(chosen===correct)?'✓ Correct':'✗ Not quite';
+    });
+  });
+});
+document.querySelectorAll('.activity').forEach(act=>{
+  const hintBtn=act.querySelector('.hint-btn');const hintBox=act.querySelector('.hint-box');
+  const solBtn=act.querySelector('.solution-btn');const solBox=act.querySelector('.solution-box');
+  if(hintBtn)hintBtn.addEventListener('click',()=>{hintBox.hidden=false;hintBtn.style.display='none';if(solBtn)solBtn.hidden=false;});
+  if(solBtn)solBtn.addEventListener('click',()=>{solBox.hidden=false;solBtn.style.display='none';});
+});
+updateProgress();
+</script>
+</body>
+</html>
