@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>SoC Verification Questions — Auxera DV Prep</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:ital,wght@0,600;1,300&display=swap');
+:root{--bg:#0D1117;--surface:#161B22;--surface2:#1C2333;--border:#30363D;--accent:#2F81F7;--accent2:#3FB950;--accent3:#F78166;--accent4:#D2A8FF;--text:#E6EDF3;--text2:#8B949E;--text3:#C9D1D9;--yellow:#E3B341;--red:#F85149;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15px;line-height:1.7;padding:36px 48px;max-width:920px;margin:0 auto;}
+.page-header{margin-bottom:36px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+.page-eyebrow{font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;}
+.page-title{font-family:'Fraunces',serif;font-size:34px;font-weight:600;color:var(--text);line-height:1.2;margin-bottom:8px;}
+.page-sub{font-size:14px;color:var(--text2);max-width:620px;line-height:1.6;}
+.nav-back{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);text-decoration:none;margin-bottom:20px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;transition:all .15s;}
+.nav-back:hover{color:var(--accent);border-color:var(--accent);}
+.freq{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;vertical-align:middle;letter-spacing:.06em;text-transform:uppercase;margin-left:6px;}
+.freq-high{background:rgba(248,81,73,.15);color:#F78166;border:1px solid rgba(248,81,73,.3);}
+.freq-med{background:rgba(227,179,65,.15);color:#E3B341;border:1px solid rgba(227,179,65,.3);}
+.freq-low{background:rgba(63,185,80,.15);color:#3FB950;border:1px solid rgba(63,185,80,.3);}
+.section-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin:32px 0 14px;display:flex;align-items:center;gap:10px;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+.q-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:border-color .15s;}
+.q-card:hover{border-color:rgba(47,129,247,.5);}
+.q-header{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;cursor:pointer;user-select:none;}
+.q-num{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);background:rgba(47,129,247,.12);padding:3px 8px;border-radius:4px;flex-shrink:0;margin-top:2px;white-space:nowrap;}
+.q-text{font-size:14px;color:var(--text);font-weight:500;flex:1;line-height:1.5;}
+.q-toggle{color:var(--text2);font-size:16px;flex-shrink:0;transition:transform .2s;margin-top:3px;}
+.q-card.open .q-toggle{transform:rotate(180deg);color:var(--accent);}
+.q-body{display:none;padding:0 18px 18px 44px;border-top:1px solid var(--border);}
+.q-card.open .q-body{display:block;}
+.a-label{font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.1em;margin:12px 0 6px;}
+.a-text{font-size:13.5px;color:var(--text3);line-height:1.75;}
+.a-text ul{list-style:none;margin:6px 0;}
+.a-text ul li{padding:3px 0 3px 18px;position:relative;font-size:13.5px;color:var(--text3);line-height:1.6;}
+.a-text ul li::before{content:'▸';position:absolute;left:0;color:var(--accent);font-size:11px;top:5px;}
+pre{background:#0A0D13;border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#A5D6FF;overflow-x:auto;line-height:1.75;white-space:pre;}
+.insight{margin-top:12px;padding:10px 14px;background:rgba(210,168,255,.07);border-left:3px solid var(--accent4);border-radius:0 6px 6px 0;}
+.insight-lbl{font-size:10px;font-weight:700;color:var(--accent4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.insight-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.warn{margin-top:12px;padding:10px 14px;background:rgba(248,81,73,.07);border-left:3px solid var(--accent3);border-radius:0 6px 6px 0;}
+.warn-lbl{font-size:10px;font-weight:700;color:var(--accent3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.warn-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.tip{margin-top:12px;padding:10px 14px;background:rgba(47,129,247,.08);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;}
+.tip-lbl{font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.tip-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.search-bar{position:sticky;top:0;background:var(--bg);padding:12px 0;margin-bottom:16px;border-bottom:1px solid var(--border);z-index:10;}
+.search-wrap{position:relative;}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text2);pointer-events:none;}
+.search-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px 8px 36px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;}
+.search-input:focus{border-color:var(--accent);}
+</style></head><body>
+<a class="nav-back" href="00_index.html">← Back to Index</a>
+<div class="page-header">
+<div class="page-eyebrow">Auxera Global Tech · Page 06 of 12</div>
+<div class="page-title">SoC Verification Questions</div>
+<div class="page-sub">Differentiates IP-level from SoC-level engineers. Key at WD, Qualcomm, Tenstorrent, and ARM.</div>
+</div>
+<div class="search-bar"><div class="search-wrap"><span class="search-icon">⌕</span><input class="search-input" id="si" placeholder="Search this page..."></div></div>
+<div class="section-label">SoC Architecture and Flow</div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q6.1</span><span class="q-text">Difference between IP verification and SoC verification.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>IP verification:</strong> single block in isolation. UVM constrained-random. Full TB control of all inputs. Goal: prove IP meets its specification. Dedicated VIPs for each interface. Simulation times: minutes to hours per test.<br><br><strong>SoC verification:</strong> multiple IPs integrated together. Stimulus primarily via C programs executed by embedded processor. Focus on emergent behaviour — bugs from IP interactions, incorrect integration. Connectivity checks (is IRQ pin connected to correct controller input?). Boot sequence, real-world scenarios. Simulation times: hours to days per test. SoC-level bugs: wrong address mapping, wrong interrupt routing, wrong reset sequencing, incorrect clock domain connection — not IP function bugs.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">The mental model shift: IP verification asks 'does this block work correctly?' SoC verification asks 'do all these blocks work correctly together in a system?' The bugs are fundamentally different. SoC integration bugs include: AXI master connected to wrong slave port (wrong address decode), interrupt line from IP connected to wrong PLIC input, reset signal polarity inverted, clock divider misconfigured. These bugs ONLY appear at SoC level — IP testbench can't catch them.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q6.2</span><span class="q-text">How does C code execute in SoC verification? Full flow.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Full flow:</strong><br>1. Write C test: access memory-mapped registers (volatile pointers), trigger operations, check results via status registers.<br>2. Compile: riscv64-unknown-elf-gcc generates ELF binary.<br>3. Convert: riscv64-unknown-elf-objcopy produces inst.hex (instructions) and data.hex (constants/data).<br>4. Back-load: $readmemh() or UVM backdoor loads hex files into IRAM and DRAM at simulation start.<br>5. Deassert reset: processor starts at reset vector, fetches first instruction from IRAM, executes C code.<br>6. Monitor: UVM monitors passively observe DUT outputs (AXI transactions, interrupt signals, register writes).<br>7. Check: C test writes pass/fail code to a scratch register → UVM scoreboard reads register value at test end.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">The C-to-SV communication is the most asked follow-up. Most common pattern: C test writes result (PASS=1, FAIL=0) to a known scratch register address at test end. UVM monitors the bus — when it sees a write to that address, it reads the value and declares pass/fail. This cleanly decouples C test timing from SV TB timing. DPI (Direct Programming Interface) is the more sophisticated approach — allows C functions to call SV functions and vice versa for tighter integration.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q6.3</span><span class="q-text">What happens after SoC reset deassertion? Boot sequence.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Detailed boot sequence:</strong><br>1. Reset deassertion → all flip-flops reset to known state.<br>2. CPU PC jumps to reset vector (hardwired, typically 0x00000000 or 0x80000000 for RISC-V).<br>3. Reset vector contains jump to Boot ROM.<br>4. Boot ROM executes: initialises stack pointer, configures clocks/PLLs, waits for PLL lock, initialises memory controller (DDR), enables caches.<br>5. Boot ROM copies bootloader from flash (slow) to SRAM (fast execution).<br>6. Bootloader executes: loads OS kernel or bare-metal application from storage.<br>7. Application main() runs: initialises peripherals, starts tasks.<br><br><strong>Verification focus:</strong> Reset vector address correct (connectivity check). First instruction fetched correctly. PLL lock within N cycles before peripheral access. No register access before clock stable.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Boot sequence verification is important at WD and Qualcomm. Common integration bugs: (1) Reset vector address mismatch — processor jumps to unmapped address at boot. (2) PLL not locked before peripheral clock used — first few register writes go to wrong value. (3) Memory controller not initialised before DDR access — bus hangs. Write directed tests specifically for boot sequence timing.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q6.4</span><span class="q-text">Interrupt vs exception. How does core handle multiple simultaneous?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Interrupt:</strong> asynchronous, from external event — timer overflow, GPIO edge, UART RX data, DMA completion. Independent of current instruction — arrives at instruction boundaries. Can be enabled/disabled via interrupt enable bits (MIE in RISC-V).<br><br><strong>Exception:</strong> synchronous, caused by instruction execution — illegal instruction, instruction fetch fault, load/store misaligned, ECALL (system call), division by zero. Must be handled immediately — cannot be deferred.<br><br><strong>Multiple interrupts:</strong> PLIC (Platform-Level Interrupt Controller) in RISC-V assigns configurable priorities (typically 1–7). When multiple pending: highest priority served first. Same priority: lowest ID wins (implementation-defined). Nesting: higher-priority interrupt can preempt lower-priority ISR if software re-enables interrupts in the ISR handler.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Interrupt vs exception distinction is fundamental for processor verification. The verification angle: write a test that triggers both an interrupt and an exception simultaneously (e.g., write to an unmapped address while a timer interrupt is pending). Verify: correct cause register (mcause), correct PC save (mepc), correct handler selected, correct priority resolution. This is an integration test that catches ISR routing bugs.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q6.5</span><span class="q-text">What is cache coherency? How is it handled in multi-core SoC?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Problem:</strong> when multiple cores each have their own private L1 cache and share main memory, coherency ensures all cores see the same value for the same memory address. Core A reads address 0x100 (cached). Core B writes to 0x100. Core A's cache has stale value.<br><br><strong>MESI protocol:</strong> each cache line has a state — Modified (M: only this cache has it, dirty), Exclusive (E: only this cache, clean), Shared (S: multiple caches have clean copy), Invalid (I: not valid).<br>On write: core broadcasts invalidate (or update) to all other caches. Others move to Invalid. Next read from another core fetches fresh value from memory or snoops it.<br><br><strong>AXI ACE (Coherency Extension):</strong> adds snoop channels (AC, CD, CR) to AXI. Hardware manages coherency automatically.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Cache coherency is asked at WD, AMD, and Tenstorrent. The verification angle: create a multi-core coherency test — Core A writes to shared variable, Core B reads it. Verify Core B sees Core A's value (not stale cache). Time the write-to-read interval. Test invalidation under contention. This is a critical SoC-level test — if coherency is broken, multi-threaded software will produce wrong results in silicon.</div></div></div></div>
+
+<script>
+function toggle(h){const c=h.parentElement;c.classList.toggle('open');}
+document.getElementById('si').addEventListener('input',function(){
+  const q=this.value.toLowerCase();
+  document.querySelectorAll('.q-card').forEach(c=>{
+    const t=c.textContent.toLowerCase();
+    c.style.display=(!q||t.includes(q))?'':'none';
+    if(q&&t.includes(q))c.classList.add('open');
+    else if(!q)c.classList.remove('open');
+  });
+});
+</script></body></html>

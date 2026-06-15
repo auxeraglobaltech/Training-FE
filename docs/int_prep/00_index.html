@@ -1,0 +1,48 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<title>DV Interview Prep — Index</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap');
+:root{--bg:#0D1117;--surface:#161B22;--border:#30363D;--accent:#2F81F7;--text:#E6EDF3;--text2:#8B949E;--text3:#C9D1D9;--green:#3FB950;--yellow:#E3B341;--red:#F78166;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;padding:40px;max-width:860px;margin:0 auto;}
+h1{font-size:32px;font-weight:700;margin-bottom:6px;color:var(--text);}
+.sub{font-size:14px;color:var(--text2);margin-bottom:36px;}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;text-decoration:none;display:block;transition:border-color .15s;}
+.card:hover{border-color:var(--accent);}
+.card-num{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);margin-bottom:8px;}
+.card-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px;}
+.card-sub{font-size:12px;color:var(--text2);line-height:1.5;}
+.card-qs{margin-top:10px;font-size:11px;font-weight:600;color:var(--green);}
+.tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:12px;margin-top:6px;margin-right:4px;}
+.tag-high{background:rgba(248,81,73,.15);color:#F78166;border:1px solid rgba(248,81,73,.3);}
+.tag-med{background:rgba(227,179,65,.15);color:#E3B341;border:1px solid rgba(227,179,65,.3);}
+.divider{border:none;border-top:1px solid var(--border);margin:32px 0;}
+.stats{display:flex;gap:32px;margin-bottom:36px;}
+.stat .n{font-size:28px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace;}
+.stat .l{font-size:12px;color:var(--text2);margin-top:2px;}
+.note{background:rgba(47,129,247,.08);border:1px solid rgba(47,129,247,.25);border-radius:8px;padding:14px 18px;font-size:13px;color:var(--text3);margin-bottom:28px;line-height:1.65;}
+</style></head><body>
+<h1>ASIC DV Interview Question Bank</h1>
+<div class="sub">Auxera Global Tech · Built from 119+ real client interviews · AMD, Qualcomm, Google, Intel, WD, Samsung, MIPS, Tenstorrent and 20+ more</div>
+<div class="stats">
+  <div class="stat"><div class="n">119+</div><div class="l">Real interviews</div></div>
+  <div class="stat"><div class="n">260+</div><div class="l">Unique questions</div></div>
+  <div class="stat"><div class="n">12</div><div class="l">Sub-pages</div></div>
+  <div class="stat"><div class="n">30+</div><div class="l">Clients covered</div></div>
+</div>
+<div class="note">📌 <strong>How to navigate:</strong> Each sub-page below covers one topic area. Add all pages under a single "DV Interview Prep" folder in Confluence. Freshers: start with pages 1–3. Mid-level: all pages, focus on 4–6. Senior: pages 4–9 plus client guide.</div>
+<div class="grid">
+  <a class="card" href="01_project_questions.html"><div class="card-num">PAGE 01</div><div class="card-title">Project Explanation Questions</div><div class="card-sub">How to explain your project, testbench architecture, test cases, bugs, corner cases, sign-off criteria, debug methodology.</div><div class="card-qs">9 questions + model answers</div><span class="tag tag-high">100% of interviews</span></a>
+  <a class="card" href="02_uvm.html"><div class="card-num">PAGE 02</div><div class="card-title">UVM Questions</div><div class="card-sub">Architecture, phases, driver-sequencer handshake, factory, config_db, TLM ports, RAL, callbacks, virtual sequences.</div><div class="card-qs">20 questions + code samples</div><span class="tag tag-high">95% of interviews</span></a>
+  <a class="card" href="03_systemverilog.html"><div class="card-num">PAGE 03</div><div class="card-title">SystemVerilog Coding</div><div class="card-sub">Constraints, assertions, functional coverage, fork-join traps, OOP concepts, arrays, scheduling regions.</div><div class="card-qs">25 questions + live code</div><span class="tag tag-high">90% of interviews</span></a>
+  <a class="card" href="04_protocols.html"><div class="card-num">PAGE 04</div><div class="card-title">Protocol Questions</div><div class="card-sub">AXI (5 channels, burst types, out-of-order, address calc), APB (timing, driver code), AHB (Lite vs full), UART, I2C, SPI.</div><div class="card-qs">20 questions + timing diagrams</div><span class="tag tag-high">85% of interviews</span></a>
+  <a class="card" href="05_digital_design.html"><div class="card-num">PAGE 05</div><div class="card-title">Digital Design & GLS</div><div class="card-sub">Latch vs FF, grey code, metastability, CDC, GLS, setup/hold violations, gate counting, stuck-at faults.</div><div class="card-qs">15 questions</div><span class="tag tag-med">60% of interviews</span></a>
+  <a class="card" href="06_soc.html"><div class="card-num">PAGE 06</div><div class="card-title">SoC Verification</div><div class="card-sub">IP vs SoC verification, C code execution, boot sequence, interrupt handling, cache coherency, NoC architecture.</div><div class="card-qs">12 questions</div><span class="tag tag-med">50% of interviews</span></a>
+  <a class="card" href="07_ral_csr.html"><div class="card-num">PAGE 07</div><div class="card-title">RAL Model & CSR</div><div class="card-sub">RAL architecture, front-door vs back-door, register types (RW/RO/W1C/RC), eFuse, control/status signal verification.</div><div class="card-qs">10 questions</div><span class="tag tag-med">40% of interviews</span></a>
+  <a class="card" href="08_ecc_memory.html"><div class="card-num">PAGE 08</div><div class="card-title">ECC & Memory</div><div class="card-sub">Hamming code, SECDED, ECC bit calculation, single/multi-bit error injection, cache hierarchy, volatile keyword.</div><div class="card-qs">8 questions</div><span class="tag tag-med">35% of interviews</span></a>
+  <a class="card" href="09_jtag.html"><div class="card-num">PAGE 09</div><div class="card-title">JTAG & Debug Module</div><div class="card-sub">TAP controller FSM (16 states), TDI/TDO/TMS/TCK, register read/write sequence, boundary scan cells, UVM TB for JTAG.</div><div class="card-qs">8 questions</div><span class="tag tag-med">35% of interviews</span></a>
+  <a class="card" href="10_python.html"><div class="card-num">PAGE 10</div><div class="card-title">Python & Scripting</div><div class="card-sub">Prime numbers, Fibonacci, island counting, hex-to-binary, common elements, automation scripts.</div><div class="card-qs">8 questions + code</div><span class="tag tag-med">30% of interviews</span></a>
+  <a class="card" href="11_aptitude.html"><div class="card-num">PAGE 11</div><div class="card-title">Aptitude & Puzzles</div><div class="card-sub">All 8 recurring puzzles with full solutions: rope, bridge, water buckets, cake, chickens/rabbits, switches+bulb.</div><div class="card-qs">8 puzzles + solutions</div><span class="tag tag-med">30% of interviews</span></a>
+  <a class="card" href="12_client_guide.html"><div class="card-num">PAGE 12</div><div class="card-title">Client Guide & 7-Day Plan</div><div class="card-sub">AMD, Qualcomm, Google, Intel, WD, MIPS, Tenstorrent, Samsung focus areas + 7-day preparation schedule + common mistakes.</div><div class="card-qs">Reference guide</div><span class="tag tag-high">Read before every interview</span></a>
+</div>
+</body></html>

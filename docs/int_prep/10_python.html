@@ -1,0 +1,210 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Python & Scripting Questions — Auxera DV Prep</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:ital,wght@0,600;1,300&display=swap');
+:root{--bg:#0D1117;--surface:#161B22;--surface2:#1C2333;--border:#30363D;--accent:#2F81F7;--accent2:#3FB950;--accent3:#F78166;--accent4:#D2A8FF;--text:#E6EDF3;--text2:#8B949E;--text3:#C9D1D9;--yellow:#E3B341;--red:#F85149;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15px;line-height:1.7;padding:36px 48px;max-width:920px;margin:0 auto;}
+.page-header{margin-bottom:36px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+.page-eyebrow{font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;}
+.page-title{font-family:'Fraunces',serif;font-size:34px;font-weight:600;color:var(--text);line-height:1.2;margin-bottom:8px;}
+.page-sub{font-size:14px;color:var(--text2);max-width:620px;line-height:1.6;}
+.nav-back{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);text-decoration:none;margin-bottom:20px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;transition:all .15s;}
+.nav-back:hover{color:var(--accent);border-color:var(--accent);}
+.freq{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;vertical-align:middle;letter-spacing:.06em;text-transform:uppercase;margin-left:6px;}
+.freq-high{background:rgba(248,81,73,.15);color:#F78166;border:1px solid rgba(248,81,73,.3);}
+.freq-med{background:rgba(227,179,65,.15);color:#E3B341;border:1px solid rgba(227,179,65,.3);}
+.freq-low{background:rgba(63,185,80,.15);color:#3FB950;border:1px solid rgba(63,185,80,.3);}
+.section-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin:32px 0 14px;display:flex;align-items:center;gap:10px;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+.q-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:border-color .15s;}
+.q-card:hover{border-color:rgba(47,129,247,.5);}
+.q-header{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;cursor:pointer;user-select:none;}
+.q-num{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);background:rgba(47,129,247,.12);padding:3px 8px;border-radius:4px;flex-shrink:0;margin-top:2px;white-space:nowrap;}
+.q-text{font-size:14px;color:var(--text);font-weight:500;flex:1;line-height:1.5;}
+.q-toggle{color:var(--text2);font-size:16px;flex-shrink:0;transition:transform .2s;margin-top:3px;}
+.q-card.open .q-toggle{transform:rotate(180deg);color:var(--accent);}
+.q-body{display:none;padding:0 18px 18px 44px;border-top:1px solid var(--border);}
+.q-card.open .q-body{display:block;}
+.a-label{font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.1em;margin:12px 0 6px;}
+.a-text{font-size:13.5px;color:var(--text3);line-height:1.75;}
+.a-text ul{list-style:none;margin:6px 0;}
+.a-text ul li{padding:3px 0 3px 18px;position:relative;font-size:13.5px;color:var(--text3);line-height:1.6;}
+.a-text ul li::before{content:'▸';position:absolute;left:0;color:var(--accent);font-size:11px;top:5px;}
+pre{background:#0A0D13;border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#A5D6FF;overflow-x:auto;line-height:1.75;white-space:pre;}
+.insight{margin-top:12px;padding:10px 14px;background:rgba(210,168,255,.07);border-left:3px solid var(--accent4);border-radius:0 6px 6px 0;}
+.insight-lbl{font-size:10px;font-weight:700;color:var(--accent4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.insight-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.warn{margin-top:12px;padding:10px 14px;background:rgba(248,81,73,.07);border-left:3px solid var(--accent3);border-radius:0 6px 6px 0;}
+.warn-lbl{font-size:10px;font-weight:700;color:var(--accent3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.warn-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.tip{margin-top:12px;padding:10px 14px;background:rgba(47,129,247,.08);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;}
+.tip-lbl{font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.tip-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.search-bar{position:sticky;top:0;background:var(--bg);padding:12px 0;margin-bottom:16px;border-bottom:1px solid var(--border);z-index:10;}
+.search-wrap{position:relative;}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text2);pointer-events:none;}
+.search-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px 8px 36px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;}
+.search-input:focus{border-color:var(--accent);}
+</style></head><body>
+<a class="nav-back" href="00_index.html">← Back to Index</a>
+<div class="page-header">
+<div class="page-eyebrow">Auxera Global Tech · Page 10 of 12</div>
+<div class="page-title">Python & Scripting Questions</div>
+<div class="page-sub">Asked at Google, Intel, AMD, Qualcomm. Write clean Python from memory — no libraries assumed beyond standard.</div>
+</div>
+<div class="search-bar"><div class="search-wrap"><span class="search-icon">⌕</span><input class="search-input" id="si" placeholder="Search this page..."></div></div>
+<div class="section-label">Python Coding</div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q10.1</span><span class="q-text">Write Python to find all prime numbers from 1 to 100.<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre># Method 1: Sieve of Eratosthenes (most efficient)
+def sieve(n):
+    is_prime = [True] * (n+1)
+    is_prime[0] = is_prime[1] = False
+    for i in range(2, int(n**0.5)+1):
+        if is_prime[i]:
+            for j in range(i*i, n+1, i):
+                is_prime[j] = False
+    return [i for i, v in enumerate(is_prime) if v]
+
+primes = sieve(100)
+# [2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97]
+
+# Method 2: One-liner (less efficient, fine for small N)
+primes = [n for n in range(2,101)
+          if all(n%i != 0 for i in range(2,int(n**0.5)+1))]</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Sieve of Eratosthenes is O(n log log n) — the efficient algorithm. The one-liner is O(n√n). For n=100 both are fine. For n=10^6: sieve is 100x faster. Show both — start with sieve to demonstrate algorithmic thinking, then mention the one-liner as a quick alternative. Key insight: only check divisors up to √n because any factor > √n has a corresponding factor < √n.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q10.2</span><span class="q-text">Write Python to find common elements across 3 arrays.<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre># Method 1: Set intersection (cleanest)
+def common_elements(a, b, c):
+    return list(set(a) & set(b) & set(c))
+
+# Method 2: reduce for N arrays (generalises)
+from functools import reduce
+def common_n(*arrays):
+    return list(reduce(lambda x,y: set(x)&set(y), arrays))
+
+# Method 3: Counter for frequency tracking
+from collections import Counter
+def common_with_freq(a, b, c):
+    # If element appears in all 3: intersection
+    return list(set(a) & set(b) & set(c))
+
+# Test
+a = [1,2,3,4,5]; b = [2,4,6,8]; c = [2,4,10]
+print(common_elements(a,b,c))  # [2, 4]</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Set intersection is O(min(len(a), len(b), len(c))) per operation. The reduce version generalises to N arrays — shows algorithmic thinking beyond the specific question. Google asked this for 3 arrays; knowing the N-array generalisation with reduce() impresses interviewers. If order must be preserved: use [x for x in a if x in set(b) and x in set(c)].</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q10.3</span><span class="q-text">Write Python to count islands (1=land, 0=water) in a 2D grid.<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>from collections import deque
+
+def count_islands(grid):
+    if not grid: return 0
+    rows, cols = len(grid), len(grid[0])
+    visited = set()
+    count = 0
+
+    def bfs(r, c):
+        queue = deque([(r, c)])
+        visited.add((r, c))
+        while queue:
+            row, col = queue.popleft()
+            for dr, dc in [(0,1),(0,-1),(1,0),(-1,0)]:
+                nr, nc = row+dr, col+dc
+                if (0<=nr<rows and 0<=nc<cols
+                    and grid[nr][nc]==1
+                    and (nr,nc) not in visited):
+                    visited.add((nr, nc))
+                    queue.append((nr, nc))
+
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r][c]==1 and (r,c) not in visited:
+                bfs(r, c)
+                count += 1
+    return count
+
+# Test
+grid = [[1,1,0,0],[0,1,0,1],[0,0,0,1],[1,0,0,0]]
+print(count_islands(grid))  # 3</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Google asked this as 'given a queue representing land/water, count islands'. BFS flood-fill is the standard answer. BFS preferred over recursive DFS for large grids — avoids Python's default recursion limit (1000 frames). Time complexity: O(rows × cols). Space: O(rows × cols) for visited set. Alternative: modify grid in-place (mark visited as 0) to save space — but destroys input.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q10.4</span><span class="q-text">Write Python for Fibonacci (iterative and recursive). When to use each?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre># Method 1: Iterative (O(n) time, O(1) space) — preferred
+def fib_iter(n):
+    if n <= 1: return n
+    a, b = 0, 1
+    for _ in range(2, n+1):
+        a, b = b, a+b
+    return b
+
+# Method 2: Recursive (O(2^n) time) — avoid for large n
+def fib_rec(n):
+    return n if n<=1 else fib_rec(n-1)+fib_rec(n-2)
+
+# Method 3: Memoised recursive (O(n) time, O(n) space)
+from functools import lru_cache
+@lru_cache(maxsize=None)
+def fib_memo(n):
+    return n if n<=1 else fib_memo(n-1)+fib_memo(n-2)
+
+# Method 4: Generator for sequence
+def fib_gen(limit):
+    a, b = 0, 1
+    while a <= limit:
+        yield a
+        a, b = b, a+b
+
+list(fib_gen(100))  # [0,1,1,2,3,5,8,13,21,34,55,89]</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Knowing multiple implementations demonstrates depth. For interviews: start with iterative (most practical, O(n) time O(1) space). Mention recursive as pedagogical example — O(2^n) exponential time makes it unusable for large n. Mention memoisation as the fix. lru_cache is the Pythonic way. Generator version is useful for streaming sequence without knowing endpoint.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q10.5</span><span class="q-text">Write Python to convert hex to binary and drive a DUT serially (JTAG TDI pattern).<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>def hex_to_serial_tdi(hex_val, width=32, lsb_first=True):
+    # Convert hex to serial bits for JTAG TDI driving
+    int_val = int(hex_val, 16)
+    binary = format(int_val, f'0{width}b')  # Zero-padded binary string
+    bits = [int(b) for b in binary]
+    if lsb_first:
+        bits = bits[::-1]  # Reverse for LSB-first shifting
+
+    for cycle, bit in enumerate(bits):
+        # In real TB: @(posedge TCK); TDI <= bit
+        print(f"TCK {cycle}: TDI={bit}")
+
+    return bits
+
+# Drive 32-bit value
+hex_to_serial_tdi('12345678', width=32, lsb_first=True)
+
+# RISC-V DMI (41-bit JTAG debug access):
+def split_dmi(addr, data, op):
+    # [40:34]=addr, [33:2]=data, [1:0]=op
+    dmi = (addr << 34) | (data << 2) | (op & 0x3)
+    return format(dmi, '041b')</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">format(val, '032b') zero-pads to 32 bits in binary. LSB-first vs MSB-first: JTAG typically shifts LSB first. The DMI example is the real RISC-V debug access format — 41-bit register. ADI and Intel asked Python-to-JTAG conversion specifically.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q10.6</span><span class="q-text">Write Python: given a list of transaction logs, extract and count error types.<span class="freq freq-low">LOW</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre># Practical DV use case: parse simulation log for errors
+import re
+from collections import defaultdict
+
+def parse_sim_log(log_file):
+    errors = defaultdict(list)
+    pattern = re.compile(
+        r'\*\* (UVM_ERROR|UVM_FATAL).*?\[(.*?)\] (.*?)$',
+        re.MULTILINE
+    )
+    with open(log_file) as f:
+        content = f.read()
+
+    for match in pattern.finditer(content):
+        severity, location, message = match.groups()
+        errors[severity].append({
+            'location': location,
+            'message': message.strip()
+        })
+
+    # Summary
+    for sev, errs in errors.items():
+        print(f"{sev}: {len(errs)} occurrences")
+        for e in errs[:3]:  # Show first 3
+            print(f"  [{e['location']}] {e['message']}")
+    return errors
+
+# Usage: errors = parse_sim_log('simulation.log')</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">This represents real DV automation work — parsing simulation logs for error analysis is a daily task. DV engineers who can write automation scripts save hours per regression run. This Python pattern (regex + defaultdict) is the core of most log analysis scripts. vManager and similar tools automate this, but understanding the underlying mechanism is valuable.</div></div></div></div>
+
+<script>
+function toggle(h){const c=h.parentElement;c.classList.toggle('open');}
+document.getElementById('si').addEventListener('input',function(){
+  const q=this.value.toLowerCase();
+  document.querySelectorAll('.q-card').forEach(c=>{
+    const t=c.textContent.toLowerCase();
+    c.style.display=(!q||t.includes(q))?'':'none';
+    if(q&&t.includes(q))c.classList.add('open');
+    else if(!q)c.classList.remove('open');
+  });
+});
+</script></body></html>

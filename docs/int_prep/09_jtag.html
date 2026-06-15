@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>JTAG & Debug Module Questions — Auxera DV Prep</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:ital,wght@0,600;1,300&display=swap');
+:root{--bg:#0D1117;--surface:#161B22;--surface2:#1C2333;--border:#30363D;--accent:#2F81F7;--accent2:#3FB950;--accent3:#F78166;--accent4:#D2A8FF;--text:#E6EDF3;--text2:#8B949E;--text3:#C9D1D9;--yellow:#E3B341;--red:#F85149;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15px;line-height:1.7;padding:36px 48px;max-width:920px;margin:0 auto;}
+.page-header{margin-bottom:36px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+.page-eyebrow{font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;}
+.page-title{font-family:'Fraunces',serif;font-size:34px;font-weight:600;color:var(--text);line-height:1.2;margin-bottom:8px;}
+.page-sub{font-size:14px;color:var(--text2);max-width:620px;line-height:1.6;}
+.nav-back{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);text-decoration:none;margin-bottom:20px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;transition:all .15s;}
+.nav-back:hover{color:var(--accent);border-color:var(--accent);}
+.freq{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;vertical-align:middle;letter-spacing:.06em;text-transform:uppercase;margin-left:6px;}
+.freq-high{background:rgba(248,81,73,.15);color:#F78166;border:1px solid rgba(248,81,73,.3);}
+.freq-med{background:rgba(227,179,65,.15);color:#E3B341;border:1px solid rgba(227,179,65,.3);}
+.freq-low{background:rgba(63,185,80,.15);color:#3FB950;border:1px solid rgba(63,185,80,.3);}
+.section-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin:32px 0 14px;display:flex;align-items:center;gap:10px;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+.q-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:border-color .15s;}
+.q-card:hover{border-color:rgba(47,129,247,.5);}
+.q-header{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;cursor:pointer;user-select:none;}
+.q-num{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);background:rgba(47,129,247,.12);padding:3px 8px;border-radius:4px;flex-shrink:0;margin-top:2px;white-space:nowrap;}
+.q-text{font-size:14px;color:var(--text);font-weight:500;flex:1;line-height:1.5;}
+.q-toggle{color:var(--text2);font-size:16px;flex-shrink:0;transition:transform .2s;margin-top:3px;}
+.q-card.open .q-toggle{transform:rotate(180deg);color:var(--accent);}
+.q-body{display:none;padding:0 18px 18px 44px;border-top:1px solid var(--border);}
+.q-card.open .q-body{display:block;}
+.a-label{font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.1em;margin:12px 0 6px;}
+.a-text{font-size:13.5px;color:var(--text3);line-height:1.75;}
+.a-text ul{list-style:none;margin:6px 0;}
+.a-text ul li{padding:3px 0 3px 18px;position:relative;font-size:13.5px;color:var(--text3);line-height:1.6;}
+.a-text ul li::before{content:'▸';position:absolute;left:0;color:var(--accent);font-size:11px;top:5px;}
+pre{background:#0A0D13;border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#A5D6FF;overflow-x:auto;line-height:1.75;white-space:pre;}
+.insight{margin-top:12px;padding:10px 14px;background:rgba(210,168,255,.07);border-left:3px solid var(--accent4);border-radius:0 6px 6px 0;}
+.insight-lbl{font-size:10px;font-weight:700;color:var(--accent4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.insight-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.warn{margin-top:12px;padding:10px 14px;background:rgba(248,81,73,.07);border-left:3px solid var(--accent3);border-radius:0 6px 6px 0;}
+.warn-lbl{font-size:10px;font-weight:700;color:var(--accent3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.warn-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.tip{margin-top:12px;padding:10px 14px;background:rgba(47,129,247,.08);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;}
+.tip-lbl{font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.tip-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.search-bar{position:sticky;top:0;background:var(--bg);padding:12px 0;margin-bottom:16px;border-bottom:1px solid var(--border);z-index:10;}
+.search-wrap{position:relative;}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text2);pointer-events:none;}
+.search-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px 8px 36px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;}
+.search-input:focus{border-color:var(--accent);}
+</style></head><body>
+<a class="nav-back" href="00_index.html">← Back to Index</a>
+<div class="page-header">
+<div class="page-eyebrow">Auxera Global Tech · Page 09 of 12</div>
+<div class="page-title">JTAG & Debug Module Questions</div>
+<div class="page-sub">Asked at WD, MIPS/GlobalFoundries, AMD, Intel. Know TAP FSM 16 states and how to navigate them.</div>
+</div>
+<div class="search-bar"><div class="search-wrap"><span class="search-icon">⌕</span><input class="search-input" id="si" placeholder="Search this page..."></div></div>
+<div class="section-label">JTAG Fundamentals</div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q9.1</span><span class="q-text">Explain JTAG — what it is, pins, and use cases.<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text">IEEE 1149.1 standard providing a standardised serial interface for testing, debugging, and programming chips and PCBs.<br><br><strong>Pins:</strong><br>TCK (Test Clock): clock signal for all JTAG operations — typically 1–100 MHz.<br>TMS (Test Mode Select): navigates the TAP controller FSM — controls which state to enter.<br>TDI (Test Data In): serial data input — shifts data into registers.<br>TDO (Test Data Out): serial data output — shifts data out from registers.<br>TRST_n (optional): asynchronous reset of TAP controller to Test-Logic-Reset state.<br><br><strong>Use cases:</strong> (1) Pre-silicon: verify TAP controller FSM, boundary scan register, debug module register access. (2) Post-manufacture PCB test: boundary scan — verify PCB connectivity without physical probes. (3) In-field debug: halt processor, inspect registers, step through code, read/write memory. (4) Firmware programming: write to flash via JTAG interface.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">JTAG's value is that it provides debug access independent of the chip's normal operation. Even if the processor is hung in an infinite loop or dead after a firmware crash, JTAG can access the debug module to halt execution, dump register state, and inspect memory. This is why JTAG verification is safety-critical — a broken JTAG interface means zero debug capability in field, making post-silicon bringup extremely difficult.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q9.2</span><span class="q-text">Explain TAP controller FSM. How do you navigate it? How do you reset from any state?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text">The TAP controller has 16 states controlled entirely by TMS (sampled on rising TCK edge).<br><br><strong>Main states:</strong><br>Test-Logic-Reset → Run-Test/Idle → Select-DR-Scan → Capture-DR → Shift-DR → Exit1-DR → Pause-DR → Exit2-DR → Update-DR<br>(Parallel IR path: Select-IR-Scan → Capture-IR → Shift-IR → Exit1-IR → Pause-IR → Exit2-IR → Update-IR)<br><br><strong>Navigation:</strong> TMS=1 moves toward reset or toward Select. TMS=0 progresses through the data/IR path.<br>To reach Shift-DR from Idle: TMS=1,1,0,0 (Select-DR, Capture-DR, Shift-DR — 4 TCK cycles).<br>To reach Shift-IR from Idle: TMS=1,1,1,0,0 (5 TCK cycles).<br><br><strong>Universal reset:</strong> drive TMS=1 for 5 consecutive TCK cycles — this ALWAYS returns to Test-Logic-Reset regardless of current state. The FSM is designed so any state with TMS=1 for 5 cycles reaches TLR.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">The 5×TMS=1 reset rule is important for error recovery and test start. In your UVM driver, implement reset_tap() task that drives TMS=1 for 5 cycles at the beginning of every test — guarantees known starting state. In hardware, this is also how JTAG dongles reset the TAP before programming — they don't know the current state, so they force TLR first.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q9.3</span><span class="q-text">How do you read a register via JTAG? Walk through TMS/TDI sequence step by step.<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Step-by-step to read a JTAG data register:</strong><br><br>Step 1 — Load instruction (select target register):<br>Navigate to Shift-IR: TMS=1,1,1,0,0 from Idle.<br>Shift instruction opcode (e.g., IDCODE=0001) via TDI, LSB first, over TCK cycles.<br>Navigate to Update-IR: TMS=1,1. Instruction loaded — target DR selected.<br><br>Step 2 — Access the data register:<br>Navigate to Shift-DR: TMS=1,0,0 from Update-IR.<br>Clock TCK — in Capture-DR (one state before Shift-DR) the register content is captured into the shift register.<br>Shift out via TDO: clock TCK cycles equal to register width — data shifts out MSB or LSB (implementation-defined).<br><br>Step 3 — Return to idle:<br>TMS=1,1,0 → Update-DR → Idle.<br><br>For write: shift new data via TDI in Shift-DR, then Update-DR latches it.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">The exact TMS sequence is asked at WD (Sivason). WD specifically asked: 'How do you decode TDI input of address+data+opcode?' The answer: for a complex debug register (like RISC-V DMI — Debug Module Interface), the 41-bit TDI field contains: address[6:0] + data[31:0] + op[1:0]. Split the 41 TDI bits on each TCK edge, extract fields, and verify the correct debug module register is being accessed with the correct value.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q9.4</span><span class="q-text">What are boundary scan cells? How do you use them to test PCB connectivity?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text">Boundary scan cells: shift register flip-flops added to each I/O pin of a chip during design. Connected in series, forming the Boundary Scan Register (BSR). The entire BSR forms one long shift register accessible via JTAG TDI/TDO.<br><br><strong>Three operating modes:</strong><br>Capture: BSR cells capture the current state of all I/O pins (what pins are actually driven).<br>Shift: data shifts through all BSR cells serially (via TDI to TDO).<br>Update: new data from BSR shifts is driven onto the output pins (overrides normal chip function).<br><br><strong>PCB connectivity test:</strong> (1) Drive known pattern onto chip A's output pins via Update mode. (2) Capture the values seen at chip B's input pins. (3) Compare: if PCB connection is good, B sees exactly what A drove. Pin-to-pin continuity verified without physical probes or oscilloscope.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Boundary scan enables post-manufacture test of PCB connectivity at scale. Before JTAG, every pin had to be physically probed — extremely slow for dense BGAs. With JTAG boundary scan: one test program vectors all output pins in seconds. This is why virtually all production chips include JTAG even if not needed for debug — it's essential for manufacturing test.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q9.5</span><span class="q-text">What is UVM testbench architecture for JTAG? How is communication established between C and UVM?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>UVM TB architecture for JTAG:</strong><br>JTAG agent (active): driver + sequencer + monitor connected to TCK, TMS, TDI, TDO pins.<br>Driver: implements TAP state machine navigation, shifts TDI data at correct TCK rate.<br>Monitor: samples TDO on each TCK rising edge, reconstructs register reads.<br>Sequence library: jtag_reset_seq, jtag_write_seq, jtag_read_seq, jtag_idcode_seq.<br><br><strong>C to UVM communication:</strong><br>In SoC verification with JTAG: the C program can initiate JTAG operations via memory-mapped JTAG controller registers (if the SoC has one). UVM monitors the JTAG pins passively. Alternatively, C writes to a 'mailbox' (dedicated scratch registers) — UVM driver reads the mailbox and translates to JTAG TDI/TMS sequences. DPI: C function directly calls SV task to initiate specific JTAG operations.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">JTAG TB is complex because you need to: (1) implement the 16-state TAP FSM in the driver — not trivial. (2) handle variable-width data register shifts (IDCODE=32 bits, DMI=41 bits, custom registers vary). (3) synchronise between the slow JTAG clock (TCK) and the fast system clock for meaningful tests. The monitor must correctly reconstruct multi-bit reads from serial TDO bits shifted over multiple TCK cycles.</div></div></div></div>
+
+<script>
+function toggle(h){const c=h.parentElement;c.classList.toggle('open');}
+document.getElementById('si').addEventListener('input',function(){
+  const q=this.value.toLowerCase();
+  document.querySelectorAll('.q-card').forEach(c=>{
+    const t=c.textContent.toLowerCase();
+    c.style.display=(!q||t.includes(q))?'':'none';
+    if(q&&t.includes(q))c.classList.add('open');
+    else if(!q)c.classList.remove('open');
+  });
+});
+</script></body></html>

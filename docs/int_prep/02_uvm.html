@@ -1,0 +1,186 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>UVM Questions — Auxera DV Prep</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:ital,wght@0,600;1,300&display=swap');
+:root{--bg:#0D1117;--surface:#161B22;--surface2:#1C2333;--border:#30363D;--accent:#2F81F7;--accent2:#3FB950;--accent3:#F78166;--accent4:#D2A8FF;--text:#E6EDF3;--text2:#8B949E;--text3:#C9D1D9;--yellow:#E3B341;--red:#F85149;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15px;line-height:1.7;padding:36px 48px;max-width:920px;margin:0 auto;}
+.page-header{margin-bottom:36px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+.page-eyebrow{font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;}
+.page-title{font-family:'Fraunces',serif;font-size:34px;font-weight:600;color:var(--text);line-height:1.2;margin-bottom:8px;}
+.page-sub{font-size:14px;color:var(--text2);max-width:620px;line-height:1.6;}
+.nav-back{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);text-decoration:none;margin-bottom:20px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;transition:all .15s;}
+.nav-back:hover{color:var(--accent);border-color:var(--accent);}
+.freq{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;vertical-align:middle;letter-spacing:.06em;text-transform:uppercase;margin-left:6px;}
+.freq-high{background:rgba(248,81,73,.15);color:#F78166;border:1px solid rgba(248,81,73,.3);}
+.freq-med{background:rgba(227,179,65,.15);color:#E3B341;border:1px solid rgba(227,179,65,.3);}
+.freq-low{background:rgba(63,185,80,.15);color:#3FB950;border:1px solid rgba(63,185,80,.3);}
+.section-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin:32px 0 14px;display:flex;align-items:center;gap:10px;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+.q-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:border-color .15s;}
+.q-card:hover{border-color:rgba(47,129,247,.5);}
+.q-header{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;cursor:pointer;user-select:none;}
+.q-num{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);background:rgba(47,129,247,.12);padding:3px 8px;border-radius:4px;flex-shrink:0;margin-top:2px;white-space:nowrap;}
+.q-text{font-size:14px;color:var(--text);font-weight:500;flex:1;line-height:1.5;}
+.q-toggle{color:var(--text2);font-size:16px;flex-shrink:0;transition:transform .2s;margin-top:3px;}
+.q-card.open .q-toggle{transform:rotate(180deg);color:var(--accent);}
+.q-body{display:none;padding:0 18px 18px 44px;border-top:1px solid var(--border);}
+.q-card.open .q-body{display:block;}
+.a-label{font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.1em;margin:12px 0 6px;}
+.a-text{font-size:13.5px;color:var(--text3);line-height:1.75;}
+.a-text ul{list-style:none;margin:6px 0;}
+.a-text ul li{padding:3px 0 3px 18px;position:relative;font-size:13.5px;color:var(--text3);line-height:1.6;}
+.a-text ul li::before{content:'▸';position:absolute;left:0;color:var(--accent);font-size:11px;top:5px;}
+pre{background:#0A0D13;border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#A5D6FF;overflow-x:auto;line-height:1.75;white-space:pre;}
+.insight{margin-top:12px;padding:10px 14px;background:rgba(210,168,255,.07);border-left:3px solid var(--accent4);border-radius:0 6px 6px 0;}
+.insight-lbl{font-size:10px;font-weight:700;color:var(--accent4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.insight-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.warn{margin-top:12px;padding:10px 14px;background:rgba(248,81,73,.07);border-left:3px solid var(--accent3);border-radius:0 6px 6px 0;}
+.warn-lbl{font-size:10px;font-weight:700;color:var(--accent3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.warn-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.tip{margin-top:12px;padding:10px 14px;background:rgba(47,129,247,.08);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;}
+.tip-lbl{font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.tip-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.search-bar{position:sticky;top:0;background:var(--bg);padding:12px 0;margin-bottom:16px;border-bottom:1px solid var(--border);z-index:10;}
+.search-wrap{position:relative;}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text2);pointer-events:none;}
+.search-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px 8px 36px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;}
+.search-input:focus{border-color:var(--accent);}
+</style></head><body>
+<a class="nav-back" href="00_index.html">← Back to Index</a>
+<div class="page-header">
+<div class="page-eyebrow">Auxera Global Tech · Page 02 of 12</div>
+<div class="page-title">UVM Questions</div>
+<div class="page-sub">Asked in 95% of interviews. You must write driver, monitor, sequence, and scoreboard from memory on paper.</div>
+</div>
+<div class="search-bar"><div class="search-wrap"><span class="search-icon">⌕</span><input class="search-input" id="si" placeholder="Search this page..."></div></div>
+<div class="section-label">Architecture and Phases — HIGH frequency</div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q2.1</span><span class="q-text">Explain UVM TB architecture end-to-end.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text">Hierarchy: uvm_test → uvm_env → uvm_agent(s) → scoreboard + coverage collector.<br><br>Active agent: driver + sequencer + monitor. Passive agent: monitor only.<br><br>Data flow: Test starts sequence on sequencer → Sequencer passes seq_item to driver → Driver drives DUT via virtual interface → DUT responds → Monitor samples DUT output → ap.write(txn) broadcasts to scoreboard and coverage → Scoreboard compare_phase checks result.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Best answers explain WHY each component exists. Driver: translates abstract transaction to pin-level signals. Monitor: passive sensor — never drives. Scoreboard: automated checker — comparator. Analysis port over TLM because it's one-to-many and non-blocking. The monitor never waits for a slow scoreboard.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q2.2</span><span class="q-text">What are all UVM phases? What is top-down vs bottom-up?<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Build phases (function calls):</strong><br>build_phase — create child components (TOP-DOWN: parent creates children).<br>connect_phase — connect TLM ports (BOTTOM-UP: children connect first, then parents).<br>end_of_elaboration_phase — final pre-simulation checks.<br>start_of_simulation_phase — print configuration, display hierarchy.<br><br><strong>Run phase (task — parallel across components):</strong><br>run_phase with 12 sub-phases: pre_reset → reset → post_reset → pre_configure → configure → post_configure → pre_main → main → post_main → pre_shutdown → shutdown → post_shutdown.<br><br><strong>Cleanup phases (function — bottom-up):</strong><br>extract_phase → check_phase → report_phase → final_phase.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Sub-phases of run_phase are asked at Qualcomm and AMD. Key design principle: sub-phases enforce temporal separation without explicit handshaking. Reset logic runs in reset sub-phase. Configuration in configure. Main stimulus in main. Prevents 'configure before reset complete' race conditions — common in ad-hoc testbenches.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q2.3</span><span class="q-text">Write driver skeleton with complete sequencer handshake.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>class my_driver extends uvm_driver #(my_txn);
+  `uvm_component_utils(my_driver)
+  virtual my_if vif;
+
+  function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    if (!uvm_config_db #(virtual my_if)::get(
+          this, "", "vif", vif))
+      `uvm_fatal("DRV","vif not set in config_db")
+  endfunction
+
+  task run_phase(uvm_phase phase);
+    my_txn req;
+    vif.valid <= 1'b0;         // Idle state
+    @(posedge vif.clk);
+
+    forever begin
+      seq_item_port.get_next_item(req);  // Block until item ready
+
+      @(posedge vif.clk);
+      vif.addr  <= req.addr;             // Non-blocking assignments
+      vif.data  <= req.data;
+      vif.valid <= 1'b1;
+
+      @(posedge vif.clk iff vif.ready); // Wait for DUT ack
+      vif.valid <= 1'b0;
+
+      seq_item_port.item_done();         // Unblock sequencer
+    end
+  endtask
+endclass</pre><div class="warn"><div class="warn-lbl">⚠ Watch Out</div><div class="warn-txt">Three common mistakes: (1) Calling item_done() before DUT acknowledges — floods driver with items. (2) Using = (blocking) to drive signals — causes race conditions with monitor. Always use <=. (3) Using #delays instead of @(posedge clk) — makes TB timing fragile.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q2.4</span><span class="q-text">Write monitor skeleton with analysis port.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>class my_monitor extends uvm_monitor;
+  `uvm_component_utils(my_monitor)
+  virtual my_if vif;
+  uvm_analysis_port #(my_txn) ap;  // Broadcast port
+
+  function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    ap = new("ap", this);
+    if (!uvm_config_db #(virtual my_if)::get(
+          this, "", "vif", vif))
+      `uvm_fatal("MON","vif not set")
+  endfunction
+
+  task run_phase(uvm_phase phase);
+    my_txn txn;
+    forever begin
+      @(posedge vif.clk);
+      if (vif.valid && vif.ready) begin
+        txn = my_txn::type_id::create("txn");
+        txn.addr  = vif.addr;
+        txn.rdata = vif.rdata;
+        ap.write(txn);  // Non-blocking broadcast
+      end
+    end
+  endtask
+endclass</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Monitor is STRICTLY passive — never drives signals. ap.write() is non-blocking regardless of how many scoreboards/coverage collectors are connected. This is why monitors use analysis ports over TLM ports — monitors should never stall waiting for downstream consumers.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q2.5</span><span class="q-text">Write a UVM sequence skeleton.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>class my_sequence extends uvm_sequence #(my_txn);
+  `uvm_object_utils(my_sequence)
+
+  function new(string name="my_sequence");
+    super.new(name);
+  endfunction
+
+  task body();
+    my_txn req;
+
+    // Method 1: Explicit (more control)
+    req = my_txn::type_id::create("req");
+    start_item(req);
+    assert(req.randomize() with {
+      req.addr inside {[0:255]};
+    });
+    finish_item(req);  // Blocks until driver calls item_done()
+
+    // Method 2: Macro shortcut
+    `uvm_do_with(req, { req.addr == 8'hFF; })
+  endtask
+endclass
+
+// Start in test:
+// my_seq seq = my_seq::type_id::create("seq");
+// seq.start(env.agent.sequencer);</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">start_item() / finish_item() gives full control — you can add delays, print info, or perform checks between them. `uvm_do is convenient but hides details. In interviews, explaining start_item/finish_item shows deeper knowledge of the sequence-driver communication protocol.</div></div></div></div>
+<div class="section-label">Factory, config_db, TLM — HIGH frequency</div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q2.6</span><span class="q-text">What is UVM factory? Why use create() instead of new()?<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text">Factory is a global registry of all UVM classes enabling runtime type substitution. When you call create(), UVM checks the factory for any override — if found, creates the overriding type. new() bypasses the factory entirely — override has zero effect.<br><br>Registration: `uvm_component_utils(my_comp), `uvm_object_utils(my_obj). Override: factory.set_type_override_by_type(base::get_type(), derived::get_type()). Instance override: factory.set_inst_override_by_type(..., "env.agent.driver").</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Factory is why UVM scales to large teams. Team A builds the base testbench. Team B creates specialised error injection variants by extending Team A's components. Team B registers override in their test — zero changes to Team A's env or agent. Real use case: create error_driver extending base_driver that randomly corrupts data. Override in error test only. Normal tests use base driver automatically.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q2.7</span><span class="q-text">Write config_db set and get syntax.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>// SET — in test build_phase or top-level TB module
+uvm_config_db #(virtual my_if)::set(
+  this,           // Context (who is setting)
+  "env.agent*",   // Hierarchical path (wildcards OK)
+  "vif",          // Key name
+  vif             // Value to store
+);
+
+// Set integer configuration
+uvm_config_db #(int)::set(this, "env.agent",
+  "num_txns", 100);
+
+// GET — in driver/monitor build_phase
+virtual my_if vif;
+if (!uvm_config_db #(virtual my_if)::get(
+  this,   // Context
+  "",     // Relative path (empty = this component)
+  "vif",  // Key
+  vif     // Output variable
+))
+  `uvm_fatal("CFG", "vif not found — check set() path")</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Always check get() return value with `uvm_fatal. The most common bug: wrong hierarchical path in set() causes get() to return 0 silently — then vif is null and run_phase crashes. Debug: +UVM_CONFIG_DB_TRACE on command line prints all set/get operations with full paths. Immediate visibility of mismatches.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q2.8</span><span class="q-text">What is analysis port vs TLM port? When does monitor use each?<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Analysis port (uvm_analysis_port):</strong> broadcast, one-to-many, non-blocking. write() call completes immediately regardless of how many subscribers are connected. Used for monitor → scoreboard and coverage. Monitor never stalls.<br><br><strong>TLM port (uvm_blocking_put_port etc.):</strong> point-to-point, potentially blocking. put() can block if consumer is not ready. Used for sequencer → driver communication (seq_item_port is a TLM port).<br><br>Monitor always uses analysis port — it should never be blocked by a slow scoreboard. Scoreboard implements analysis_imp with a write() function that is called automatically for each monitor transaction.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">If you use a TLM port from monitor to scoreboard, you create a dependency — a slow scoreboard stalls the monitor which stalls the driver which stalls the DUT. With analysis port: monitor is completely decoupled from downstream components. This architectural choice prevents a class of timing bugs that can occur in TB design.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q2.9</span><span class="q-text">What are multiple analysis imps? How do you handle 4 monitors to one scoreboard?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text">Each uvm_analysis_imp in a class creates a write() function. For multiple connections, use `uvm_analysis_imp_decl macro to create distinctly-named write functions:<br><br>// In scoreboard:<br>`uvm_analysis_imp_decl(_axi)  // Creates write_axi()<br>`uvm_analysis_imp_decl(_apb)  // Creates write_apb()<br><br>class my_sb extends uvm_scoreboard;<br>  uvm_analysis_imp_axi #(axi_txn, my_sb) axi_imp;<br>  uvm_analysis_imp_apb #(apb_txn, my_sb) apb_imp;<br>  function void write_axi(axi_txn t); ... endfunction<br>  function void write_apb(apb_txn t); ... endfunction<br>endclass</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">This is asked at AMD and Qualcomm when multiple protocol agents feed one scoreboard (common in SoC-level TBs). The macro generates a uniquely-named imp class — each monitor connects to its own named imp. Without this, you'd need multiple scoreboard classes or manual demultiplexing.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q2.10</span><span class="q-text">What is virtual sequencer and virtual sequence? Real example.<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Virtual sequencer:</strong> uvm_sequencer_base component holding handles to multiple real sub-sequencers. Has no driver — it's a coordinator only. Declared with `uvm_declare_p_sequencer(my_vseqr).<br><br><strong>Virtual sequence:</strong> runs on virtual sequencer, coordinates multiple sub-sequences via p_sequencer handles.<br><br>SoC example — verifying CSR then triggering interrupt:<br>// Virtual sequence body:<br>axi_write_seq wr_seq;<br>irq_monitor_seq irq_seq;<br>fork<br>  wr_seq.start(p_sequencer.axi_seqr);<br>  irq_seq.start(p_sequencer.irq_seqr);<br>join<br>// Write via AXI and monitor IRQ simultaneously</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Virtual sequences are what make SoC-level test writing manageable. Without them: 5 separate sequences, complex event-based synchronisation between them. With virtual sequence: one body() method orchestrates all agents with natural fork-join coordination. If you've done SoC verification, this should be a detailed answer with a real example from your project.</div></div></div></div>
+<div class="section-label">Advanced UVM — MED frequency</div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q2.11</span><span class="q-text">What are UVM callbacks? Give a practical example.<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text">Callbacks inject additional behaviour at hook points without modifying the base component source. Define callback class (extends uvm_callback). Component calls callback functions at hooks. Register specific callbacks in specific tests.<br><br><strong>Error injection example:</strong> Base driver has virtual function post_drive() — empty by default. Error injection callback overrides post_drive() to randomly flip data bits. Register only in error injection test. Zero changes to base driver or env.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Callbacks are the professional alternative to copy-paste. Without callbacks: fork base driver, add error injection, maintain two versions forever. With callbacks: one driver, multiple callback variants, all tested independently. AMD specifically asks for a real testbench example — not a generic explanation.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q2.12</span><span class="q-text">What is raise_objection and drop_objection? What happens without them?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text">raise_objection(this) at the start of test run_phase prevents the simulation from ending prematurely. drop_objection(this) signals completion — simulation ends when all objections are dropped to zero.<br><br>Without raise: simulation ends immediately at time 0 (all phases complete with no outstanding objections — nothing to wait for).<br><br>Pattern:<br>task run_phase(uvm_phase phase);<br>  phase.raise_objection(this);<br>  // ... run sequences ...<br>  phase.drop_objection(this);<br>endtask<br><br>Drain time: phase.phase_done.set_drain_time(this, 100ns) — allows pending transactions to complete after last drop.</div><div class="warn"><div class="warn-lbl">⚠ Watch Out</div><div class="warn-txt">Common mistake: dropping objection inside a sequence (sequences don't have access to the phase object directly). Drop objection in the test after sequence.start() returns. Another mistake: raising objection in driver/monitor — these run forever and never drop, hanging simulation.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q2.13</span><span class="q-text">Active vs passive agent — when does active become passive?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Active agent (is_active = UVM_ACTIVE):</strong> has driver + sequencer + monitor. Drives DUT inputs. Used when the testbench controls that interface.<br><br><strong>Passive agent (is_active = UVM_PASSIVE):</strong> monitor only. Observes without driving. Used when:<br>1. DUT is the master on that interface — DUT initiates transactions, TB only monitors.<br>2. SoC integration level where another block drives the interface — TB observes DUT-to-DUT traffic.<br>3. For coverage and checking only — no stimulus generation needed.<br><br>Switch: agent.is_active = UVM_PASSIVE in build_phase (or via config_db). Driver and sequencer not instantiated.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Passive agents are critical in SoC verification. You have active agents on CPU/stimulus interfaces (TB drives), and passive agents on DUT-to-DUT interfaces (observe for coverage and protocol checking). Interview trap: 'Can a passive agent have a sequencer?' — No. If someone says yes, they're confusing passive with virtual.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q2.14</span><span class="q-text">Difference between copy() and clone()? What is $cast?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>copy(src):</strong> copies fields FROM src INTO current object — in-place modification. No new object created.<br><br><strong>clone():</strong> creates a NEW object, copies all fields into it, returns handle to new object. Equivalent to: new + copy.<br><br><strong>$cast:</strong> safe runtime downcast. Checks type compatibility before assignment. Returns 1 (success) or 0 (failure).<br><br>// Without $cast — compiler rejects downcast:<br>// child_h = base_h;  // ERROR<br><br>// With $cast — safe:<br>child_txn c;<br>if (!$cast(c, base_handle))<br>  `uvm_fatal("CAST", "Incompatible types");</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Both copy() and clone() require do_copy() override for custom fields (dynamic arrays, nested objects). Default implementation only copies fields known to the base class. If your txn has a rand byte payload[] dynamic array — implement do_copy() to deep-copy the array. Otherwise clone() gives you a new txn with a SHARED array reference — still shallow.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q2.15</span><span class="q-text">UVM severity levels, verbosity levels, and how to control them.<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Severity levels:</strong><br>UVM_INFO: informational message.<br>UVM_WARNING: potential issue — doesn't increment error count.<br>UVM_ERROR: increments error count — simulation continues by default.<br>UVM_FATAL: kills simulation immediately — no recovery.<br><br><strong>Verbosity levels (message filtering):</strong><br>UVM_NONE (0) → UVM_LOW (100) → UVM_MEDIUM (200, default) → UVM_HIGH (300) → UVM_FULL (400) → UVM_DEBUG (500).<br><br><strong>Control on command line:</strong><br>+UVM_VERBOSITY=UVM_HIGH — show HIGH and below.<br>+UVM_VERBOSITY=UVM_DEBUG — show everything.<br><br>In code: set_report_verbosity_level(UVM_HIGH); or per-component.</div><div class="tip"><div class="tip-lbl">📌 Pro Tip</div><div class="tip-txt">Use UVM_HIGH for transaction-level debug (every sequence item). Use UVM_DEBUG for signal-level debug (every clock edge). Keep normal simulation at UVM_MEDIUM — HIGH verbosity in regression creates huge log files and slows simulation.</div></div></div></div>
+
+<script>
+function toggle(h){const c=h.parentElement;c.classList.toggle('open');}
+document.getElementById('si').addEventListener('input',function(){
+  const q=this.value.toLowerCase();
+  document.querySelectorAll('.q-card').forEach(c=>{
+    const t=c.textContent.toLowerCase();
+    c.style.display=(!q||t.includes(q))?'':'none';
+    if(q&&t.includes(q))c.classList.add('open');
+    else if(!q)c.classList.remove('open');
+  });
+});
+</script></body></html>

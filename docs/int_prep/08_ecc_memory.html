@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>ECC & Memory Questions — Auxera DV Prep</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:ital,wght@0,600;1,300&display=swap');
+:root{--bg:#0D1117;--surface:#161B22;--surface2:#1C2333;--border:#30363D;--accent:#2F81F7;--accent2:#3FB950;--accent3:#F78166;--accent4:#D2A8FF;--text:#E6EDF3;--text2:#8B949E;--text3:#C9D1D9;--yellow:#E3B341;--red:#F85149;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15px;line-height:1.7;padding:36px 48px;max-width:920px;margin:0 auto;}
+.page-header{margin-bottom:36px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+.page-eyebrow{font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;}
+.page-title{font-family:'Fraunces',serif;font-size:34px;font-weight:600;color:var(--text);line-height:1.2;margin-bottom:8px;}
+.page-sub{font-size:14px;color:var(--text2);max-width:620px;line-height:1.6;}
+.nav-back{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);text-decoration:none;margin-bottom:20px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;transition:all .15s;}
+.nav-back:hover{color:var(--accent);border-color:var(--accent);}
+.freq{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;vertical-align:middle;letter-spacing:.06em;text-transform:uppercase;margin-left:6px;}
+.freq-high{background:rgba(248,81,73,.15);color:#F78166;border:1px solid rgba(248,81,73,.3);}
+.freq-med{background:rgba(227,179,65,.15);color:#E3B341;border:1px solid rgba(227,179,65,.3);}
+.freq-low{background:rgba(63,185,80,.15);color:#3FB950;border:1px solid rgba(63,185,80,.3);}
+.section-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin:32px 0 14px;display:flex;align-items:center;gap:10px;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+.q-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:border-color .15s;}
+.q-card:hover{border-color:rgba(47,129,247,.5);}
+.q-header{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;cursor:pointer;user-select:none;}
+.q-num{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);background:rgba(47,129,247,.12);padding:3px 8px;border-radius:4px;flex-shrink:0;margin-top:2px;white-space:nowrap;}
+.q-text{font-size:14px;color:var(--text);font-weight:500;flex:1;line-height:1.5;}
+.q-toggle{color:var(--text2);font-size:16px;flex-shrink:0;transition:transform .2s;margin-top:3px;}
+.q-card.open .q-toggle{transform:rotate(180deg);color:var(--accent);}
+.q-body{display:none;padding:0 18px 18px 44px;border-top:1px solid var(--border);}
+.q-card.open .q-body{display:block;}
+.a-label{font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.1em;margin:12px 0 6px;}
+.a-text{font-size:13.5px;color:var(--text3);line-height:1.75;}
+.a-text ul{list-style:none;margin:6px 0;}
+.a-text ul li{padding:3px 0 3px 18px;position:relative;font-size:13.5px;color:var(--text3);line-height:1.6;}
+.a-text ul li::before{content:'▸';position:absolute;left:0;color:var(--accent);font-size:11px;top:5px;}
+pre{background:#0A0D13;border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#A5D6FF;overflow-x:auto;line-height:1.75;white-space:pre;}
+.insight{margin-top:12px;padding:10px 14px;background:rgba(210,168,255,.07);border-left:3px solid var(--accent4);border-radius:0 6px 6px 0;}
+.insight-lbl{font-size:10px;font-weight:700;color:var(--accent4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.insight-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.warn{margin-top:12px;padding:10px 14px;background:rgba(248,81,73,.07);border-left:3px solid var(--accent3);border-radius:0 6px 6px 0;}
+.warn-lbl{font-size:10px;font-weight:700;color:var(--accent3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.warn-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.tip{margin-top:12px;padding:10px 14px;background:rgba(47,129,247,.08);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;}
+.tip-lbl{font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.tip-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.search-bar{position:sticky;top:0;background:var(--bg);padding:12px 0;margin-bottom:16px;border-bottom:1px solid var(--border);z-index:10;}
+.search-wrap{position:relative;}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text2);pointer-events:none;}
+.search-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px 8px 36px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;}
+.search-input:focus{border-color:var(--accent);}
+</style></head><body>
+<a class="nav-back" href="00_index.html">← Back to Index</a>
+<div class="page-header">
+<div class="page-eyebrow">Auxera Global Tech · Page 08 of 12</div>
+<div class="page-title">ECC & Memory Questions</div>
+<div class="page-sub">Asked at Intel, Tenstorrent, Samsung. Know SECDED, bit count formula, and error injection methodology.</div>
+</div>
+<div class="search-bar"><div class="search-wrap"><span class="search-icon">⌕</span><input class="search-input" id="si" placeholder="Search this page..."></div></div>
+<div class="section-label">ECC Fundamentals</div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q8.1</span><span class="q-text">What is ECC? How does Hamming code detect and correct errors?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text">ECC (Error Correction Code): adds redundant parity bits to data. On read, recalculate parity bits and XOR with stored bits → syndrome. Syndrome=0: no error. Syndrome≠0: identifies error bit position (for single-bit errors).<br><br><strong>Hamming code mechanics:</strong> parity bits placed at power-of-2 positions (1, 2, 4, 8...). Each parity bit covers specific data bit subsets. Parity1 covers positions 1,3,5,7... Parity2 covers positions 2,3,6,7... etc. Syndrome is the binary number formed by all parity check results — directly gives the error bit position.<br><br><strong>SECDED (Single Error Correct, Double Error Detect):</strong> standard Hamming + one overall parity bit. If syndrome≠0 and overall parity changes → single-bit error (correctable). If syndrome≠0 and overall parity unchanged → double-bit error (detected, not correctable — report DERR flag).</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">ECC is asked at Intel (ECC for memory subsystem), Tenstorrent, and Samsung. The key distinction to know: standard Hamming can detect and correct single-bit errors, and detect (but not correct) double-bit errors. SECDED adds one bit to distinguish between correctable (1-bit) and detected-only (2-bit) scenarios. Hardware ECC controllers assert separate SECDED and DERR status flags.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q8.2</span><span class="q-text">How many ECC bits for different data widths? Formula.<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Formula:</strong> find smallest p such that 2^p ≥ p + d + 1 (where d = data bits, p = parity bits, +1 for SECDED overall parity bit).<br><br>8-bit data:   p = 4 ECC bits  (total word = 12 bits)<br>16-bit data:  p = 5 ECC bits  (total word = 21 bits)<br>32-bit data:  p = 6 ECC bits  (total word = 38 bits)<br>64-bit data:  p = 7 ECC bits  (total word = 71 bits)<br>128-bit data: p = 8 ECC bits  (total word = 136 bits)<br><br>Verify 32-bit: 2^6=64 ≥ 6+32+1=39. ✓ 2^5=32 ≥ 38? No. ✗ So p=6 is minimum.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Verification implication: for 32-bit data with 6 ECC bits, you're storing 38 bits. The ECC encoder computes 6 parity bits on write, stores all 38 bits. On read: recomputes 6 parity bits, XORs with stored → 6-bit syndrome. Must test ALL 38 single-bit positions (inject each, verify correction). For double-bit: inject pairs, verify DERR flag (no correction). This is a systematic test matrix.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q8.3</span><span class="q-text">Will ECC correct a 2-bit error? How does SECDED flag correctable vs uncorrectable?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Standard Hamming:</strong> can detect 2-bit errors but CANNOT correct them — syndrome indicates error but the bit position mapping is ambiguous for 2-bit errors.<br><br><strong>SECDED behaviour:</strong><br>Scenario 1 — Single-bit error: syndrome≠0 AND overall parity bit changes → position unambiguously identified → hardware corrects by flipping that bit → SECD flag asserted (correctable error logged).<br>Scenario 2 — Double-bit error: syndrome≠0 AND overall parity bit unchanged → indicates uncorrectable → hardware does NOT attempt correction → DERR flag asserted → system/OS notified for higher-level action (typically: mark page as bad, trigger NMI, log to firmware).<br>Scenario 3 — No error: syndrome=0, overall parity=0 → clean read, no flags.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">The DERR flag handling is important from a system perspective. When DERR is asserted, the hardware cannot know which 2 bits are wrong — correcting any bit would make it worse. The system must treat the data as unrecoverable. In server memory systems, DERR on a page triggers OS to mark it bad and remap. This is why DRAM SECDED ECC is not sufficient for critical data — RAID or redundant storage provides higher-level protection.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q8.4</span><span class="q-text">How do you inject single-bit and multi-bit errors for ECC testing?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Single-bit error injection:</strong><br>1. Write known data pattern to memory.<br>2. Read the stored word INCLUDING ECC bits via backdoor (or force the specific bit location in RTL).<br>3. Force exactly one bit to wrong value using HDL force/deposit or backdoor write to that bit position.<br>4. Read normally — ECC logic should detect, correct, and assert SECD flag.<br>5. Verify: corrected data matches original, SECD=1, DERR=0, error address logged correctly.<br><br><strong>Double-bit error injection:</strong><br>1. Write known pattern.<br>2. Force two specific bits simultaneously to wrong values.<br>3. Read — DERR=1, SECD=0, data returned is corrupted (do NOT use it).<br><br><strong>Must test all bit positions:</strong> for 32-bit+6ECC=38 bits: inject error at each of 38 positions individually. Verify syndrome correctly identifies THAT position.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">The systematic test: for each bit position i in 0..37: write known pattern, force bit i, read back, verify syndrome=i+1, verify data correction, clear force, verify clean read. Then for double-bit: test all C(38,2)=703 combinations? No — sample a representative subset (same parity group, adjacent bits, MSB+LSB). Full coverage of all double-bit combinations is impractical — target statistically representative pairs and known-dangerous combinations.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q8.5</span><span class="q-text">Cache hierarchy: L1, L2, L3. What is cache miss penalty?<span class="freq freq-low">LOW</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>L1:</strong> smallest (32–64KB), fastest (1–4 cycles latency), private to each core, SRAM. Split into L1-I (instructions) and L1-D (data).<br><strong>L2:</strong> larger (256KB–1MB), slower (5–12 cycles), may be private or shared, SRAM.<br><strong>L3:</strong> largest (4–64MB+), slowest cache level (30–50 cycles), shared across all cores, SRAM but optimised for density over speed.<br><strong>DRAM:</strong> hundreds of cycles latency (100–300 cycles), gigabytes, DDR4/DDR5.<br><br><strong>Cache miss penalty:</strong> L1 miss → access L2 (5–8 cycle penalty). L2 miss → access L3 (30–40 cycle penalty). L3 miss → DRAM access (100–300 cycle penalty). This is why cache coherency and prefetching matter enormously for performance.</div><div class="tip"><div class="tip-lbl">📌 Pro Tip</div><div class="tip-txt">Cache hierarchy is asked at AMD and Tenstorrent (AI accelerators are highly cache-sensitive). The verification angle: cache controller verification — verify correct hit/miss behaviour, eviction policy (LRU, PLRU), write-back vs write-through, cache flush and invalidate operations, and coherency protocol state machine transitions.</div></div></div></div>
+
+<script>
+function toggle(h){const c=h.parentElement;c.classList.toggle('open');}
+document.getElementById('si').addEventListener('input',function(){
+  const q=this.value.toLowerCase();
+  document.querySelectorAll('.q-card').forEach(c=>{
+    const t=c.textContent.toLowerCase();
+    c.style.display=(!q||t.includes(q))?'':'none';
+    if(q&&t.includes(q))c.classList.add('open');
+    else if(!q)c.classList.remove('open');
+  });
+});
+</script></body></html>

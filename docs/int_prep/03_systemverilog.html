@@ -1,0 +1,410 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>SystemVerilog Coding Questions — Auxera DV Prep</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:ital,wght@0,600;1,300&display=swap');
+:root{--bg:#0D1117;--surface:#161B22;--surface2:#1C2333;--border:#30363D;--accent:#2F81F7;--accent2:#3FB950;--accent3:#F78166;--accent4:#D2A8FF;--text:#E6EDF3;--text2:#8B949E;--text3:#C9D1D9;--yellow:#E3B341;--red:#F85149;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15px;line-height:1.7;padding:36px 48px;max-width:920px;margin:0 auto;}
+.page-header{margin-bottom:36px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+.page-eyebrow{font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;}
+.page-title{font-family:'Fraunces',serif;font-size:34px;font-weight:600;color:var(--text);line-height:1.2;margin-bottom:8px;}
+.page-sub{font-size:14px;color:var(--text2);max-width:620px;line-height:1.6;}
+.nav-back{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);text-decoration:none;margin-bottom:20px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;transition:all .15s;}
+.nav-back:hover{color:var(--accent);border-color:var(--accent);}
+.freq{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;vertical-align:middle;letter-spacing:.06em;text-transform:uppercase;margin-left:6px;}
+.freq-high{background:rgba(248,81,73,.15);color:#F78166;border:1px solid rgba(248,81,73,.3);}
+.freq-med{background:rgba(227,179,65,.15);color:#E3B341;border:1px solid rgba(227,179,65,.3);}
+.freq-low{background:rgba(63,185,80,.15);color:#3FB950;border:1px solid rgba(63,185,80,.3);}
+.section-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin:32px 0 14px;display:flex;align-items:center;gap:10px;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+.q-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:border-color .15s;}
+.q-card:hover{border-color:rgba(47,129,247,.5);}
+.q-header{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;cursor:pointer;user-select:none;}
+.q-num{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);background:rgba(47,129,247,.12);padding:3px 8px;border-radius:4px;flex-shrink:0;margin-top:2px;white-space:nowrap;}
+.q-text{font-size:14px;color:var(--text);font-weight:500;flex:1;line-height:1.5;}
+.q-toggle{color:var(--text2);font-size:16px;flex-shrink:0;transition:transform .2s;margin-top:3px;}
+.q-card.open .q-toggle{transform:rotate(180deg);color:var(--accent);}
+.q-body{display:none;padding:0 18px 18px 44px;border-top:1px solid var(--border);}
+.q-card.open .q-body{display:block;}
+.a-label{font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.1em;margin:12px 0 6px;}
+.a-text{font-size:13.5px;color:var(--text3);line-height:1.75;}
+.a-text ul{list-style:none;margin:6px 0;}
+.a-text ul li{padding:3px 0 3px 18px;position:relative;font-size:13.5px;color:var(--text3);line-height:1.6;}
+.a-text ul li::before{content:'▸';position:absolute;left:0;color:var(--accent);font-size:11px;top:5px;}
+pre{background:#0A0D13;border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#A5D6FF;overflow-x:auto;line-height:1.75;white-space:pre;}
+.insight{margin-top:12px;padding:10px 14px;background:rgba(210,168,255,.07);border-left:3px solid var(--accent4);border-radius:0 6px 6px 0;}
+.insight-lbl{font-size:10px;font-weight:700;color:var(--accent4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.insight-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.warn{margin-top:12px;padding:10px 14px;background:rgba(248,81,73,.07);border-left:3px solid var(--accent3);border-radius:0 6px 6px 0;}
+.warn-lbl{font-size:10px;font-weight:700;color:var(--accent3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.warn-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.tip{margin-top:12px;padding:10px 14px;background:rgba(47,129,247,.08);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;}
+.tip-lbl{font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.tip-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.search-bar{position:sticky;top:0;background:var(--bg);padding:12px 0;margin-bottom:16px;border-bottom:1px solid var(--border);z-index:10;}
+.search-wrap{position:relative;}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text2);pointer-events:none;}
+.search-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px 8px 36px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;}
+.search-input:focus{border-color:var(--accent);}
+</style></head><body>
+<a class="nav-back" href="00_index.html">← Back to Index</a>
+<div class="page-header">
+<div class="page-eyebrow">Auxera Global Tech · Page 03 of 12</div>
+<div class="page-title">SystemVerilog Coding Questions</div>
+<div class="page-sub">Write ALL code from memory on paper. AMD, Google, Intel, Qualcomm ask live coding — no IDE, no autocomplete.</div>
+</div>
+<div class="search-bar"><div class="search-wrap"><span class="search-icon">⌕</span><input class="search-input" id="si" placeholder="Search this page..."></div></div>
+<div class="section-label">Constraints — Write Live</div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.1</span><span class="q-text">Write constraint: exactly 4 bits set to 1 in a 32-bit variable.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>rand bit [31:0] val;
+constraint c_4bits { $countones(val) == 4; }
+
+// Variation: at least 4 bits
+constraint c_atleast4 { $countones(val) >= 4; }
+
+// Without $countones (if asked):
+class txn;
+  rand bit [31:0] val;
+  rand int ones_count;
+  constraint c_count {
+    ones_count == 0;
+    foreach(val[i]) ones_count += val[i];
+    ones_count == 4;
+  }
+endclass</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">$countones() is the correct and cleanest answer. Asked at Intel, AMD, and Insemi. Variations to know: 'odd number of 1s' → $countones(val) % 2 == 1. 'At least N bits high' → $countones(val) >= N. 'Exactly N bits low' → $countones(~val) == N.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.2</span><span class="q-text">Write constraint: dynamic array ascending order, odd values only, size 10–20.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>class arr_txn;
+  rand int arr[];
+
+  constraint c_size { arr.size() inside {[10:20]}; }
+
+  constraint c_odd  {
+    foreach(arr[i]) arr[i] % 2 != 0;
+  }
+
+  constraint c_asc  {
+    foreach(arr[i])
+      if(i > 0) arr[i] > arr[i-1];  // strictly ascending
+      // use >= for non-decreasing
+  }
+endclass</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Three separate named constraints — each can be disabled independently with c_odd.constraint_mode(0). Asked at Mirafra (Shivam Awasthi, 2023) with this exact combination. Note: arr[i] > arr[i-1] is strictly ascending. arr[i] >= arr[i-1] is non-decreasing (allows duplicates). Pick based on requirement.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.3</span><span class="q-text">Write constraint: 5-bit variable with odd number of 1s.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>rand bit [4:0] val;
+
+// Method 1: $countones
+constraint c_odd_ones { $countones(val) % 2 == 1; }
+
+// Method 2: Without system task (if asked at AMD/Mirafra)
+class odd_ones_txn;
+  rand bit [4:0] val;
+  function int count_ones(bit [4:0] v);
+    int cnt = 0;
+    foreach(v[i]) if(v[i]) cnt++;
+    return cnt;
+  endfunction
+  constraint c_odd {
+    count_ones(val) % 2 == 1;
+  }
+endclass</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Mirafra (Shivam Awasthi) specifically asked to write this WITHOUT $countones — using a function inside the constraint. This tests deeper understanding: constraints can call functions that return values, as long as the function is deterministic and doesn't contain procedural side effects.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.4</span><span class="q-text">Write constraint: AXI 4KB page boundary — burst must not cross page.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>rand bit [31:0] awaddr;
+rand bit [7:0]  awlen;   // AWLEN: number of beats = awlen+1
+rand bit [2:0]  awsize;  // AWSIZE: bytes/beat = 2^awsize
+
+constraint c_4k {
+  // All beats must stay within same 4KB page
+  // Total transfer size: (awlen+1) * (1 << awsize)
+  // Last byte address: awaddr + total_size - 1
+  // Must be in same page: addr[31:12] unchanged
+
+  (awaddr & 32'hFFF) + ((awlen + 1) * (1 << awsize))
+    <= 32'h1000;
+  // i.e. offset_within_page + transfer_size <= 4096
+}</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">This is the most technically precise constraint in AXI verification. The 4KB rule: all beats of INCR and WRAP bursts must stay within the same 4KB page (address bits [31:12] must not change). AXI interconnects implement address decode per 4KB page — a burst crossing the boundary routes different beats to different slaves. Asked at AMD, Insemi, Tenstorrent.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.5</span><span class="q-text">Write constraint: power of 2, unique array, and Fibonacci.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>// Power of 2 (two methods):
+rand int val;
+constraint c_pow2   { val != 0; (val & (val-1)) == 0; }
+// Alternative: rand int exp; constraint c { val == 1<<exp; }
+
+// Unique array without 'unique' keyword:
+rand int arr[8];
+constraint c_unique {
+  foreach(arr[i])
+    foreach(arr[j])
+      if(i!=j) arr[i] != arr[j];
+}
+
+// Fibonacci series:
+rand int fib[];
+constraint c_fib {
+  fib.size() == 10;
+  fib[0] == 0; fib[1] == 1;
+  foreach(fib[i])
+    if(i > 1) fib[i] == fib[i-1] + fib[i-2];
+}</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Power of 2 bit-trick: powers of 2 have exactly one bit set. Subtracting 1 flips all lower bits to 1. AND gives 0. Works for all powers of 2. val!=0 required because 0 also satisfies the trick. Google asked 'any other way?' — show the shift approach. Fibonacci has only one solution — it's a deterministic constraint.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.6</span><span class="q-text">What is solve-before? How do you disable constraints? What are soft constraints?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>// Disable constraint at runtime:
+obj.c_4k.constraint_mode(0);  // OFF
+obj.c_4k.constraint_mode(1);  // ON
+
+// Check if enabled:
+if (obj.c_4k.constraint_mode()) ...
+
+// Soft constraint — overridable:
+constraint c_default { soft addr inside {[0:100]}; }
+// Override in uvm_do_with — inline wins:
+`uvm_do_with(req, { req.addr == 200; })
+// req.addr will be 200, soft constraint ignored
+
+// Solve-before — affects distribution:
+rand int burst_type;  // FIXED=0, INCR=1, WRAP=2
+rand bit [31:0] addr;
+constraint c_order {
+  solve burst_type before addr;
+  if(burst_type == 2) addr % 4 == 0;  // WRAP needs aligned
+}</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">solve-before affects probability distribution. Without it, the solver may produce statistically biased results when one variable constrains another. Real use case: solve AWBURST before AWADDR — WRAP bursts need aligned addresses, INCR doesn't. Without solve-before, the solver may overwhelmingly produce INCR (easier to satisfy) rather than balanced FIXED/INCR/WRAP distribution.</div></div></div></div>
+<div class="section-label">Assertions — Write Live</div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.7</span><span class="q-text">Write assertion: req → ack within 1–3 cycles. All important operators.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>// Core assertion:
+property p_ack;
+  @(posedge clk) disable iff (!rst_n)
+  req |-> ##[1:3] ack;    // |-> overlapping implication
+endproperty
+ASSERT_ACK: assert property(p_ack)
+  else `uvm_error("ASSERT",
+    $sformatf("ACK missing at t=%0t",$time));
+
+// Cover: confirm assertion is actually exercised
+COVER_REQ: cover property(@(posedge clk) req);
+
+// Operators reference:
+// ##N      : exactly N cycles later
+// ##[1:3]  : 1 to 3 cycles (inclusive)
+// |->      : overlapping implication (same cycle)
+// |=>      : non-overlapping (next cycle)
+// $rose(x) : 0->1 only (not X->1)
+// $fell(x) : 1->0 only
+// $stable(x): no change from previous cycle
+// $past(x) : value of x one cycle ago
+// $past(x,N): value N cycles ago
+// $changed(x): different from previous cycle</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Two things most candidates miss: (1) disable iff (!rst_n) — without this, assertion fires spuriously every reset cycle. (2) cover property — confirms the assertion was actually triggered. An assertion that is never triggered gives false confidence. Always pair assert with cover. |-> vs |=>: req |-> ##1 ack means ack at clock N+1. req |=> ##1 ack means ack at clock N+2.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.8</span><span class="q-text">Write assertion: counter stable when disabled, increments when enabled.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>property p_stable;
+  @(posedge clk) disable iff (!rst_n)
+  !en |-> $stable(cnt);
+endproperty
+
+property p_incr;
+  @(posedge clk) disable iff (!rst_n)
+  en |-> cnt == $past(cnt) + 1;
+endproperty
+
+ASSERT_STABLE: assert property(p_stable);
+ASSERT_INCR:   assert property(p_incr);
+
+// Variation: counter wraps at 255
+property p_wrap;
+  @(posedge clk) disable iff (!rst_n)
+  en |-> cnt == ($past(cnt) == 8'hFF ? 8'h00
+                                     : $past(cnt)+1);
+endproperty</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Two separate properties is always cleaner than one combined. Each can be named, disabled independently, and produces a clear message when it fires. This exact question was asked at Intel, AMD, and Insemi. The wrap variation tests whether you understand overflow behaviour — know it.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.9</span><span class="q-text">Write assertion for T flip-flop, and AXI high-priority arbitration.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>// T flip-flop: when T=1, Q toggles; when T=0, Q stable
+property p_tff_toggle;
+  @(posedge clk) t |-> q == !$past(q);
+endproperty
+property p_tff_stable;
+  @(posedge clk) !t |-> $stable(q);
+endproperty
+
+// AXI arbitration: hi_req gets grant when both request
+property p_arb_priority;
+  @(posedge clk) disable iff (!rst_n)
+  (hi_req && lo_req) |-> ##[0:2] (hi_grant && !lo_grant);
+endproperty
+
+// VALID must stay high once asserted until READY:
+property p_valid_stable;
+  @(posedge clk) disable iff (!rst_n)
+  (awvalid && !awready) |=> awvalid;
+endproperty
+ASSERT_VALID: assert property(p_valid_stable);</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">The AWVALID stability assertion is critical for AXI verification — the spec requires VALID to stay high once asserted until READY responds. Missing this assertion means AXI protocol violations go undetected. This is one of the most common sources of AXI integration bugs. Asked at WD and Tenstorrent.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.10</span><span class="q-text">Difference between consecutive [*N], goto [->N], and non-consecutive [=N] repetition.<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Consecutive [*N]:</strong> signal must be true for exactly N consecutive cycles. a[*3] means a=1 at t=0, t=1, t=2.<br><br><strong>Goto [->N]:</strong> signal must be true exactly N times, gaps allowed between occurrences. ack[->3] — ack goes high, can go low, high again, can go low, high once more. Sequence anchored to last occurrence.<br><br><strong>Non-consecutive [=N]:</strong> like goto but sequence continues after Nth match rather than ending. Last match doesn't need to immediately precede the next element.<br><br>Range syntax: a[*2:5] — a must be true between 2 and 5 consecutive cycles.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Goto [->] is the most commonly confused operator. Real use case: in AXI write bursts, WVALID may deassert between beats (pipeline stall). WVALID[->AWLEN+1] means AWLEN+1 beats of WVALID=1, potentially non-consecutive. This is more accurate than WVALID[*AWLEN+1] which requires consecutive cycles. Intel asked about this distinction specifically.</div></div></div></div>
+<div class="section-label">Functional Coverage — Write Live</div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.11</span><span class="q-text">Write complete covergroup: bins, ignore_bins, illegal_bins, cross coverage.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>covergroup axi_cg @(posedge clk);
+  option.per_instance = 1;   // Separate stats per instance
+
+  cp_addr: coverpoint addr {
+    bins low   = {[8'h00 : 8'h3F]};
+    bins mid   = {[8'h40 : 8'hBF]};
+    bins high  = {[8'hC0 : 8'hFD]};
+    ignore_bins reserved = {8'hFE};  // Exclude from goal
+    illegal_bins bad     = {8'hFF};  // Error if ever seen
+  }
+
+  cp_burst: coverpoint burst_type {
+    bins fixed  = {2'b00};
+    bins incr   = {2'b01};
+    bins wrap   = {2'b10};
+  }
+
+  cp_len: coverpoint awlen {
+    bins single  = {8'd0};          // 1 beat
+    bins short   = {[8'd1 : 8'd7]};
+    bins long    = {[8'd8 : 8'd255]};
+  }
+
+  // Cross: all combinations
+  cx_burst_len: cross cp_burst, cp_len {
+    // FIXED burst with len>0 is technically valid but unusual
+    ignore_bins fixed_long =
+      binsof(cp_burst.fixed) && binsof(cp_len.long);
+  }
+endgroup : axi_cg</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">ignore_bins excludes values from coverage goal — they don't count for OR against your percentage. illegal_bins errors if the value is EVER seen in simulation. Use illegal_bins for values that must never occur (protocol violations, reserved encodings). Cross coverage bin count = product of individual coverpoint bin counts — manage size carefully.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.12</span><span class="q-text">Write FSM state AND transition coverage.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>typedef enum {IDLE, FETCH, DECODE, EXEC, WB, ERROR} fsm_t;
+fsm_t state;
+
+covergroup fsm_cg @(posedge clk);
+  // State coverage
+  cp_state: coverpoint state {
+    bins idle   = {IDLE};
+    bins fetch  = {FETCH};
+    bins decode = {DECODE};
+    bins exec   = {EXEC};
+    bins wb     = {WB};
+    bins error  = {ERROR};
+  }
+  // Transition coverage — specific important transitions
+  cp_trans: coverpoint state {
+    bins i2f  = (IDLE   => FETCH);
+    bins f2d  = (FETCH  => DECODE);
+    bins d2e  = (DECODE => EXEC);
+    bins e2w  = (EXEC   => WB);
+    bins w2i  = (WB     => IDLE);
+    // Error entry from any state
+    bins any2err = (IDLE,FETCH,DECODE,EXEC,WB => ERROR);
+    // Recovery path — critical!
+    bins err2i   = (ERROR => IDLE);
+    // Unusual but valid: DECODE -> EXEC stall repeat
+    bins stall   = (DECODE => DECODE);
+  }
+endgroup</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Always include error recovery transitions (ERROR→IDLE). Untested recovery is where real silicon bugs hide — the chip can get stuck in error state permanently. Also include 'stall' self-transitions (DECODE→DECODE) for pipeline stall scenarios. State coverage alone misses these paths. Asked at AMD, Samsung, Mirafra.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.13</span><span class="q-text">Code coverage vs functional coverage: types and which is primary metric.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Code coverage (automatic):</strong><br>Statement: which RTL lines executed.<br>Branch: which if/else, case branches taken.<br>Toggle: which signals transitioned 0→1 and 1→0.<br>Expression: sub-expressions within conditions.<br>FSM: states visited and transitions taken.<br><br><strong>Functional coverage (manual — user-defined):</strong><br>Covergroups, coverpoints, cross coverage — user specifies what matters based on the specification. Requires deep design knowledge to write correctly.<br><br><strong>Primary metric: Functional coverage.</strong> Code coverage is a diagnostic tool. 100% code coverage does NOT mean verification is complete — it only means all RTL lines were executed, not that they executed correctly or with the right input combinations.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Classic failure mode: 100% code coverage on a register block from one test that happens to touch every line. But functional coverage at 40% because you never tested: W1C clear-on-write semantics, RO field write resistance, reset value correctness, misaligned access error response. This exact distinction is how experienced interviewers separate process-driven DV engineers from test-writers.</div></div></div></div>
+<div class="section-label">Fork-Join, OOP, Scheduling</div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.14</span><span class="q-text">Fork-join types and classic for-loop trap — predict output.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>// TRAP QUESTION — predict output:
+for(int i=0; i<3; i++) begin
+  fork
+    $display("Value: %0d", i);
+  join_none
+end
+// OUTPUT: 3  3  3  (NOT 0 1 2)
+// WHY: i shared. join_none spawns but threads don't run
+// until parent yields. Loop ends (i=3). All threads see 3.
+
+// FIX: automatic captures value at spawn time:
+for(int i=0; i<3; i++) begin
+  fork
+    automatic int j=i;
+    $display("Value: %0d", j);  // OUTPUT: 0  1  2
+  join_none
+end
+
+// join:     wait for ALL threads
+// join_any: wait for FIRST thread, others continue
+// join_none: fire and forget, parent continues immediately
+
+// fork-join_any output prediction:
+fork
+  #15 $display("A");  // fires t=15
+  #5  $display("B");  // fires t=5  → join_any exits here
+  #10 $display("C");  // continues after join_any
+join_any
+#2 $display("D");     // fires at t=5+2=7
+// Order: B(5), D(7), C(10), A(15)</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">The for-loop fork-join_none trap is THE most asked SV trick question at AMD, Intel, and multiple others. ~100% of candidates who haven't seen it before get it wrong. Once understood, it's unforgettable. The lesson: join_none threads share enclosing scope — loop variable is shared. automatic creates an independent local copy at spawn time. Know this cold.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.15</span><span class="q-text">Write polymorphism example relevant to a DV testbench.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>// Base driver — virtual hook
+class base_drv extends uvm_driver #(my_txn);
+  `uvm_component_utils(base_drv)
+  virtual task drive(my_txn t);
+    @(posedge vif.clk);
+    vif.data <= t.data;  // Normal drive
+  endtask
+  task run_phase(uvm_phase phase);
+    my_txn req;
+    forever begin
+      seq_item_port.get_next_item(req);
+      drive(req);  // Calls virtual — dispatches to derived
+      seq_item_port.item_done();
+    end
+  endtask
+endclass
+
+// Error injection — override the hook only:
+class err_drv extends base_drv;
+  `uvm_component_utils(err_drv)
+  int err_rate = 10;  // 10%
+  virtual task drive(my_txn t);
+    if($urandom_range(0,99) < err_rate)
+      vif.data <= t.data ^ 32'hDEAD;  // Corrupt
+    else
+      super.drive(t);  // Normal path
+  endtask
+endclass
+
+// In test — one line change, zero env/agent changes:
+// factory.set_type_override_by_type(
+//   base_drv::get_type(), err_drv::get_type());</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">AMD and Meta specifically ask for a testbench-relevant polymorphism example — not animals making sounds. This is the canonical answer: error injection via driver override using factory. Zero changes to env or agent. The derived class is ONLY registered in the error test. This shows you understand WHY virtual functions and factory exist together in UVM.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.16</span><span class="q-text">Difference: blocking vs non-blocking. Predict output of blocking/non-blocking mix.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>// Blocking (=): execute immediately, sequentially
+// Non-blocking (<=): schedule at end of time step (NBA region)
+
+// PREDICT OUTPUT:
+always @(posedge clk) begin
+  a = 1;      // blocking: a is 1 immediately
+  b <= a;     // non-blocking: schedules b=current_a=1
+  a = 0;      // blocking: a is now 0
+  c <= a;     // non-blocking: schedules c=current_a=0
+end
+// After time step: b=1, c=0, a=0
+// b captures a BEFORE second blocking assignment
+// c captures a AFTER second blocking assignment
+
+// SV event scheduler regions:
+// Active:     Blocking assignments, procedural code
+// NBA:        Non-blocking updates (after Active)
+// Observed:   Assertions evaluated
+// Reactive:   Procedural TB code re-evaluated
+// Postponed:  $strobe, $monitor (final values)
+
+// $display vs $strobe:
+a <= 1;
+$display(a);  // Sees OLD value (Active region)
+$strobe(a);   // Sees FINAL value (Postponed region)</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">The blocking/non-blocking mix output prediction is asked at WD, Intel, and AMD. Key principle: non-blocking reads the RHS at the time of the statement, but writes to the LHS at the END of the time step. So b<=a reads a=1 (the current value), even though a will be 0 by end of Active region. Scoreboard rule: use $strobe for monitoring final signal values, not $display.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.17</span><span class="q-text">Write SV code: out of 3 threads, after first 2 complete, kill all.<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>task run_two_and_kill();
+  int done_cnt = 0;
+  event two_done;
+
+  fork
+    begin : thread1
+      do_work_1();
+      done_cnt++;
+      if(done_cnt == 2) -> two_done;
+    end
+    begin : thread2
+      do_work_2();
+      done_cnt++;
+      if(done_cnt == 2) -> two_done;
+    end
+    begin : thread3
+      do_work_3();
+      done_cnt++;
+      if(done_cnt == 2) -> two_done;
+    end
+    @two_done;  // Wait for event
+  join_any    // Exit when @two_done fires
+
+  disable fork;  // Kill remaining threads
+endtask</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">disable fork kills ALL child threads spawned in the current scope. This exact pattern is used for timeout implementation in UVM: fork { actual_work } and { #timeout_ns; } join_any; disable fork; — whichever finishes first exits join_any, then disable fork kills the other. Intel asked this in a 2023 interview.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q3.18</span><span class="q-text">Dynamic array vs associative array vs queue: when to use each in a scoreboard?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Dynamic array (int arr[]):</strong> contiguous, integer index, resizable with new[N]. O(1) access. Use for: packet payloads, sequential data, test patterns where order and size are known at runtime.<br><br><strong>Associative array (int arr[key]):</strong> sparse, any type key, O(log N) lookup. Use for: scoreboards keyed by transaction ID (out-of-order matching), address maps, configuration tables.<br><br><strong>Queue (int arr[$]):</strong> ordered, push_back/pop_front, auto-grows. O(1) push/pop. Use for: FIFO-style transaction histories, in-order checking.<br><br><strong>Scoreboard design rule:</strong> AXI out-of-order → associative array keyed by ARID. In-order APB → queue. Large register map lookup → associative array keyed by address.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">AMD asked 'which is better' — never answer 'it depends' without justification. Answer: 'For AXI out-of-order scoreboard, associative array keyed by ID is better — O(log N) match vs O(N) queue scan for each transaction. For in-order APB, queue is simpler and sufficient. For register map: associative array keyed by address offset.' The data structure choice determines scoreboard correctness and performance.</div></div></div></div>
+
+<script>
+function toggle(h){const c=h.parentElement;c.classList.toggle('open');}
+document.getElementById('si').addEventListener('input',function(){
+  const q=this.value.toLowerCase();
+  document.querySelectorAll('.q-card').forEach(c=>{
+    const t=c.textContent.toLowerCase();
+    c.style.display=(!q||t.includes(q))?'':'none';
+    if(q&&t.includes(q))c.classList.add('open');
+    else if(!q)c.classList.remove('open');
+  });
+});
+</script></body></html>

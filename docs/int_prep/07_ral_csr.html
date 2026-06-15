@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>RAL Model & CSR Questions — Auxera DV Prep</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:ital,wght@0,600;1,300&display=swap');
+:root{--bg:#0D1117;--surface:#161B22;--surface2:#1C2333;--border:#30363D;--accent:#2F81F7;--accent2:#3FB950;--accent3:#F78166;--accent4:#D2A8FF;--text:#E6EDF3;--text2:#8B949E;--text3:#C9D1D9;--yellow:#E3B341;--red:#F85149;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15px;line-height:1.7;padding:36px 48px;max-width:920px;margin:0 auto;}
+.page-header{margin-bottom:36px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+.page-eyebrow{font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;}
+.page-title{font-family:'Fraunces',serif;font-size:34px;font-weight:600;color:var(--text);line-height:1.2;margin-bottom:8px;}
+.page-sub{font-size:14px;color:var(--text2);max-width:620px;line-height:1.6;}
+.nav-back{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);text-decoration:none;margin-bottom:20px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;transition:all .15s;}
+.nav-back:hover{color:var(--accent);border-color:var(--accent);}
+.freq{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;vertical-align:middle;letter-spacing:.06em;text-transform:uppercase;margin-left:6px;}
+.freq-high{background:rgba(248,81,73,.15);color:#F78166;border:1px solid rgba(248,81,73,.3);}
+.freq-med{background:rgba(227,179,65,.15);color:#E3B341;border:1px solid rgba(227,179,65,.3);}
+.freq-low{background:rgba(63,185,80,.15);color:#3FB950;border:1px solid rgba(63,185,80,.3);}
+.section-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin:32px 0 14px;display:flex;align-items:center;gap:10px;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+.q-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:border-color .15s;}
+.q-card:hover{border-color:rgba(47,129,247,.5);}
+.q-header{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;cursor:pointer;user-select:none;}
+.q-num{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);background:rgba(47,129,247,.12);padding:3px 8px;border-radius:4px;flex-shrink:0;margin-top:2px;white-space:nowrap;}
+.q-text{font-size:14px;color:var(--text);font-weight:500;flex:1;line-height:1.5;}
+.q-toggle{color:var(--text2);font-size:16px;flex-shrink:0;transition:transform .2s;margin-top:3px;}
+.q-card.open .q-toggle{transform:rotate(180deg);color:var(--accent);}
+.q-body{display:none;padding:0 18px 18px 44px;border-top:1px solid var(--border);}
+.q-card.open .q-body{display:block;}
+.a-label{font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.1em;margin:12px 0 6px;}
+.a-text{font-size:13.5px;color:var(--text3);line-height:1.75;}
+.a-text ul{list-style:none;margin:6px 0;}
+.a-text ul li{padding:3px 0 3px 18px;position:relative;font-size:13.5px;color:var(--text3);line-height:1.6;}
+.a-text ul li::before{content:'▸';position:absolute;left:0;color:var(--accent);font-size:11px;top:5px;}
+pre{background:#0A0D13;border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#A5D6FF;overflow-x:auto;line-height:1.75;white-space:pre;}
+.insight{margin-top:12px;padding:10px 14px;background:rgba(210,168,255,.07);border-left:3px solid var(--accent4);border-radius:0 6px 6px 0;}
+.insight-lbl{font-size:10px;font-weight:700;color:var(--accent4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.insight-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.warn{margin-top:12px;padding:10px 14px;background:rgba(248,81,73,.07);border-left:3px solid var(--accent3);border-radius:0 6px 6px 0;}
+.warn-lbl{font-size:10px;font-weight:700;color:var(--accent3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.warn-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.tip{margin-top:12px;padding:10px 14px;background:rgba(47,129,247,.08);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;}
+.tip-lbl{font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.tip-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.search-bar{position:sticky;top:0;background:var(--bg);padding:12px 0;margin-bottom:16px;border-bottom:1px solid var(--border);z-index:10;}
+.search-wrap{position:relative;}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text2);pointer-events:none;}
+.search-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px 8px 36px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;}
+.search-input:focus{border-color:var(--accent);}
+</style></head><body>
+<a class="nav-back" href="00_index.html">← Back to Index</a>
+<div class="page-header">
+<div class="page-eyebrow">Auxera Global Tech · Page 07 of 12</div>
+<div class="page-title">RAL Model & CSR Questions</div>
+<div class="page-sub">Asked whenever CSR or register projects appear on resume. AMD, Tenstorrent, HCL, and WD ask this deeply.</div>
+</div>
+<div class="search-bar"><div class="search-wrap"><span class="search-icon">⌕</span><input class="search-input" id="si" placeholder="Search this page..."></div></div>
+<div class="section-label">RAL and Register Verification</div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q7.1</span><span class="q-text">What is UVM RAL? Walk through the class hierarchy.<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text">RAL = Register Abstraction Layer. Models the entire register map as a class hierarchy:<br><br>uvm_reg_block (top container) → uvm_reg_map (address map: maps register to address) → uvm_reg (individual register) → uvm_reg_field (bit fields within register: name, width, access type, reset value).<br><br><strong>Integration:</strong> reg_block.default_map.set_sequencer(sequencer, adapter). Adapter subclasses uvm_reg_adapter, implements reg2bus() (converts reg op to bus txn) and bus2reg() (converts bus response back to reg).<br><br><strong>Flow:</strong> test calls reg.write(status, value) → RAL → adapter.reg2bus() → bus transaction → sequencer → driver → DUT → monitor → adapter.bus2reg() → RAL updates mirror → check status.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">RAL is the professional approach to register verification. Without RAL: custom sequences for every register — doesn't scale past 10 registers. With RAL: write once, reuse across all 500+ registers. Mirror checking (reg.mirror()) automatically compares expected register state to actual DUT — finds resets to wrong values, R/W permission violations, and field encoding errors without writing individual assertions for each register.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q7.2</span><span class="q-text">Front-door vs back-door access — when to use each?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Front-door:</strong> access via actual bus transaction (AXI, APB, AHB). Bus-accurate — takes simulation time. Exercises the bus interface and DUT bus protocol simultaneously. Required to test bus-related functionality (address decode, error responses, wait states, burst handling).<br><br><strong>Back-door:</strong> direct HDL path via UVM backdoor methods or $hdl_read/write. Zero simulation time — instantaneous. Bypasses bus entirely. Use for: fast initialisation of large register files (1000 registers × front-door = 1000 bus transactions = slow); checking RTL state without triggering bus side-effects; DFT tests where bus may be unavailable; setting up testbench state before test.<br><br><strong>reg.write() = front-door. reg.poke() = back-door. reg.peek() = back-door read. reg.read() = front-door read.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Combined pattern: back-door initialise registers to known state (fast), front-door verify that AXI bus access reads/writes them correctly (tests the bus + register simultaneously). This is more efficient than front-door initialisation while still achieving full protocol coverage. HCL interview specifically asked: 'When would you choose back-door over front-door?' — this combined pattern is the answer.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q7.3</span><span class="q-text">What register types exist in CSR verification?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>RW (Read-Write):</strong> write any value, read back same value. Most common.<br><strong>RO (Read-Only):</strong> write has no effect — value unchanged. Driven by hardware. Verify: write attempt doesn't change value, read returns hardware-driven status.<br><strong>WO (Write-Only):</strong> read returns 0 or undefined. Write activates function. Verify via side effects on control signals.<br><strong>W1C (Write-1-to-Clear):</strong> hardware sets bit. Writing 1 clears it. Writing 0 has no effect. Used for interrupt status bits. Verify: set (hardware trigger), read (=1), write 1 (clears), read again (=0). Writing 0 to already-set bit — no change.<br><strong>RC (Read-Clear):</strong> reading the register clears it. Read twice — second read returns 0 for cleared bits.<br><strong>W1S (Write-1-to-Set):</strong> writing 1 sets bit. Writing 0 has no effect. Inverse of W1C.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">W1C is the most commonly verified and most commonly bugged register type. The failure modes: (1) write 0 incorrectly clears the bit (should have no effect). (2) clearing one W1C bit inadvertently clears adjacent W1C bits (byte-write mask error). (3) Hardware-set event arrives simultaneously with software-clear — race condition in the register fabric. These bugs only appear with careful directed testing.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q7.4</span><span class="q-text">How did you verify CSR control signal generation and status readback?<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Control signal verification:</strong><br>1. Write specific value to control register via AXI front-door.<br>2. Next clock: sample downstream control outputs from DUT at the interface boundary.<br>3. Scoreboard compares: written bit field → expected control signal encoding → actual DUT output.<br>4. Test: each control field independently. Test all valid encoding values. Verify control holds stable until register is modified again.<br>5. Reset: verify all control signals return to safe reset values on reset assertion.<br><br><strong>Status readback:</strong><br>1. Drive status inputs from functional blocks (force via backdoor or connect to stimulus agent).<br>2. Read STATUS register via AXI front-door.<br>3. Verify PRDATA matches driven status values.<br>4. Verify correct bit mapping — functional block A status maps to correct bit positions in register.<br>5. Verify status captures transient events (write-1-clear pattern for sticky status bits).</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Common CSR bugs found in verification: (1) Control signal updates with 1-cycle latency vs expected same-cycle update. (2) Status readback returns stale value because status signal from functional block's clock domain not properly synchronised to register bus clock. (3) Reset value wrong — control signal at reset is not the safe default (e.g., DMA enable=1 at reset when it should be 0). These bugs require specific directed test scenarios.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q7.5</span><span class="q-text">What is eFuse? What are the key verification scenarios?<span class="freq freq-low">LOW</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text">eFuse (electronically-programmable fuse): one-time programmable (OTP) memory. Bits can only be programmed ONCE — once blown, cannot be reset. Used for: device serial numbers, security keys, hardware configuration, feature enabling/disabling, manufacturing calibration data.<br><br><strong>Verification scenarios:</strong><br>1. Read before program — all bits should return 0 (unprogrammed state).<br>2. Program a specific bit — write operation blows the fuse.<br>3. Read after program — programmed bits should return 1.<br>4. Attempt to re-program a blown fuse — value must remain 1 (no change). This is the OTP property.<br>5. Read after reset — programmed bits persist across reset (non-volatile).<br>6. Partial programming — program some bits, verify others unchanged.<br>7. ECC on eFuse — if ECC is used, verify error detection on corrupted eFuse reads.</div><div class="tip"><div class="tip-lbl">📌 Pro Tip</div><div class="tip-txt">eFuse verification is important at Intel (eFuse used for CPU SKU configuration and security keys). The OTP property is the most critical: once a bit is 1, it must NEVER become 0 regardless of write attempts. The verification assertion: @(posedge clk) (prev_efuse_val[i] == 1) |-> (efuse_val[i] == 1).</div></div></div></div>
+
+<script>
+function toggle(h){const c=h.parentElement;c.classList.toggle('open');}
+document.getElementById('si').addEventListener('input',function(){
+  const q=this.value.toLowerCase();
+  document.querySelectorAll('.q-card').forEach(c=>{
+    const t=c.textContent.toLowerCase();
+    c.style.display=(!q||t.includes(q))?'':'none';
+    if(q&&t.includes(q))c.classList.add('open');
+    else if(!q)c.classList.remove('open');
+  });
+});
+</script></body></html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Protocol Questions — Auxera DV Prep</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:ital,wght@0,600;1,300&display=swap');
+:root{--bg:#0D1117;--surface:#161B22;--surface2:#1C2333;--border:#30363D;--accent:#2F81F7;--accent2:#3FB950;--accent3:#F78166;--accent4:#D2A8FF;--text:#E6EDF3;--text2:#8B949E;--text3:#C9D1D9;--yellow:#E3B341;--red:#F85149;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15px;line-height:1.7;padding:36px 48px;max-width:920px;margin:0 auto;}
+.page-header{margin-bottom:36px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+.page-eyebrow{font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;}
+.page-title{font-family:'Fraunces',serif;font-size:34px;font-weight:600;color:var(--text);line-height:1.2;margin-bottom:8px;}
+.page-sub{font-size:14px;color:var(--text2);max-width:620px;line-height:1.6;}
+.nav-back{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);text-decoration:none;margin-bottom:20px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;transition:all .15s;}
+.nav-back:hover{color:var(--accent);border-color:var(--accent);}
+.freq{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;vertical-align:middle;letter-spacing:.06em;text-transform:uppercase;margin-left:6px;}
+.freq-high{background:rgba(248,81,73,.15);color:#F78166;border:1px solid rgba(248,81,73,.3);}
+.freq-med{background:rgba(227,179,65,.15);color:#E3B341;border:1px solid rgba(227,179,65,.3);}
+.freq-low{background:rgba(63,185,80,.15);color:#3FB950;border:1px solid rgba(63,185,80,.3);}
+.section-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin:32px 0 14px;display:flex;align-items:center;gap:10px;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+.q-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:border-color .15s;}
+.q-card:hover{border-color:rgba(47,129,247,.5);}
+.q-header{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;cursor:pointer;user-select:none;}
+.q-num{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);background:rgba(47,129,247,.12);padding:3px 8px;border-radius:4px;flex-shrink:0;margin-top:2px;white-space:nowrap;}
+.q-text{font-size:14px;color:var(--text);font-weight:500;flex:1;line-height:1.5;}
+.q-toggle{color:var(--text2);font-size:16px;flex-shrink:0;transition:transform .2s;margin-top:3px;}
+.q-card.open .q-toggle{transform:rotate(180deg);color:var(--accent);}
+.q-body{display:none;padding:0 18px 18px 44px;border-top:1px solid var(--border);}
+.q-card.open .q-body{display:block;}
+.a-label{font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.1em;margin:12px 0 6px;}
+.a-text{font-size:13.5px;color:var(--text3);line-height:1.75;}
+.a-text ul{list-style:none;margin:6px 0;}
+.a-text ul li{padding:3px 0 3px 18px;position:relative;font-size:13.5px;color:var(--text3);line-height:1.6;}
+.a-text ul li::before{content:'▸';position:absolute;left:0;color:var(--accent);font-size:11px;top:5px;}
+pre{background:#0A0D13;border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#A5D6FF;overflow-x:auto;line-height:1.75;white-space:pre;}
+.insight{margin-top:12px;padding:10px 14px;background:rgba(210,168,255,.07);border-left:3px solid var(--accent4);border-radius:0 6px 6px 0;}
+.insight-lbl{font-size:10px;font-weight:700;color:var(--accent4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.insight-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.warn{margin-top:12px;padding:10px 14px;background:rgba(248,81,73,.07);border-left:3px solid var(--accent3);border-radius:0 6px 6px 0;}
+.warn-lbl{font-size:10px;font-weight:700;color:var(--accent3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.warn-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.tip{margin-top:12px;padding:10px 14px;background:rgba(47,129,247,.08);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;}
+.tip-lbl{font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.tip-txt{font-size:13px;color:var(--text3);line-height:1.65;}
+.search-bar{position:sticky;top:0;background:var(--bg);padding:12px 0;margin-bottom:16px;border-bottom:1px solid var(--border);z-index:10;}
+.search-wrap{position:relative;}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text2);pointer-events:none;}
+.search-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px 8px 36px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;}
+.search-input:focus{border-color:var(--accent);}
+</style></head><body>
+<a class="nav-back" href="00_index.html">← Back to Index</a>
+<div class="page-header">
+<div class="page-eyebrow">Auxera Global Tech · Page 04 of 12</div>
+<div class="page-title">Protocol Questions</div>
+<div class="page-sub">AXI asked in 8 of 10 interviews. Know all 5 channels, burst types, handshaking, out-of-order, and 4KB boundary cold.</div>
+</div>
+<div class="search-bar"><div class="search-wrap"><span class="search-icon">⌕</span><input class="search-input" id="si" placeholder="Search this page..."></div></div>
+<div class="section-label">AXI Protocol — HIGH frequency</div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q4.1</span><span class="q-text">Name all 5 AXI channels and their key signals.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Write Address (AW):</strong> AWID, AWADDR, AWLEN, AWSIZE, AWBURST, AWVALID, AWREADY, AWLOCK, AWCACHE, AWPROT.<br><br><strong>Write Data (W):</strong> WDATA, WSTRB, WLAST, WVALID, WREADY. [AXI3 also: WID]<br><br><strong>Write Response (B):</strong> BID, BRESP, BVALID, BREADY.<br><br><strong>Read Address (AR):</strong> ARID, ARADDR, ARLEN, ARSIZE, ARBURST, ARVALID, ARREADY, ARLOCK, ARCACHE, ARPROT.<br><br><strong>Read Data (R):</strong> RID, RDATA, RRESP, RLAST, RVALID, RREADY.<br><br>BRESP/RRESP codes: OKAY(00), EXOKAY(01), SLVERR(10), DECERR(11).</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Memorise AWLEN, AWSIZE, AWBURST — these define burst behaviour. AWLEN+1 = number of beats. AWSIZE = bytes per beat (2^AWSIZE). AWBURST = FIXED/INCR/WRAP. WSTRB = byte enables (1 bit per byte lane) — tells slave which bytes are valid. WLAST = last beat — scoreboard must check this for correct burst termination detection. BRESP and RRESP: SLVERR means slave error (address exists but access failed). DECERR means address not mapped to any slave.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q4.2</span><span class="q-text">Why separate write response channel? Why no separate read response?<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Write response (B) is separate</strong> because: master needs to know all write data was successfully received and stored by the slave. This acknowledgement may come many cycles after WLAST — slave needs to fetch from cache, write to DRAM, etc. Decoupling it allows slave to process asynchronously. Without B channel, master must poll or stall, destroying bandwidth.<br><br><strong>Read has no separate response</strong> because: read data (RDATA) and read status (RRESP) arrive together on the same channel. The slave cannot send data without also providing status. No need for a separate channel when data and status always travel together.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">This tests protocol architecture understanding beyond memorising signals. Follow-up at WD: 'What if BRESP is SLVERR — what does master do?' The master must treat the write as failed and retry or escalate to software. This is important for reliability in systems where write failures must be caught (e.g., register writes, DMA descriptor writes).</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q4.3</span><span class="q-text">Explain AXI handshake. What happens when VALID high but READY low?<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text">AXI handshake rule: a transfer occurs when VALID <strong>and</strong> READY are BOTH high on the same clock edge. VALID driven by sender (master for AW/W, slave for B/R). READY driven by receiver.<br><br>When VALID high, READY low: sender must hold VALID and all associated signals stable until READY asserts. Sender CANNOT deassert VALID once asserted — this is a protocol requirement. Deasserting VALID before READY = protocol violation.<br><br>When READY high, VALID low: receiver is available, sender has nothing to send — receiver waits without stalling.<br><br>Either can assert first — no ordering requirement between VALID and READY.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">The 'VALID cannot be deasserted once asserted' rule is critical for verification. Write this assertion: @(posedge clk) AWVALID && !AWREADY |=> AWVALID. This ensures AWVALID stays high until AWREADY comes. Same for WVALID, ARVALID. AXI protocol violators that deassert VALID early cause very subtle, hard-to-find bugs in real silicon.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q4.4</span><span class="q-text">What are AXI burst types? When is each used?<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>FIXED (AWBURST=00):</strong> same address for every beat. No address increment. Use case: peripheral FIFOs (always write/read from same FIFO data register address). All beats target identical address.<br><br><strong>INCR (AWBURST=01):</strong> address increments by 2^AWSIZE bytes each beat. Most common. Use case: sequential memory access, DMA bulk transfer, cache line fill from DRAM.<br><br><strong>WRAP (AWBURST=10):</strong> increments like INCR but wraps at a boundary. Wrap boundary = start of the transfer's natural alignment. Use case: cache line fill starting from required data — processor needs data at address 0x28, reads: 0x28, 0x30, 0x38, 0x00, 0x08... wraps to fill 64-byte cache line optimally.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">WRAP is the most misunderstood. The wrap boundary depends on: (number_of_beats × bytes_per_beat). For 8-beat, 8-byte transfer: boundary = 64 bytes. If start_addr=0x28: wrap at 0x40. Addresses: 0x28,0x30,0x38,0x40(wraps→0x00),0x08,0x10,0x18,0x20. This optimises cache fill latency — the requested data arrives first, cache line completes with the remaining surrounding data.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q4.5</span><span class="q-text">AXI out-of-order transactions, data interleaving, and narrow transfers.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Out-of-order:</strong> slave can return read data or write responses in different order from requests. Each transaction has a unique ID (ARID/AWID). Master matches responses to requests via RID/BID. Enables higher throughput — fast slaves respond immediately while slow slaves catch up.<br><br><strong>Data interleaving (AXI3 only):</strong> write data beats from different burst transactions can interleave on the W channel. WID identifies which transaction each beat belongs to. Removed in AXI4 — simplifies slave implementation significantly.<br><br><strong>Narrow transfer:</strong> transfer size smaller than data bus width. 8-bit write on 32-bit bus. WSTRB indicates active byte lanes. Slave only updates bytes with corresponding WSTRB bit = 1. Other bytes unchanged.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Out-of-order is what makes AXI high-performance. Without it: a slow DRAM access stalls all subsequent fast register accesses. With ID-based ordering: master fires multiple requests, collects responses as they complete. Scoreboard implication: use associative array keyed by ID for correct out-of-order comparison — queue-based scoreboard will produce false mismatches for out-of-order responses.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q4.6</span><span class="q-text">AXI address calculation: INCR burst, start_addr=0x1000, AWLEN=7, AWSIZE=2.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text">AWLEN=7 → 8 beats (AWLEN+1). AWSIZE=2 → 4 bytes per beat (2^2=4).<br><br>Beat 0: 0x1000<br>Beat 1: 0x1004<br>Beat 2: 0x1008<br>Beat 3: 0x100C<br>Beat 4: 0x1010<br>Beat 5: 0x1014<br>Beat 6: 0x1018<br>Beat 7: 0x101C<br><br>Total transfer: 8 × 4 = 32 bytes (0x1000 to 0x101F).<br><br>4KB check: 0x1000 is in page 0x1000–0x1FFF. 0x101F also in same page. ✓ No boundary crossing.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">Formula: address_beat_N = start_addr + (N × 2^AWSIZE). The 4KB boundary check: start_addr[31:12] must equal end_addr[31:12] for all beats. If they differ → boundary crossing → AXI protocol violation. This calculation is tested at Insemi and Quest Global — know it without a calculator.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q4.7</span><span class="q-text">AXI3 vs AXI4 key differences.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>AXI4 improvements over AXI3:</strong><br>1. Burst length: AWLEN/ARLEN 8-bit in AXI4 (max 256 beats for INCR) vs 4-bit AXI3 (max 16 beats).<br>2. No WID: write data interleaving removed. WID eliminated. All WDATA beats must belong to same burst in order.<br>3. AWREGION/ARREGION: 4-bit region field for address space extension.<br>4. AWQOS/ARQOS: Quality of Service signals for traffic prioritisation.<br>5. AXI4-Lite: simplified variant — no bursts, fixed 32/64-bit data, no AWID/ARID, designed for register access.<br>6. AXI4-Stream: data streaming — no address channel, continuous flow, TDATA/TVALID/TREADY/TLAST/TKEEP.</div><div class="tip"><div class="tip-lbl">📌 Pro Tip</div><div class="tip-txt">AXI4-Lite is the most common variant for CSR/register access in SoC — simpler than full AXI4, no burst overhead. AXI4-Stream is for video/audio data, network packets, ML tensor streaming. Knowing the variants and their appropriate use cases demonstrates real-world SoC architecture knowledge.</div></div></div></div>
+<div class="section-label">APB Protocol — HIGH frequency</div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q4.8</span><span class="q-text">Explain APB protocol — all signals and both timing phases.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Signals:</strong> PCLK, PRESETn, PADDR, PSEL, PENABLE, PWRITE, PWDATA, PRDATA, PREADY, PSLVERR, PSTRB (APB4), PPROT (APB4).<br><br><strong>Write timing:</strong><br>Cycle 1 — SETUP phase: PSEL=1, PWRITE=1, PADDR=addr, PWDATA=data, PENABLE=0.<br>Cycle 2+ — ACCESS phase: PENABLE=1. Slave asserts PREADY when ready. Transfer completes when PREADY=1. PSLVERR indicates error.<br><br><strong>Read timing:</strong> Same structure. PWRITE=0. Slave drives PRDATA valid when PREADY=1.<br><br><strong>Wait states:</strong> Slave can hold PREADY=0 for multiple ACCESS cycles — allows slow peripherals. No maximum wait state count defined by spec.</div><div class="warn"><div class="warn-lbl">⚠ Watch Out</div><div class="warn-txt">Common APB mistake: asserting PSEL and PENABLE simultaneously (no SETUP phase) — this is a protocol violation. SETUP phase must last exactly 1 cycle. PENABLE only asserts on the second cycle (ACCESS phase). Monitor must check this timing.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q4.9</span><span class="q-text">Write APB write and read driver tasks.<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><pre>task apb_write(input [31:0] addr, data);
+  // SETUP phase (1 cycle mandatory)
+  @(posedge PCLK);
+  PSEL    <= 1;
+  PWRITE  <= 1;
+  PADDR   <= addr;
+  PWDATA  <= data;
+  PENABLE <= 0;
+
+  // ACCESS phase
+  @(posedge PCLK);
+  PENABLE <= 1;
+
+  // Wait for slave ready (may insert wait states)
+  @(posedge PCLK iff PREADY);
+
+  // Check for error
+  if(PSLVERR)
+    `uvm_error("APB","Write error PSLVERR asserted");
+
+  // Deassert
+  PSEL    <= 0;
+  PENABLE <= 0;
+endtask
+
+task apb_read(input [31:0] addr, output [31:0] rdata);
+  @(posedge PCLK);
+  PSEL    <= 1;
+  PWRITE  <= 0;
+  PADDR   <= addr;
+  PENABLE <= 0;
+
+  @(posedge PCLK);
+  PENABLE <= 1;
+
+  @(posedge PCLK iff PREADY);
+  rdata = PRDATA;  // Capture on PREADY
+  if(PSLVERR)
+    `uvm_error("APB","Read error PSLVERR asserted");
+
+  PSEL    <= 0;
+  PENABLE <= 0;
+endtask</pre><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">PREADY handling is the key complexity. Slave can assert PREADY=0 for any number of ACCESS phase cycles — slow peripherals like flash controllers or I2C bridges may need many cycles. The @(posedge PCLK iff PREADY) construct handles this correctly — waits any number of cycles until PREADY=1. Also check PSLVERR on completion — slave indicates error via this signal.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q4.10</span><span class="q-text">Why use APB when AXI exists?<span class="freq freq-high">HIGH</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text">APB advantages: simpler interface (fewer signals, no burst, no out-of-order), lower power (no pipeline overhead, simpler clock domain, fewer state machines), lower area in slave implementation (especially for FPGA), sufficient bandwidth for slow peripherals (UART max ~1 Mbps, GPIO at register-access rates, timers, WDT, CSR registers).<br><br>AXI advantages: high bandwidth, pipelined transactions, multiple outstanding requests, out-of-order responses, byte-lane enables for narrow transfers.<br><br>Decision rule: use APB for anything that doesn't need high bandwidth and shouldn't stall the main bus. Typical SoC: AXI backbone → AXI-to-APB bridge → APB peripheral bus.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">This is a system architecture question. Understanding WHEN to use which protocol demonstrates SoC design experience beyond just protocol knowledge. The AXI-to-APB bridge is itself a common DV target — it must correctly convert AXI burst accesses to single APB transfers, handle write response aggregation, and manage the clock domain if APB runs slower.</div></div></div></div>
+<div class="section-label">AHB and Serial Protocols — MED frequency</div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q4.11</span><span class="q-text">AHB vs AHB-Lite: differences and when to use each.<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>Full AHB adds over AHB-Lite:</strong> HMASTER (which master is active), HMASTLOCK (locked transfer), HBUSREQ/HGRANT (multi-master arbitration), HSPLIT (slave splits response — releases bus while processing), HREADY_IN vs HREADY_OUT (separate signals).<br><br>AHB-Lite removes: multi-master arbitration, SPLIT and RETRY responses. Only one master allowed. Much simpler slave implementation.<br><br>Use AHB-Lite: embedded processors with single master (ARM Cortex-M series uses AHB-Lite). Simpler, lower area.<br>Use AHB: multi-master systems needing arbitration. Mostly legacy — new designs prefer AXI.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">AHB-Lite is the real-world standard today — the majority of ARM Cortex-M-based SoCs use AHB-Lite. Full AHB with SPLIT transactions is complex and mostly found in legacy or high-performance legacy designs. AXI has replaced full AHB for new high-bandwidth designs. Knowing this history shows real industry awareness.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q4.12</span><span class="q-text">AHB burst types and address boundary.<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text">SINGLE: 1 transfer. INCR: incrementing, undefined length. INCR4/8/16: incrementing, exactly 4/8/16 beats. WRAP4/8/16: wrapping, exactly 4/8/16 beats — wraps at boundary.<br><br>AHB 1KB boundary rule: burst must not cross 1KB boundary (address bits [9:0] wrap). AXI uses 4KB boundary.<br><br>Pipelining: AHB is pipelined — address phase of beat N+1 overlaps with data phase of beat N. HREADY=0 stalls BOTH phases simultaneously.</div><div class="insight"><div class="insight-lbl">💡 Insight</div><div class="insight-txt">AHB 1KB vs AXI 4KB boundary is a specific trivia question at AMD (Onsemi). The reason AHB uses 1KB: AHB was designed for embedded systems where memory is segmented into smaller address-decoded regions. AXI's larger 4KB gives more flexibility for cache-line-sized bursts.</div></div></div></div>
+<div class="q-card"><div class="q-header" onclick="toggle(this)"><span class="q-num">Q4.13</span><span class="q-text">UART, I2C, SPI — key differences.<span class="freq freq-med">MED</span></span><span class="q-toggle">▾</span></div><div class="q-body"><div class="a-label">Answer</div><div class="a-text"><strong>UART:</strong> asynchronous (no clock), point-to-point, 2 wires (TX, RX). Start bit (LOW) signals start of frame. Both sides pre-agree on baud rate. Full duplex.<br><br><strong>I2C:</strong> synchronous, multi-master/multi-slave, 2 wires (SDA, SCL). Address-based slave selection. SDA changes only when SCL=LOW (data phase). START = SDA falls while SCL=HIGH. STOP = SDA rises while SCL=HIGH.<br><br><strong>SPI:</strong> synchronous, 4 wires (MOSI, MISO, SCLK, CS). Fastest of the three. CS (chip select) selects slave — no addressing. Full duplex. No ACK mechanism.</div><div class="tip"><div class="tip-lbl">📌 Pro Tip</div><div class="tip-txt">Common interview question at Samsung and WD: 'How does UART receiver know the start bit?' Answer: idle line is HIGH. Receiver detects falling edge as start bit. Then samples at baud-rate intervals from mid-start-bit to capture each data bit. UART is the simplest serial protocol but requires precise baud-rate matching — mismatch causes framing errors.</div></div></div></div>
+
+<script>
+function toggle(h){const c=h.parentElement;c.classList.toggle('open');}
+document.getElementById('si').addEventListener('input',function(){
+  const q=this.value.toLowerCase();
+  document.querySelectorAll('.q-card').forEach(c=>{
+    const t=c.textContent.toLowerCase();
+    c.style.display=(!q||t.includes(q))?'':'none';
+    if(q&&t.includes(q))c.classList.add('open');
+    else if(!q)c.classList.remove('open');
+  });
+});
+</script></body></html>

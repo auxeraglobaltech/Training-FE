@@ -1,0 +1,213 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<title>Client Guide & 7-Day Plan — Auxera DV Prep</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&family=Fraunces:ital,wght@0,600;1,300&display=swap');
+:root{--bg:#0D1117;--surface:#161B22;--surface2:#1C2333;--border:#30363D;--accent:#2F81F7;--accent2:#3FB950;--accent3:#F78166;--accent4:#D2A8FF;--text:#E6EDF3;--text2:#8B949E;--text3:#C9D1D9;--yellow:#E3B341;--red:#F85149;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;padding:36px 48px;max-width:960px;margin:0 auto;}
+.page-eyebrow{font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;}
+.page-title{font-family:'Fraunces',serif;font-size:34px;font-weight:600;color:var(--text);margin-bottom:8px;}
+.page-sub{font-size:14px;color:var(--text2);margin-bottom:32px;}
+.nav-back{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);text-decoration:none;margin-bottom:20px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;}
+.nav-back:hover{color:var(--accent);border-color:var(--accent);}
+h2{font-family:'Fraunces',serif;font-size:22px;font-weight:600;color:var(--text);margin:36px 0 16px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+h3{font-size:15px;font-weight:600;color:var(--text);margin:20px 0 8px;}
+.client-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:32px;}
+.client-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;}
+.client-name{font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px;}
+.client-count{font-size:11px;color:var(--text2);margin-bottom:12px;}
+.client-tags{display:flex;flex-wrap:wrap;gap:5px;}
+.client-tag{font-size:11px;padding:3px 9px;border-radius:20px;background:rgba(47,129,247,.12);color:var(--accent);border:1px solid rgba(47,129,247,.25);}
+.schedule{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:32px;}
+.day{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;}
+.day-n{font-family:'Fraunces',serif;font-size:22px;color:var(--accent);font-weight:600;}
+.day-l{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+.day-t{font-size:11px;color:var(--text3);line-height:1.4;}
+.mistake-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:24px;}
+.mistake{background:rgba(248,81,73,.05);border:1px solid rgba(248,81,73,.2);border-radius:10px;padding:16px;}
+.mistake-title{font-size:13px;font-weight:600;color:#F78166;margin-bottom:5px;}
+.mistake-fix{font-size:12.5px;color:var(--text3);line-height:1.6;}
+ul.tips{list-style:none;margin-top:8px;}
+ul.tips li{font-size:13.5px;color:var(--text3);padding:4px 0 4px 18px;position:relative;line-height:1.6;}
+ul.tips li::before{content:'▸';position:absolute;left:0;color:var(--accent);font-size:11px;top:6px;}
+</style></head><body>
+<a class="nav-back" href="00_index.html">← Back to Index</a>
+<div class="page-eyebrow">Auxera Global Tech · Page 12 of 12</div>
+<div class="page-title">Client Guide & 7-Day Plan</div>
+<div class="page-sub">What each client focuses on — based on real interview data. Read before every interview.</div>
+
+<h2>Client-Specific Focus Areas</h2>
+<div class="client-grid">
+
+<div class="client-card">
+<div class="client-name">AMD</div>
+<div class="client-count">10+ interviews in database — highest frequency. Typically 2 technical rounds, both involve live coding.</div>
+<div class="client-tags">
+<span class="client-tag">Polymorphism — real TB example</span>
+<span class="client-tag">Out-of-order scoreboard</span>
+<span class="client-tag">UVM callbacks</span>
+<span class="client-tag">copy() vs clone()</span>
+<span class="client-tag">Constraint for prime numbers</span>
+<span class="client-tag">Parameterised class copy</span>
+<span class="client-tag">Live coding in both rounds</span>
+<span class="client-tag">Factory override with real use case</span>
+</div>
+</div>
+
+<div class="client-card">
+<div class="client-name">Qualcomm</div>
+<div class="client-count">5 interviews — 3-round process: coding, architecture, SoC-level.</div>
+<div class="client-tags">
+<span class="client-tag">AES encryption correctness</span>
+<span class="client-tag">GLS and formal awareness</span>
+<span class="client-tag">All SV constructs in one covergroup</span>
+<span class="client-tag">Glitch and metastability</span>
+<span class="client-tag">config_db trace debugging</span>
+<span class="client-tag">Coverage-driven randomisation</span>
+</div>
+</div>
+
+<div class="client-card">
+<div class="client-name">Google</div>
+<div class="client-count">3 interviews — pure coding focus. Python + SV in same session.</div>
+<div class="client-tags">
+<span class="client-tag">Power of 2 constraint</span>
+<span class="client-tag">APB driver logic (write from memory)</span>
+<span class="client-tag">Island counting algorithm (Python)</span>
+<span class="client-tag">AHB timing diagram</span>
+<span class="client-tag">Stop sequences on SLVERR</span>
+<span class="client-tag">Consecutive bits constraint</span>
+</div>
+</div>
+
+<div class="client-card">
+<div class="client-name">Intel</div>
+<div class="client-count">4 interviews — ECC, RISC-V, and coding traps.</div>
+<div class="client-tags">
+<span class="client-tag">ECC SECDED — full explanation</span>
+<span class="client-tag">Fork-join output prediction</span>
+<span class="client-tag">AXI arbitration assertion</span>
+<span class="client-tag">Blocking/non-blocking traps</span>
+<span class="client-tag">RISC-V ISA and exceptions</span>
+<span class="client-tag">Coverage for FSM transitions</span>
+</div>
+</div>
+
+<div class="client-card">
+<div class="client-name">Western Digital (WD)</div>
+<div class="client-count">3 interviews — WDC Sivason interview is particularly deep on SoC and GLS.</div>
+<div class="client-tags">
+<span class="client-tag">SoC boot sequence detail</span>
+<span class="client-tag">C to SV communication (DPI)</span>
+<span class="client-tag">AXI cache coherence (ACE)</span>
+<span class="client-tag">GLS setup/hold debug</span>
+<span class="client-tag">Interrupt priority handling</span>
+<span class="client-tag">Given RTL — write test plan</span>
+<span class="client-tag">JTAG register read sequence</span>
+</div>
+</div>
+
+<div class="client-card">
+<div class="client-name">MIPS (GlobalFoundries)</div>
+<div class="client-count">In database 2024/2025. Embedded engineer focus (RISC-V, Python, Zephyr RTOS).</div>
+<div class="client-tags">
+<span class="client-tag">WDT test cases in C</span>
+<span class="client-tag">APB vs AXI — when to use</span>
+<span class="client-tag">NoC round-robin verification</span>
+<span class="client-tag">Exception vs interrupt handling</span>
+<span class="client-tag">Virtual sequence — when needed</span>
+<span class="client-tag">Active vs passive agent</span>
+<span class="client-tag">GLS, formal, UPF awareness</span>
+</div>
+</div>
+
+<div class="client-card">
+<div class="client-name">Tenstorrent</div>
+<div class="client-count">2 interviews — AI chip startup. Deep on DMA, NoC, RISC-V pipeline.</div>
+<div class="client-tags">
+<span class="client-tag">RISC-V pipeline stages and hazards</span>
+<span class="client-tag">DMA architecture depth</span>
+<span class="client-tag">NoC design questions</span>
+<span class="client-tag">ECC single/multi-bit injection</span>
+<span class="client-tag">Complex fork-join scenarios</span>
+<span class="client-tag">Assembly coding (Fibonacci)</span>
+<span class="client-tag">Trigger sequences simultaneously</span>
+</div>
+</div>
+
+<div class="client-card">
+<div class="client-name">Samsung</div>
+<div class="client-count">2 interviews — draw block diagrams, C code for register access, RTL-level debugging.</div>
+<div class="client-tags">
+<span class="client-tag">Draw block diagram in interview</span>
+<span class="client-tag">Write C code for register access</span>
+<span class="client-tag">Grey code counter RTL debug</span>
+<span class="client-tag">ISR code implementation</span>
+<span class="client-tag">SV event scheduling regions</span>
+<span class="client-tag">ECC for multiple memory types</span>
+<span class="client-tag">Secure vs non-secure AXI access</span>
+</div>
+</div>
+
+<div class="client-card">
+<div class="client-name">Mirafra (ARM, Maxlinear clients)</div>
+<div class="client-count">4+ interviews. Mix of coding and project depth. Chetan Colaca and Shivam Awasthi interviewers.</div>
+<div class="client-tags">
+<span class="client-tag">Constraint without $countones</span>
+<span class="client-tag">Odd number of 1s (with function)</span>
+<span class="client-tag">OR gate using MUX</span>
+<span class="client-tag">UVM phases (all 12 sub-phases)</span>
+<span class="client-tag">raise/drop objection</span>
+<span class="client-tag">Project depth — all corner cases</span>
+</div>
+</div>
+
+<div class="client-card">
+<div class="client-name">Insemi / Quest Global / HCL</div>
+<div class="client-count">Multiple interviews. Focus on SoC, protocols, and OOP.</div>
+<div class="client-tags">
+<span class="client-tag">AXI address calculation</span>
+<span class="client-tag">Sequence arbitration</span>
+<span class="client-tag">Monitor code (write from scratch)</span>
+<span class="client-tag">Static keyword with example</span>
+<span class="client-tag">GLS and power-aware verification</span>
+<span class="client-tag">Immediate vs concurrent assertion</span>
+</div>
+</div>
+
+</div>
+
+<h2>7-Day Preparation Schedule</h2>
+<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">2–3 hours of focused preparation per day. Follow before your first client interview.</p>
+<div class="schedule">
+<div class="day"><div class="day-n">1</div><div class="day-l">Day</div><div class="day-t">Project mastery. Write 3-min and 7-min versions of each project from memory. List test cases, corner cases, bugs.</div></div>
+<div class="day"><div class="day-n">2</div><div class="day-l">Day</div><div class="day-t">UVM on paper. Write driver, monitor, sequence, scoreboard from memory. No notes. config_db syntax, factory override.</div></div>
+<div class="day"><div class="day-n">3</div><div class="day-l">Day</div><div class="day-t">SV coding. All constraints, assertions, covergroups on paper. Fork-join trap, OOP polymorphism example.</div></div>
+<div class="day"><div class="day-n">4</div><div class="day-l">Day</div><div class="day-t">Protocols. Draw AXI 5 channels, APB timing, AHB differences. Address calculation. 4KB boundary constraint.</div></div>
+<div class="day"><div class="day-n">5</div><div class="day-l">Day</div><div class="day-t">CSR, RAL, AES, ECC. RAL set/get syntax, register types, front-door vs back-door, SECDED explanation.</div></div>
+<div class="day"><div class="day-n">6</div><div class="day-l">Day</div><div class="day-t">Digital design, GLS, CDC. Metastability, setup/hold. Practise all 8 puzzle solutions out loud with full reasoning.</div></div>
+<div class="day"><div class="day-n">7</div><div class="day-l">Day</div><div class="day-t">Mock interview. Record yourself. 2-min intro, 7-min project, write one constraint + assertion + covergroup on paper.</div></div>
+</div>
+
+<h2>Common Mistakes to Avoid</h2>
+<div class="mistake-grid">
+<div class="mistake"><div class="mistake-title">Vague project explanation</div><div class="mistake-fix">'I verified AXI' is not an answer. 'I verified multi-master arbitration in the NoC fabric — specifically simultaneous 3-master collision to same slave, priority preemption mid-grant, and address decode boundary conditions' is an answer. Specificity = credibility.</div></div>
+<div class="mistake"><div class="mistake-title">Cannot write code on paper</div><div class="mistake-fix">10+ interviews in this database had live coding on notepad. AMD, Google, Intel, Qualcomm ask you to write driver/constraint/assertion on paper with no IDE. Practice daily for 1 week before any interview. If you can only code in an IDE, you will fail.</div></div>
+<div class="mistake"><div class="mistake-title">Bluffing on GLS or formal</div><div class="mistake-fix">Discovered in 2 follow-up questions. Say instead: 'I haven't run GLS personally but I understand it simulates the post-synthesis netlist with SDF timing to catch setup/hold violations and X-propagation that RTL simulation misses.' Honest awareness beats discovered bluff every time.</div></div>
+<div class="mistake"><div class="mistake-title">Not knowing your resume</div><div class="mistake-fix">Every word on your resume is a commitment. If it says NoC — prepare round-robin arbitration at signal level. If it says DMA — prepare descriptor pipeline at register level. Interviewers read resumes and target exactly what's written. Interview rule: never put something on your resume you can't explain at signal level for 10 minutes.</div></div>
+<div class="mistake"><div class="mistake-title">Generic OOP examples</div><div class="mistake-fix">'Animals make different sounds' fails at AMD and Meta. Give the TB example: 'Error injection driver that extends base driver, overrides drive_txn() to corrupt data with 10% probability, registered via factory in error test only — zero changes to env or agent.' Shows you understand why virtual functions and factory exist together.</div></div>
+<div class="mistake"><div class="mistake-title">No corner cases prepared</div><div class="mistake-fix">Always 3+ corner cases per project minimum. 'Read and write' are NOT corner cases — those are basic functionality. Corner cases: simultaneous events at same clock edge, exact boundary conditions, reset mid-transaction, error recovery paths. This is what separates 5-year from 3-year engineers in interviews.</div></div>
+<div class="mistake"><div class="mistake-title">Freezing on puzzles</div><div class="mistake-fix">When a puzzle arrives: say 'Let me think through this' and narrate your reasoning aloud. Interviewers give partial credit for correct reasoning even if the answer is slightly off. Silence followed by wrong answer = 0 marks. Narrated reasoning that reaches wrong answer = partial credit. Reasoning is the test, not the answer.</div></div>
+<div class="mistake"><div class="mistake-title">Not asking about the role</div><div class="mistake-fix">At the end of every interview: ask 'What IP or SoC will I be working on?' and 'What is the team's primary verification methodology — UVM constrained random, formal, or hybrid?' This shows genuine engineering interest and opens a conversation where you can position your experience against their actual need. It also signals you care about the work, not just the offer.</div></div>
+</div>
+
+<h2>Final Reminders Before Every Interview</h2>
+<ul class="tips">
+<li>Look up the company's recent product announcements the day before — mention it naturally in the conversation</li>
+<li>Know your project's block-level signal names cold — not just 'input signals' but the actual RTL signal names</li>
+<li>Prepare one specific bug you found with full detail: symptom → debug → root cause → fix → confirmation</li>
+<li>Know the answer to 'why did you join Auxera?' and 'what kind of role are you looking for?' — these are often the opening questions</li>
+<li>Have your resume in front of you during the call — interviewers read from it and you should be able to quickly locate what they're referencing</li>
+<li>End every interview by thanking the interviewer and asking for a timeline on next steps</li>
+</ul>
+</body></html>
