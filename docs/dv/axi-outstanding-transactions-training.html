@@ -1,0 +1,1719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AXI Outstanding Transactions — Concept, Driver &amp; Scoreboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#f9f8f6;--surface:#ffffff;--border:#e2e0db;--primary:#1a4fa0;--accent:#0e7d6e;--code-bg:#f4f3ef;
+  --text-main:#1c1c1e;--text-muted:#5c5c66;--good-bg:#e8f5e9;--good-border:#2e7d32;--bad-bg:#fdecea;
+  --bad-border:#c62828;--hint-bg:#fff8e1;--quiz-right:#e8f5e9;--quiz-wrong:#fdecea;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text-main);font-family:'Source Serif 4',serif;line-height:1.6;font-size:16px;}
+.topbar{position:fixed;top:0;left:0;right:0;height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;z-index:100;gap:16px;}
+.topbar h1{font-family:'IBM Plex Sans',sans-serif;font-size:16px;font-weight:600;color:var(--primary);flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hamburger{display:none;font-size:22px;background:none;border:none;cursor:pointer;color:var(--primary);}
+.progress-wrap{flex:1;max-width:340px;margin-left:auto;display:flex;align-items:center;gap:10px;}
+.progress-track{flex:1;height:8px;background:var(--code-bg);border-radius:4px;overflow:hidden;}
+.progress-fill{height:100%;width:0;background:var(--accent);transition:width .3s ease;}
+.progress-label{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);white-space:nowrap;}
+.layout{display:flex;margin-top:56px;}
+.sidebar{position:fixed;top:56px;bottom:0;left:0;width:260px;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:16px 0;}
+.sidebar a{display:block;padding:9px 20px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text-muted);text-decoration:none;border-left:3px solid transparent;cursor:pointer;transition:all .15s;}
+.sidebar a:hover{background:var(--code-bg);color:var(--text-main);}
+.sidebar a.active{color:var(--primary);border-left-color:var(--primary);background:#eef3fb;font-weight:600;}
+.sidebar a .vbadge{color:var(--good-border);font-weight:700;margin-left:6px;}
+.sidebar .grp{font-family:'IBM Plex Sans',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);padding:14px 20px 6px;font-weight:600;}
+.content{margin-left:260px;flex:1;padding:36px 48px 120px;max-width:1000px;}
+section.module{display:none;animation:fade .35s ease;}
+section.module.active{display:block;}
+@keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+h2.mod-title{font-family:'IBM Plex Sans',sans-serif;font-size:27px;font-weight:700;color:var(--primary);margin-bottom:6px;}
+.mod-num{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent);font-weight:500;}
+h3{font-family:'IBM Plex Sans',sans-serif;font-size:19px;font-weight:600;margin:28px 0 10px;color:var(--text-main);}
+h4{font-family:'IBM Plex Sans',sans-serif;font-size:15.5px;font-weight:600;margin:18px 0 8px;}
+p{margin:10px 0;}ul,ol{margin:10px 0 10px 26px;}li{margin:5px 0;}strong{font-weight:600;}
+.objectives{background:#eef3fb;border:1px solid #d3e0f2;border-radius:8px;padding:16px 20px;margin:18px 0;}
+.objectives h4{margin-top:0;color:var(--primary);}.objectives ul{margin-bottom:0;}
+.analogy{background:#f3f0fa;border-left:4px solid #6a1b9a;padding:14px 18px;margin:18px 0;border-radius:0 6px 6px 0;font-style:italic;}
+.analogy strong{color:#6a1b9a;font-style:normal;}
+.keybox{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin:18px 0;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+figure{margin:22px 0;text-align:center;}
+figure svg{max-width:100%;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;}
+figcaption{font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'IBM Plex Sans',sans-serif;}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:14px 0;}
+code{font-family:'JetBrains Mono',monospace;font-size:13px;}
+p code,li code,td code{background:var(--code-bg);padding:1px 6px;border-radius:4px;font-size:13px;color:#6a1b9a;}
+.kw{color:#1a4fa0;font-weight:500;}.type{color:#6a1b9a;}.num{color:#0e7d6e;}.str{color:#c62828;}.cmt{color:#5c5c66;font-style:italic;}.dir{color:#f57f17;}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.5px;}
+th,td{border:1px solid var(--border);padding:8px 11px;text-align:left;vertical-align:top;}
+th{background:#eef3fb;font-family:'IBM Plex Sans',sans-serif;font-weight:600;color:var(--primary);}
+tr:nth-child(even) td{background:#fbfaf8;}
+.activity{background:#fffdf7;border:1px solid #f0e6c8;border-radius:8px;padding:18px 20px;margin:22px 0;}
+.activity h4{margin-top:0;color:#a86a00;}.activity h4::before{content:"✎ ";}
+.hint-btn,.solution-btn{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:500;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 14px;cursor:pointer;margin:8px 8px 0 0;color:var(--primary);}
+.hint-btn:hover,.solution-btn:hover{background:var(--code-bg);}
+.hint-box{background:var(--hint-bg);border-left:4px solid #f5a623;padding:12px 16px;margin-top:12px;border-radius:0 6px 6px 0;}
+.solution-box{background:#eef7f4;border-left:4px solid var(--accent);padding:12px 16px;margin-top:12px;border-radius:0 6px 6px 0;}
+.quiz-block{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px 20px;margin:22px 0;}
+.quiz-question{font-weight:600;font-family:'IBM Plex Sans',sans-serif;margin-bottom:12px;}
+.quiz-question::before{content:"? ";color:var(--accent);font-weight:700;}
+.quiz-options{display:flex;flex-direction:column;gap:8px;}
+.quiz-options button{font-family:'Source Serif 4',serif;font-size:14.5px;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 14px;cursor:pointer;transition:all .15s;}
+.quiz-options button:hover:not(:disabled){border-color:var(--primary);background:#f5f8fd;}
+.quiz-options button:disabled{cursor:default;opacity:.92;}
+.quiz-options button.correct{background:var(--quiz-right);border-color:var(--good-border);font-weight:600;}
+.quiz-options button.wrong{background:var(--quiz-wrong);border-color:var(--bad-border);}
+.quiz-feedback{margin-top:14px;padding:12px 16px;border-radius:6px;background:var(--code-bg);}
+.feedback-text{font-weight:600;font-family:'IBM Plex Sans',sans-serif;}
+.feedback-explain{margin-top:6px;font-size:14px;}
+.practices-section>h3::before{content:"⚖ ";}
+.practices-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0;}
+.practice-card{border-radius:8px;padding:16px 18px;}
+.practice-card.good{background:var(--good-bg);border:1px solid var(--good-border);}
+.practice-card.bad{background:var(--bad-bg);border:1px solid var(--bad-border);}
+.practice-card h4{margin-top:0;}
+.practice-card.good h4{color:var(--good-border);}.practice-card.bad h4{color:var(--bad-border);}
+.practice-why{margin-top:8px;font-size:13.5px;color:var(--text-muted);}
+.navbtns{display:flex;justify-content:space-between;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);}
+.navbtns button{font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:500;background:var(--primary);color:#fff;border:none;border-radius:6px;padding:10px 20px;cursor:pointer;transition:opacity .15s;}
+.navbtns button:hover{opacity:.88;}
+.navbtns button:disabled{background:var(--border);color:var(--text-muted);cursor:not-allowed;}
+.callout{border-left:4px solid var(--accent);background:#eef7f4;padding:12px 16px;margin:16px 0;border-radius:0 6px 6px 0;}
+.callout.warn{border-left-color:#f5a623;background:var(--hint-bg);}
+.tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;background:#eef3fb;color:var(--primary);border:1px solid #d3e0f2;border-radius:4px;padding:1px 7px;margin:0 2px;}
+@media(max-width:880px){
+  .sidebar{transform:translateX(-100%);transition:transform .25s;z-index:90;}
+  .sidebar.open{transform:none;}
+  .content{margin-left:0;padding:24px 18px 100px;}
+  .hamburger{display:block;}.practices-grid{grid-template-columns:1fr;}.progress-wrap{max-width:160px;}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <h1>AXI Outstanding Transactions — Concept, Driver &amp; Scoreboard</h1>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="pfill"></div></div>
+    <span class="progress-label" id="plabel">0%</span>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar">
+  <div class="grp">The Concept</div>
+  <a data-target="m1" class="active">1 · What "Outstanding" Means</a>
+  <a data-target="m2">2 · Why They Exist</a>
+  <a data-target="m3">3 · Depth, IDs &amp; Ordering</a>
+  <div class="grp">Driver</div>
+  <a data-target="m4">4 · Issuing Outstanding Txns</a>
+  <a data-target="m5">5 · Tracking &amp; Back-pressure</a>
+  <div class="grp">Scoreboard</div>
+  <a data-target="m6">6 · Scoreboard Architecture</a>
+  <a data-target="m7">7 · Out-of-Order Completion</a>
+  <div class="grp">Closing the Loop</div>
+  <a data-target="m8">8 · Coverage &amp; Corners</a>
+  <a data-target="m9">9 · Capstone &amp; Debug</a>
+</nav>
+<main class="content">
+
+<!-- ===== MODULE 1 ===== -->
+<section class="module active" id="m1">
+  <div class="mod-num">MODULE 1</div>
+  <h2 class="mod-title">What "Outstanding" Means</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Define precisely when a transaction is "outstanding" and when it stops being so.</li>
+      <li>Understand the address-vs-response decoupling that makes it possible.</li>
+      <li>Read the "outstanding window" of a transaction on a timeline.</li>
+      <li>Distinguish outstanding from the related ideas of pipelining and bursts.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — ordering at a busy coffee shop.</strong> You place your order and pay (the request is
+    accepted). You don't stand frozen at the till until your drink is made — you step aside, and the next
+    customer orders. Your drink is "outstanding": ordered, paid for, not yet delivered. The shop may have ten
+    drinks outstanding at once. A transaction is outstanding in exactly the same sense — accepted by the system,
+    not yet completed.
+  </div>
+
+  <h3>The precise definition</h3>
+  <p>A transaction is <strong>outstanding</strong> from the cycle its address is accepted (the address-channel
+  handshake completes) until the cycle its final response is accepted. For a read, that final point is the
+  <code>RLAST</code> beat being accepted on the R channel. For a write, it's the single <code>B</code> response
+  being accepted on the B channel.</p>
+
+  <div class="keybox">
+    <strong>Outstanding window.</strong><br>
+    Read: starts when <code>ARVALID &amp;&amp; ARREADY</code>, ends when <code>RVALID &amp;&amp; RREADY &amp;&amp; RLAST</code>.<br>
+    Write: starts when <code>AWVALID &amp;&amp; AWREADY</code>, ends when <code>BVALID &amp;&amp; BREADY</code>.<br>
+    The <strong>number of outstanding transactions</strong> is how many have started but not yet ended at a given moment.
+  </div>
+
+  <h3>What makes it possible: decoupled channels</h3>
+  <p>Recall that AXI's address channels (AR/AW) are completely separate from its data/response channels (R/B),
+  each with its own handshake. Because the address handshake completes independently of the response, a manager
+  can get an address <em>accepted</em> and immediately move on to issue the next address — long before the first
+  response arrives. Each accepted-but-not-yet-answered request is one outstanding transaction.</p>
+
+  <figure>
+    <svg viewBox="0 0 700 230" xmlns="http://www.w3.org/2000/svg" style="font-family:'JetBrains Mono',monospace;">
+      <defs><marker id="oa" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker></defs>
+      <text x="10" y="40" font-size="12" fill="#1c1c1e">AR accepted</text>
+      <text x="10" y="120" font-size="12" fill="#1c1c1e">R (RLAST)</text>
+      <!-- timeline -->
+      <line x1="150" y1="150" x2="660" y2="150" stroke="#5c5c66" stroke-width="1.5" marker-end="url(#oa)"/>
+      <text x="655" y="170" font-size="10" fill="#5c5c66" text-anchor="end">time →</text>
+      <!-- AR accept marker -->
+      <line x1="210" y1="30" x2="210" y2="150" stroke="#1a4fa0" stroke-width="2"/>
+      <circle cx="210" cy="35" r="5" fill="#1a4fa0"/>
+      <text x="210" y="22" font-size="10" fill="#1a4fa0" text-anchor="middle">T_start</text>
+      <!-- R last marker -->
+      <line x1="520" y1="110" x2="520" y2="150" stroke="#0e7d6e" stroke-width="2"/>
+      <circle cx="520" cy="115" r="5" fill="#0e7d6e"/>
+      <text x="520" y="103" font-size="10" fill="#0e7d6e" text-anchor="middle">T_end</text>
+      <!-- outstanding window band -->
+      <rect x="210" y="180" width="310" height="26" rx="4" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="1.5"/>
+      <text x="365" y="197" font-size="11" fill="#1a4fa0" text-anchor="middle">this transaction is OUTSTANDING</text>
+      <text x="365" y="225" font-size="9.5" fill="#5c5c66" text-anchor="middle">The gap between address-accept and final-response is latency the manager can fill with other work.</text>
+    </svg>
+    <figcaption>One transaction's outstanding window: from address acceptance to final response. The wider this gap, the more important outstanding capability becomes.</figcaption>
+  </figure>
+
+  <h3>Outstanding vs pipelining vs bursts — three different ideas</h3>
+  <p>Fresh engineers routinely conflate these. They are related but distinct:</p>
+  <table>
+    <tr><th>Idea</th><th>What it is</th><th>Granularity</th></tr>
+    <tr><td><strong>Burst</strong></td><td>One address, many data beats in a single transaction.</td><td>Within one transaction.</td></tr>
+    <tr><td><strong>Outstanding</strong></td><td>Several whole transactions accepted but not yet completed.</td><td>Across transactions.</td></tr>
+    <tr><td><strong>Pipelining</strong></td><td>The general technique of overlapping phases; outstanding is AXI's expression of it at the transaction level.</td><td>Conceptual umbrella.</td></tr>
+  </table>
+  <p>So a single 16-beat read burst is <em>one</em> transaction (it can be outstanding), while issuing four
+  separate reads before any response returns is <em>four</em> outstanding transactions.</p>
+
+  <h3>Why a verification engineer must nail this</h3>
+  <p>Almost every interesting interconnect bug involves <em>multiple things in flight at once</em>. If your
+  testbench only ever has one transaction outstanding, you are testing a tiny, unrealistic corner of the design
+  and the hardest bugs — buffer overflows, ID-tracking errors, ordering violations — can never appear. Your
+  driver must be able to <em>create</em> many outstanding transactions, and your scoreboard must be able to
+  <em>track</em> them. That is the entire subject of this course.</p>
+
+  <div class="activity">
+    <h4>Activity — count the outstanding transactions</h4>
+    <p>A manager issues, in order: read A (address accepted at cycle 2), read B (accepted cycle 4), read C
+    (accepted cycle 6). Responses complete: A at cycle 12, B at cycle 9, C at cycle 15. What is the maximum
+    number of transactions outstanding at any one time, and in which cycle range does that maximum occur?</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Draw three horizontal bars on a timeline, one per transaction, from its accept cycle to its complete cycle. Then scan left-to-right and count how many bars overlap at each cycle. The maximum overlap is the answer.</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p>Windows: A = [2,12], B = [4,9], C = [6,15].</p>
+      <ul>
+        <li>Cycles 2–3: only A → 1 outstanding.</li>
+        <li>Cycles 4–5: A, B → 2 outstanding.</li>
+        <li>Cycles 6–9: A, B, C → <strong>3 outstanding</strong> (the maximum).</li>
+        <li>After B completes at 9: A, C → 2. After A completes at 12: C → 1. After 15: 0.</li>
+      </ul>
+      <p><strong>Maximum = 3, during cycles 6–9.</strong> Notice B completed (cycle 9) before A (cycle 12) even
+      though A was issued first — that's legal out-of-order completion, which only matters <em>because</em>
+      multiple transactions were outstanding. This is the exact situation your scoreboard must handle, and we
+      build it in Modules 6–7.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="c">
+    <p class="quiz-question">When does a read transaction <em>stop</em> being outstanding?</p>
+    <div class="quiz-options">
+      <button data-opt="a">When ARVALID is asserted</button>
+      <button data-opt="b">When the first R beat is accepted</button>
+      <button data-opt="c">When the R beat carrying RLAST is accepted</button>
+      <button data-opt="d">When the next transaction's address is accepted</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">A read is outstanding until its <em>final</em> data beat (the one with RLAST) is accepted. The first beat doesn't end it — a burst can have many beats. Asserting ARVALID is before acceptance, and other transactions' timing is irrelevant to this one's window.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Define the outstanding window in terms of the exact handshake edges (address-accept to final-response-accept) in your monitor.</p><p class="practice-why"><em>Why: a precise start/end is the basis for the outstanding counter, depth coverage, and timeout logic. Fuzzy definitions produce off-by-one tracking bugs.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Treating a burst's individual beats as separate outstanding transactions.</p><p class="practice-why"><em>Why it hurts: a burst is ONE transaction; counting beats inflates your outstanding count and corrupts depth checks and coverage.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Always design the testbench to drive more than one transaction outstanding from day one.</p><p class="practice-why"><em>Why: single-outstanding testing hides the entire class of concurrency bugs that outstanding capability exists to expose.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Assuming "outstanding" and "burst length" are the same knob.</p><p class="practice-why"><em>Why it hurts: they stress completely different RTL — burst length exercises beat counters, outstanding exercises transaction-tracking buffers. Confusing them leaves one untested.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button disabled>← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 2 ===== -->
+<section class="module" id="m2">
+  <div class="mod-num">MODULE 2</div>
+  <h2 class="mod-title">Why Outstanding Transactions Exist</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Explain how outstanding transactions hide memory latency.</li>
+      <li>Contrast a blocking (one-at-a-time) manager with a non-blocking one on a timeline.</li>
+      <li>Reason about throughput vs latency intuitively.</li>
+      <li>Connect the performance argument to why verification must stress depth.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — posting letters and waiting for replies.</strong> Imagine you must mail ten questions, each
+    to a different office, and each reply takes a week. If you mail one letter and wait for its reply before
+    mailing the next, you spend ten weeks. If you mail all ten at once on day one, every office works in parallel
+    and you have all ten replies in about one week. The reply time (latency) didn't change — but your throughput
+    improved tenfold by having ten "letters outstanding."
+  </div>
+
+  <h3>The latency problem</h3>
+  <p>A read to DRAM can take many tens of cycles to return. If a manager issues one read and then idles until the
+  data comes back, the bus and the manager sit doing nothing for almost the entire latency. With deep memory and
+  fast clocks, that wasted time dominates — you could be achieving a tiny fraction of the bus's potential
+  throughput.</p>
+
+  <h3>Blocking vs non-blocking — a side-by-side timeline</h3>
+  <p>The picture below tells the whole story. Top: a blocking manager waits for each response before issuing the
+  next request. Bottom: a non-blocking manager keeps several requests outstanding, overlapping their latencies.</p>
+
+  <figure>
+    <svg viewBox="0 0 700 320" xmlns="http://www.w3.org/2000/svg" style="font-family:'JetBrains Mono',monospace;">
+      <!-- BLOCKING -->
+      <text x="10" y="30" font-size="12" fill="#c62828" font-weight="600">Blocking (1 outstanding)</text>
+      <!-- req/resp pairs sequentially -->
+      <g>
+        <rect x="60" y="45" width="40" height="20" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="80" y="59" font-size="9" text-anchor="middle">R0</text>
+        <rect x="100" y="45" width="150" height="20" rx="3" fill="#f4f3ef" stroke="#5c5c66" stroke-dasharray="3 2"/><text x="175" y="59" font-size="9" text-anchor="middle" fill="#5c5c66">wait latency</text>
+        <rect x="250" y="45" width="40" height="20" rx="3" fill="#e8f4f1" stroke="#0e7d6e"/><text x="270" y="59" font-size="9" text-anchor="middle">D0</text>
+
+        <rect x="290" y="45" width="40" height="20" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="310" y="59" font-size="9" text-anchor="middle">R1</text>
+        <rect x="330" y="45" width="150" height="20" rx="3" fill="#f4f3ef" stroke="#5c5c66" stroke-dasharray="3 2"/><text x="405" y="59" font-size="9" text-anchor="middle" fill="#5c5c66">wait latency</text>
+        <rect x="480" y="45" width="40" height="20" rx="3" fill="#e8f4f1" stroke="#0e7d6e"/><text x="500" y="59" font-size="9" text-anchor="middle">D1</text>
+      </g>
+      <text x="60" y="90" font-size="9.5" fill="#c62828">Two reads take this long. Bus is idle most of the time.</text>
+      <line x1="60" y1="100" x2="520" y2="100" stroke="#e2e0db"/>
+
+      <!-- NON-BLOCKING -->
+      <text x="10" y="135" font-size="12" fill="#0e7d6e" font-weight="600">Non-blocking (many outstanding)</text>
+      <!-- requests back to back -->
+      <g>
+        <rect x="60" y="150" width="34" height="18" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="77" y="163" font-size="9" text-anchor="middle">R0</text>
+        <rect x="96" y="150" width="34" height="18" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="113" y="163" font-size="9" text-anchor="middle">R1</text>
+        <rect x="132" y="150" width="34" height="18" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="149" y="163" font-size="9" text-anchor="middle">R2</text>
+        <rect x="168" y="150" width="34" height="18" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="185" y="163" font-size="9" text-anchor="middle">R3</text>
+      </g>
+      <!-- overlapping latencies -->
+      <g opacity="0.85">
+        <rect x="94" y="175" width="150" height="14" rx="3" fill="#f4f3ef" stroke="#5c5c66" stroke-dasharray="2 2"/>
+        <rect x="130" y="192" width="150" height="14" rx="3" fill="#f4f3ef" stroke="#5c5c66" stroke-dasharray="2 2"/>
+        <rect x="166" y="209" width="150" height="14" rx="3" fill="#f4f3ef" stroke="#5c5c66" stroke-dasharray="2 2"/>
+        <rect x="202" y="226" width="150" height="14" rx="3" fill="#f4f3ef" stroke="#5c5c66" stroke-dasharray="2 2"/>
+      </g>
+      <!-- responses stream out -->
+      <g>
+        <rect x="244" y="150" width="34" height="18" rx="3" fill="#e8f4f1" stroke="#0e7d6e"/><text x="261" y="163" font-size="9" text-anchor="middle">D0</text>
+        <rect x="280" y="150" width="34" height="18" rx="3" fill="#e8f4f1" stroke="#0e7d6e"/><text x="297" y="163" font-size="9" text-anchor="middle">D1</text>
+        <rect x="316" y="150" width="34" height="18" rx="3" fill="#e8f4f1" stroke="#0e7d6e"/><text x="333" y="163" font-size="9" text-anchor="middle">D2</text>
+        <rect x="352" y="150" width="34" height="18" rx="3" fill="#e8f4f1" stroke="#0e7d6e"/><text x="369" y="163" font-size="9" text-anchor="middle">D3</text>
+      </g>
+      <text x="60" y="262" font-size="9.5" fill="#0e7d6e">Four reads finish in barely more than one latency. Bus stays busy.</text>
+      <line x1="386" y1="145" x2="386" y2="250" stroke="#0e7d6e" stroke-width="1" stroke-dasharray="3 2"/>
+      <text x="392" y="248" font-size="9" fill="#0e7d6e">done much sooner</text>
+      <text x="350" y="300" font-size="9.5" fill="#5c5c66" text-anchor="middle">Same per-transaction latency; far higher throughput — purely by keeping transactions outstanding.</text>
+    </svg>
+    <figcaption>Blocking vs non-blocking. Outstanding transactions overlap latencies so the bus stays busy. This is the entire performance reason the feature exists.</figcaption>
+  </figure>
+
+  <h3>Throughput vs latency — the intuition</h3>
+  <p>Two different quantities are at play. <strong>Latency</strong> is how long one transaction takes end-to-end;
+  outstanding does <em>not</em> reduce it. <strong>Throughput</strong> is how many transactions complete per unit
+  time; outstanding dramatically increases it. The rough relationship every DV engineer should carry in their
+  head:</p>
+  <div class="keybox">
+    <strong>Max useful outstanding ≈ latency × throughput.</strong><br>
+    To keep a pipe with, say, 50-cycle latency fully busy at one transaction per cycle, you need about
+    <strong>50 transactions outstanding</strong>. Fewer, and the pipe starves; the bus goes idle waiting.
+  </div>
+  <p>This is why real designs advertise an <em>outstanding capability</em> (e.g. "up to 32 outstanding reads") —
+  it is sized to cover the expected latency. And it is exactly why your verification must drive <em>up to and
+  beyond</em> that number: the design's buffers are dimensioned for it, and the bugs live at the limit.</p>
+
+  <h3>The verification consequence</h3>
+  <p>The performance argument hands you your test plan. If the design claims N outstanding, you must: reach N
+  (does it actually sustain it?), exceed N (does it correctly back-pressure rather than overflow?), and sweep the
+  range in between while measuring throughput. A design that silently drops a transaction at N+1 looks fine on a
+  lightly loaded test and fails catastrophically in silicon under load.</p>
+
+  <div class="activity">
+    <h4>Activity — size the outstanding requirement</h4>
+    <p>A read path has a round-trip latency of 40 cycles. The bus can accept one new read address per cycle and
+    return one data beat per cycle. How many reads must the manager keep outstanding to keep the bus
+    100% utilised, and what happens to utilisation if it can only keep 10 outstanding?</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Use "outstanding needed ≈ latency × throughput." Throughput target is 1 transaction/cycle. For the second part, if you can only have 10 in flight but each takes 40 cycles, how many complete per 40-cycle window, and what fraction of the bus's 1-per-cycle capability is that?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>Full utilisation:</strong> needed ≈ latency × throughput = 40 × 1 = <strong>40 outstanding</strong>.
+      With 40 in flight, by the time the 40th address is issued the 1st data is returning, and the pipe never
+      stalls.</p>
+      <p><strong>With only 10 outstanding:</strong> the manager issues 10 reads (10 cycles), then must wait — the
+      first response doesn't arrive until cycle 40. So in each 40-cycle window only 10 transactions complete:
+      utilisation ≈ 10/40 = <strong>25%</strong>. The bus sits idle 75% of the time despite being capable of much
+      more. This is precisely the kind of performance bug that outstanding-depth testing (and throughput coverage)
+      is meant to catch.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="b">
+    <p class="quiz-question">What does increasing outstanding capability primarily improve?</p>
+    <div class="quiz-options">
+      <button data-opt="a">The latency of each individual transaction</button>
+      <button data-opt="b">Throughput — how many transactions complete per unit time</button>
+      <button data-opt="c">The clock frequency of the design</button>
+      <button data-opt="d">The number of beats in a burst</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Outstanding overlaps the latencies of many transactions, so more complete per unit time — that's throughput. The per-transaction latency is unchanged; clock frequency and burst length are unrelated knobs.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Derive your outstanding-depth test targets from the design's stated latency and throughput, not a round number.</p><p class="practice-why"><em>Why: the design's buffers are sized for latency×throughput; testing to that number (and beyond) is what actually stresses them.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Measuring only "did data match" and never measuring throughput/utilisation.</p><p class="practice-why"><em>Why it hurts: a design can return correct data while silently starving the bus to 25% utilisation — a real performance bug invisible to a pure data scoreboard.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Include a low-outstanding case on purpose to confirm the design degrades gracefully, not just the high case.</p><p class="practice-why"><em>Why: some bugs only appear when the pipe is shallow (e.g. a credit counter that underflows at low occupancy).</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Assuming "more outstanding is always faster" and never testing the saturation point.</p><p class="practice-why"><em>Why it hurts: beyond latency×throughput, extra outstanding adds no speed but does stress buffers — and that's exactly where overflow bugs hide.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 3 ===== -->
+<section class="module" id="m3">
+  <div class="mod-num">MODULE 3</div>
+  <h2 class="mod-title">Depth, IDs &amp; the Ordering Rules</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Define total outstanding depth and per-ID outstanding depth.</li>
+      <li>Explain how AxID groups outstanding transactions into ordered streams.</li>
+      <li>State the same-ID / different-ID ordering rules precisely.</li>
+      <li>Understand separate read and write outstanding budgets.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — numbered deli tickets, multiple counters.</strong> At a deli, customers take a ticket
+    number and the counter serves them. If everyone shares one number series at one counter, they're served
+    strictly in order. But a big deli has several counters, each with its own number series — counter "5" serves
+    its 5-tickets in order, counter "9" serves its 9-tickets in order, but counter 9 might finish before counter
+    5. The ticket-series is the AxID; same series = ordered, different series = independent.
+  </div>
+
+  <h3>Two kinds of depth</h3>
+  <p>"How many can be outstanding" actually has two answers, and a real design specifies both:</p>
+  <table>
+    <tr><th>Limit</th><th>Meaning</th><th>Set by</th></tr>
+    <tr><td><strong>Total outstanding depth</strong></td><td>Max transactions in flight across <em>all</em> IDs at once.</td><td>Size of the design's central tracking buffer.</td></tr>
+    <tr><td><strong>Per-ID outstanding depth</strong></td><td>Max transactions in flight that share a single ID.</td><td>Depth of that ID's reorder/ordering queue.</td></tr>
+  </table>
+  <p>A design might allow 32 total outstanding but only 8 per ID. Both limits must be respected by stimulus and
+  both are targets for "reach the limit, then exceed it" testing.</p>
+
+  <h3>How AxID groups outstanding transactions</h3>
+  <p>Every transaction carries an ID (<code>ARID</code>/<code>AWID</code>). Among the transactions currently
+  outstanding, those sharing an ID form an <strong>ordered stream</strong>; the design must return their
+  responses in issue order. Transactions with different IDs are independent and may complete in any relative
+  order. The ID is what lets the manager match each returning response (<code>RID</code>/<code>BID</code>) to the
+  request that spawned it.</p>
+
+  <figure>
+    <svg viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <text x="350" y="22" text-anchor="middle" font-size="12" fill="#5c5c66">Six transactions outstanding at once, two ID streams</text>
+      <!-- ID=5 stream -->
+      <text x="60" y="70" font-size="12" fill="#1a4fa0" font-weight="600">ID=5</text>
+      <g font-size="10" text-anchor="middle">
+        <rect x="110" y="55" width="70" height="26" rx="4" fill="#e8f0fe" stroke="#1a4fa0"/><text x="145" y="72">A (1st)</text>
+        <rect x="200" y="55" width="70" height="26" rx="4" fill="#e8f0fe" stroke="#1a4fa0"/><text x="235" y="72">B (2nd)</text>
+        <rect x="290" y="55" width="70" height="26" rx="4" fill="#e8f0fe" stroke="#1a4fa0"/><text x="325" y="72">C (3rd)</text>
+      </g>
+      <text x="395" y="72" font-size="10" fill="#c62828">must complete A→B→C</text>
+      <!-- ID=9 stream -->
+      <text x="60" y="135" font-size="12" fill="#0e7d6e" font-weight="600">ID=9</text>
+      <g font-size="10" text-anchor="middle">
+        <rect x="110" y="120" width="70" height="26" rx="4" fill="#e8f4f1" stroke="#0e7d6e"/><text x="145" y="137">P (1st)</text>
+        <rect x="200" y="120" width="70" height="26" rx="4" fill="#e8f4f1" stroke="#0e7d6e"/><text x="235" y="137">Q (2nd)</text>
+        <rect x="290" y="120" width="70" height="26" rx="4" fill="#e8f4f1" stroke="#0e7d6e"/><text x="325" y="137">R (3rd)</text>
+      </g>
+      <text x="395" y="137" font-size="10" fill="#c62828">must complete P→Q→R</text>
+      <!-- freedom between streams -->
+      <rect x="110" y="175" width="480" height="48" rx="6" fill="#fff8e1" stroke="#f5a623"/>
+      <text x="350" y="195" text-anchor="middle" font-size="11" fill="#a86a00">Between streams: ANY interleaving is legal.</text>
+      <text x="350" y="213" text-anchor="middle" font-size="10" fill="#5c5c66">e.g. P, A, Q, B, R, C  — or  A, B, C, P, Q, R  — both fine. Only within-ID order is fixed.</text>
+      <text x="350" y="248" text-anchor="middle" font-size="9.5" fill="#5c5c66">Total outstanding here = 6; per-ID outstanding = 3 for each of ID 5 and ID 9.</text>
+    </svg>
+    <figcaption>IDs partition the outstanding transactions into independent ordered streams. Order is enforced within an ID, free across IDs.</figcaption>
+  </figure>
+
+  <h3>The ordering rules, stated precisely</h3>
+  <div class="keybox">
+    <strong>Rule 1 (same ID → ordered):</strong> outstanding transactions with the same AxID, in the same
+    direction, must complete in the order their addresses were accepted.<br><br>
+    <strong>Rule 2 (different ID → unordered):</strong> outstanding transactions with different AxIDs have no
+    completion-order guarantee relative to each other.<br><br>
+    <strong>Rule 3 (reads and writes are separate):</strong> read outstanding and write outstanding are tracked
+    independently, on independent channels, with independent budgets.
+  </div>
+
+  <h3>Why this is the crux of both driver and scoreboard</h3>
+  <p>These three rules are the contract your verification must both <em>exercise</em> and <em>enforce</em>. The
+  driver must be able to produce many outstanding transactions spread across several IDs (to create the
+  interesting interleavings). The scoreboard must accept any legal interleaving while flagging the one illegal
+  thing: a within-ID reordering. Everything in Modules 4–7 is machinery for those two jobs.</p>
+
+  <div class="callout warn">
+    <strong>The single most common mistake in this whole topic:</strong> building a scoreboard that assumes
+    responses come back in issue order. The moment two different-ID transactions are outstanding and the design
+    legally reorders them, that scoreboard reports a false failure. We design around this explicitly in Module 6.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — legal or illegal completion order?</h4>
+    <p>Outstanding reads, issued in this order: A(ID=3), B(ID=7), C(ID=3), D(ID=7), E(ID=3). They complete in
+    this order: B, A, D, C, E. Is this legal? If not, identify the first violation.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Separate the completion sequence into two per-ID subsequences. For ID=3, what was the issue order and what was the completion order? Same for ID=7. A violation is any ID whose completion order differs from its issue order.</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p>Split by ID:</p>
+      <ul>
+        <li><strong>ID=3</strong> issued: A, C, E. In the completion sequence (B, A, D, C, E) the ID=3 items appear as A, C, E — matches issue order. ✓</li>
+        <li><strong>ID=7</strong> issued: B, D. In the completion sequence they appear as B, D — matches issue order. ✓</li>
+      </ul>
+      <p><strong>Legal.</strong> The interleaving B, A, D, C, E mixes the two streams freely (allowed), but each
+      ID's internal order is preserved. Contrast: if completion were B, A, D, E, C, then ID=3 would complete
+      A, E, C — E before C violates issue order (C was issued before E), so <em>that</em> would be illegal. Your
+      scoreboard must accept the first and reject the second.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="d">
+    <p class="quiz-question">Two outstanding reads have different ARIDs. What does AXI guarantee about their completion order?</p>
+    <div class="quiz-options">
+      <button data-opt="a">They complete in issue order</button>
+      <button data-opt="b">The lower ID completes first</button>
+      <button data-opt="c">They complete simultaneously</button>
+      <button data-opt="d">Nothing — any relative order is legal</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Different IDs carry no ordering guarantee — that freedom is what enables out-of-order completion and latency hiding. Only same-ID transactions must preserve issue order.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Constrain stimulus to respect both total and per-ID outstanding limits, then deliberately push one past its limit in dedicated tests.</p><p class="practice-why"><em>Why: exceeding a limit unintentionally generates illegal traffic (false fails); never exceeding it leaves the back-pressure/overflow path untested.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Tracking only a single global outstanding count and ignoring per-ID depth.</p><p class="practice-why"><em>Why it hurts: a per-ID queue can overflow while the global count is well under its limit; a global-only check misses it entirely.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Use several distinct IDs in stimulus so the design's reorder logic is actually exercised.</p><p class="practice-why"><em>Why: with one ID everything is in-order and the entire out-of-order datapath — the riskiest logic — is never touched.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Sharing one outstanding budget across reads and writes in the model.</p><p class="practice-why"><em>Why it hurts: reads and writes have independent channels and budgets; a merged model both mis-limits stimulus and mis-checks completion.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 4 ===== -->
+<section class="module" id="m4">
+  <div class="mod-num">MODULE 4</div>
+  <h2 class="mod-title">How a Driver Issues Outstanding Transactions</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>See why a naive blocking driver can never create outstanding transactions.</li>
+      <li>Understand the decoupling of address-phase from data/response-phase.</li>
+      <li>Write a pipelined UVM driver using <code>fork...join_none</code> and threads.</li>
+      <li>Handle the sequencer item-flow correctly when pipelining.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a waiter who won't leave your table.</strong> A blocking driver is a waiter who takes your
+    order, walks to the kitchen, waits for the food, brings it back, and only <em>then</em> takes the next
+    table's order. A pipelined driver is a good waiter: take an order, fire it to the kitchen, immediately take
+    the next table's order, and deliver dishes as they come up. Same kitchen speed, far more tables served.
+  </div>
+
+  <h3>The naive blocking driver — and why it fails the goal</h3>
+  <p>The textbook first driver does one transaction end-to-end before fetching the next item. It is correct, but
+  it can <em>never</em> have more than one transaction outstanding — it structurally serialises everything.</p>
+
+  <pre><code class="language-sv"><span class="cmt">// BLOCKING driver — simple but only ever 1 outstanding. NOT what we want.</span>
+<span class="kw">class</span> axi_blocking_driver <span class="kw">extends</span> uvm_driver #(axi_seq_item);
+  `uvm_component_utils(axi_blocking_driver)
+  <span class="kw">virtual</span> axi_if vif;
+  <span class="cmt">// ... build_phase gets vif from config_db ...</span>
+
+  <span class="kw">task</span> run_phase(uvm_phase phase);
+    <span class="kw">forever</span> <span class="kw">begin</span>
+      seq_item_port.get_next_item(req);   <span class="cmt">// fetch one item</span>
+      drive_address(req);                 <span class="cmt">// AR/AW handshake</span>
+      drive_data_and_wait_resp(req);      <span class="cmt">// W beats, then BLOCK until B/R completes</span>
+      seq_item_port.item_done();          <span class="cmt">// only now fetch the next</span>
+    <span class="kw">end</span>
+  <span class="kw">endtask</span>
+<span class="kw">endclass</span></code></pre>
+  <p>The problem is the order of operations: the driver waits for the response <em>before</em> calling
+  <code>item_done()</code> and fetching the next item. The address channel sits idle during the entire response
+  latency. To create outstanding transactions we must break that coupling.</p>
+
+  <h3>The key idea: separate the address thread from the response thread</h3>
+  <p>A pipelined driver runs (at least) two concurrent activities:</p>
+  <ul>
+    <li>An <strong>address/issue thread</strong> that keeps pulling items and pushing their address phases onto
+    the bus as fast as the DUT will accept them.</li>
+    <li>A <strong>response thread</strong> that independently collects completions as they return and retires the
+    matching items.</li>
+  </ul>
+  <p>Because these run in parallel, many addresses can be accepted while their responses are still pending —
+  which is exactly "outstanding."</p>
+
+  <figure>
+    <svg viewBox="0 0 700 290" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <defs><marker id="da" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker></defs>
+      <rect x="40" y="40" width="160" height="60" rx="6" fill="#eef3fb" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="120" y="65" text-anchor="middle" font-size="12" fill="#1a4fa0" font-weight="600">Sequencer</text>
+      <text x="120" y="83" text-anchor="middle" font-size="9" fill="#5c5c66">supplies seq_items</text>
+
+      <rect x="270" y="20" width="190" height="70" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="365" y="44" text-anchor="middle" font-size="12" fill="#1a4fa0" font-weight="600">Address / issue thread</text>
+      <text x="365" y="62" text-anchor="middle" font-size="9" fill="#5c5c66">get_next_item → drive AW/AR</text>
+      <text x="365" y="78" text-anchor="middle" font-size="9" fill="#5c5c66">push into outstanding table</text>
+
+      <rect x="270" y="120" width="190" height="70" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="365" y="144" text-anchor="middle" font-size="12" fill="#0e7d6e" font-weight="600">Response thread</text>
+      <text x="365" y="162" text-anchor="middle" font-size="9" fill="#5c5c66">collect B / R by ID</text>
+      <text x="365" y="178" text-anchor="middle" font-size="9" fill="#5c5c66">retire item → item_done()</text>
+
+      <rect x="520" y="70" width="150" height="70" rx="6" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+      <text x="595" y="100" text-anchor="middle" font-size="12" fill="#a86a00" font-weight="600">DUT (AXI)</text>
+      <text x="595" y="118" text-anchor="middle" font-size="9" fill="#5c5c66">accepts many outstanding</text>
+
+      <line x1="200" y1="62" x2="268" y2="55" stroke="#5c5c66" stroke-width="1.5" marker-end="url(#da)"/>
+      <line x1="460" y1="55" x2="540" y2="85" stroke="#1a4fa0" stroke-width="1.5" marker-end="url(#da)"/>
+      <line x1="540" y1="120" x2="460" y2="150" stroke="#0e7d6e" stroke-width="1.5" marker-end="url(#da)"/>
+      <!-- shared outstanding table -->
+      <rect x="270" y="210" width="190" height="44" rx="6" fill="#f3f0fa" stroke="#6a1b9a" stroke-width="2"/>
+      <text x="365" y="230" text-anchor="middle" font-size="11" fill="#6a1b9a" font-weight="600">shared: outstanding table</text>
+      <text x="365" y="246" text-anchor="middle" font-size="9" fill="#5c5c66">per-ID queues of in-flight items</text>
+      <line x1="365" y1="90" x2="365" y2="210" stroke="#6a1b9a" stroke-width="1" stroke-dasharray="3 2"/>
+      <line x1="365" y1="190" x2="365" y2="210" stroke="#6a1b9a" stroke-width="1" stroke-dasharray="3 2"/>
+      <text x="350" y="285" text-anchor="middle" font-size="9.5" fill="#5c5c66">Two threads run concurrently and coordinate through the outstanding table.</text>
+    </svg>
+    <figcaption>Pipelined driver structure: an issue thread and a response thread run in parallel, coordinating through a shared per-ID outstanding table.</figcaption>
+  </figure>
+
+  <h3>The pipelined UVM driver</h3>
+  <p>Here is the core. The <code>run_phase</code> forks two persistent threads. The issue thread accepts items
+  and drives addresses back-to-back; the response thread retires them as completions arrive.</p>
+
+  <pre><code class="language-sv"><span class="kw">class</span> axi_pipelined_driver <span class="kw">extends</span> uvm_driver #(axi_seq_item);
+  `uvm_component_utils(axi_pipelined_driver)
+  <span class="kw">virtual</span> axi_if vif;
+
+  <span class="cmt">// Per-ID queues of items whose address was issued but response not yet seen.</span>
+  <span class="cmt">// Indexed by ID; each entry is a FIFO of items in issue order for that ID.</span>
+  axi_seq_item outstanding[<span class="type">int</span>][$];
+
+  <span class="kw">task</span> run_phase(uvm_phase phase);
+    <span class="cmt">// Two persistent, concurrent threads — this is what creates "outstanding".</span>
+    <span class="kw">fork</span>
+      issue_thread();        <span class="cmt">// drives addresses as fast as the DUT accepts</span>
+      response_thread();     <span class="cmt">// collects responses, retires items</span>
+    <span class="kw">join_none</span>
+  <span class="kw">endtask</span>
+
+  <span class="cmt">// ---- Issue thread: never blocks on the response ----</span>
+  <span class="kw">task</span> issue_thread();
+    <span class="kw">forever</span> <span class="kw">begin</span>
+      seq_item_port.get_next_item(req);     <span class="cmt">// fetch next stimulus item</span>
+      drive_addr_phase(req);                <span class="cmt">// AW/AR handshake (blocks only until ACCEPTED)</span>
+      <span class="kw">if</span> (req.is_write) drive_write_data(req); <span class="cmt">// stream W beats (no wait for B)</span>
+      outstanding[req.id].push_back(req);   <span class="cmt">// record it as in-flight, in issue order</span>
+      seq_item_port.item_done();            <span class="cmt">// IMPORTANT: retire from sequencer NOW,</span>
+                                            <span class="cmt">// so the next item can be fetched immediately</span>
+    <span class="kw">end</span>
+  <span class="kw">endtask</span>
+
+  <span class="cmt">// ---- Response thread: independent of issue ----</span>
+  <span class="kw">task</span> response_thread();
+    <span class="kw">forever</span> <span class="kw">begin</span>
+      axi_resp r;
+      collect_response(r);                  <span class="cmt">// waits for next B or R completion on the bus</span>
+      <span class="cmt">// Same-ID order guarantees the head of this ID's queue is the match.</span>
+      axi_seq_item done = outstanding[r.id].pop_front();
+      done.resp = r.resp;                   <span class="cmt">// annotate result for analysis</span>
+      <span class="cmt">// (analysis export to scoreboard happens from the monitor, not here)</span>
+    <span class="kw">end</span>
+  <span class="kw">endtask</span>
+<span class="kw">endclass</span></code></pre>
+
+  <div class="callout">
+    <strong>The one line that matters most:</strong> <code>seq_item_port.item_done()</code> is called right after
+    the address (and write data) are <em>accepted</em>, not after the response returns. That single change — moving
+    <code>item_done()</code> earlier — is what frees the sequencer to deliver the next item while the previous
+    response is still pending, creating outstanding transactions. In the blocking driver it came after the
+    response; here it comes before.
+  </div>
+
+  <h3>A subtlety: get_next_item vs item_done pairing</h3>
+  <p>UVM allows only one <code>get_next_item</code> outstanding on the sequencer port at a time — you must call
+  <code>item_done()</code> before the next <code>get_next_item()</code>. The pipelined driver honours this:
+  the issue thread does get → drive-address → <code>item_done()</code> in a tight loop, and hands off
+  response-tracking to the separate thread via the <code>outstanding</code> table. If you tried to defer
+  <code>item_done()</code> until the response, you'd serialise again (and risk a sequencer protocol error).</p>
+
+  <div class="activity">
+    <h4>Activity — find the pipelining bug</h4>
+    <p>A junior engineer writes a "pipelined" driver but it still only ever shows one outstanding transaction in
+    simulation. Their issue thread looks like this. What's wrong?</p>
+    <pre><code class="language-sv"><span class="kw">task</span> issue_thread();
+  <span class="kw">forever</span> <span class="kw">begin</span>
+    seq_item_port.get_next_item(req);
+    drive_addr_phase(req);
+    wait_for_response(req);      <span class="cmt">// &lt;-- waits here</span>
+    seq_item_port.item_done();
+  <span class="kw">end</span>
+<span class="kw">endtask</span></code></pre>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Compare the position of the response-wait to the blocking driver from earlier. Even though the code is "in a thread," what does the issue loop do between accepting the address and fetching the next item?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p>The issue thread calls <code>wait_for_response(req)</code> <em>before</em> <code>item_done()</code>. That
+      reintroduces the exact blocking behaviour: the loop cannot fetch the next item until the current response
+      returns, so only one transaction is ever in flight. Forking two threads is pointless if the issue thread
+      still blocks on the response.</p>
+      <p><strong>Fix:</strong> remove the response wait from the issue loop entirely. Record the item in the
+      <code>outstanding</code> table after the address is accepted, call <code>item_done()</code> immediately, and
+      let the <em>separate</em> response thread handle completions. The response handling must live on the other
+      side of the fork, not inline in the issue path.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="a">
+    <p class="quiz-question">In a pipelined driver, when should <code>item_done()</code> be called to enable outstanding transactions?</p>
+    <div class="quiz-options">
+      <button data-opt="a">Right after the address (and write data) are accepted, before the response returns</button>
+      <button data-opt="b">Only after the B/R response completes</button>
+      <button data-opt="c">Before driving the address</button>
+      <button data-opt="d">Once at the end of the run phase</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Calling item_done() right after acceptance frees the sequencer to deliver the next item while the response is still pending — that overlap is what creates outstanding transactions. Waiting for the response serialises everything back to one-at-a-time.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Separate the address-issue path from the response-collection path into independent forked threads.</p><p class="practice-why"><em>Why: it's the only structure that lets addresses keep flowing while responses are pending — i.e. that actually produces outstanding transactions.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Forking threads but still waiting for the response inside the issue loop.</p><p class="practice-why"><em>Why it hurts: the wait re-serialises issue; you get the complexity of threads with none of the concurrency. Classic "looks pipelined, behaves blocking" bug.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Record each issued item in a per-ID outstanding structure the instant its address is accepted.</p><p class="practice-why"><em>Why: the response thread needs an ordered, per-ID record to match completions against; same-ID ordering makes the head of the queue the guaranteed match.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Deferring <code>item_done()</code> to the response, violating the one-get_next_item-at-a-time rule.</p><p class="practice-why"><em>Why it hurts: it both serialises the driver and can trigger a UVM sequencer protocol error, which is confusing to debug.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 5 ===== -->
+<section class="module" id="m5">
+  <div class="mod-num">MODULE 5</div>
+  <h2 class="mod-title">Tracking Outstanding &amp; Handling Back-pressure</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Cap the driver's outstanding depth with a semaphore.</li>
+      <li>Enforce per-ID depth limits alongside the total limit.</li>
+      <li>Throttle issue cleanly when the DUT applies back-pressure.</li>
+      <li>Randomise outstanding depth to explore the full range of load.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a kitchen with a ticket rail.</strong> A kitchen can only have so many open tickets on the
+    rail before the cooks are overwhelmed. The expediter stops seating new orders when the rail is full and resumes
+    as tickets are completed. The semaphore is that ticket rail: a hard cap on how many orders can be in flight,
+    automatically pausing intake when full.
+  </div>
+
+  <h3>Why the driver needs a cap</h3>
+  <p>A pipelined driver left unchecked will issue addresses as fast as the DUT accepts them — which is correct up
+  to a point. But you usually want to (a) respect the DUT's stated outstanding limit, (b) deliberately
+  <em>control</em> the depth to hit specific coverage points, and (c) avoid your own testbench data structures
+  growing without bound. A counting <strong>semaphore</strong> gives all three.</p>
+
+  <h3>Capping total outstanding with a semaphore</h3>
+  <p>A SystemVerilog <code>semaphore</code> holds keys. Initialise it with N keys (the max outstanding). The issue
+  thread must <em>get</em> a key before issuing; the response thread <em>puts</em> a key back when a transaction
+  completes. When no keys remain, the issue thread blocks automatically — clean back-pressure with no manual
+  polling.</p>
+
+  <pre><code class="language-sv"><span class="kw">class</span> axi_throttled_driver <span class="kw">extends</span> uvm_driver #(axi_seq_item);
+  `uvm_component_utils(axi_throttled_driver)
+  <span class="kw">virtual</span> axi_if vif;
+
+  <span class="kw">int</span> max_outstanding = <span class="num">16</span>;          <span class="cmt">// total cap (from DUT spec / config)</span>
+  semaphore slots;                       <span class="cmt">// one key == one allowed in-flight txn</span>
+  axi_seq_item outstanding[<span class="type">int</span>][$];     <span class="cmt">// per-ID issue-order queues</span>
+
+  <span class="kw">function</span> <span class="type">void</span> build_phase(uvm_phase phase);
+    slots = <span class="kw">new</span>(max_outstanding);          <span class="cmt">// start with N keys</span>
+  <span class="kw">endfunction</span>
+
+  <span class="kw">task</span> run_phase(uvm_phase phase);
+    <span class="kw">fork</span> issue_thread(); response_thread(); <span class="kw">join_none</span>
+  <span class="kw">endtask</span>
+
+  <span class="kw">task</span> issue_thread();
+    <span class="kw">forever</span> <span class="kw">begin</span>
+      seq_item_port.get_next_item(req);
+      slots.get(<span class="num">1</span>);                       <span class="cmt">// BLOCKS here if N already outstanding</span>
+      drive_addr_phase(req);
+      <span class="kw">if</span> (req.is_write) drive_write_data(req);
+      outstanding[req.id].push_back(req);
+      seq_item_port.item_done();
+    <span class="kw">end</span>
+  <span class="kw">endtask</span>
+
+  <span class="kw">task</span> response_thread();
+    <span class="kw">forever</span> <span class="kw">begin</span>
+      axi_resp r;
+      collect_response(r);
+      <span class="kw">void</span>'(outstanding[r.id].pop_front()); <span class="cmt">// retire matching item (same-ID = head)</span>
+      slots.put(<span class="num">1</span>);                       <span class="cmt">// return a key → unblocks issue_thread</span>
+    <span class="kw">end</span>
+  <span class="kw">endtask</span>
+<span class="kw">endclass</span></code></pre>
+
+  <figure>
+    <svg viewBox="0 0 700 210" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <defs><marker id="sa" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker></defs>
+      <rect x="60" y="70" width="150" height="60" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="135" y="95" text-anchor="middle" font-size="12" fill="#1a4fa0" font-weight="600">issue_thread</text>
+      <text x="135" y="113" text-anchor="middle" font-size="9" fill="#5c5c66">slots.get(1) before issue</text>
+
+      <rect x="290" y="55" width="120" height="90" rx="6" fill="#f3f0fa" stroke="#6a1b9a" stroke-width="2"/>
+      <text x="350" y="80" text-anchor="middle" font-size="12" fill="#6a1b9a" font-weight="600">semaphore</text>
+      <text x="350" y="100" text-anchor="middle" font-size="10" fill="#5c5c66">keys = free slots</text>
+      <text x="350" y="124" text-anchor="middle" font-size="16" fill="#6a1b9a" font-weight="700">●●●○○</text>
+
+      <rect x="490" y="70" width="150" height="60" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="565" y="95" text-anchor="middle" font-size="12" fill="#0e7d6e" font-weight="600">response_thread</text>
+      <text x="565" y="113" text-anchor="middle" font-size="9" fill="#5c5c66">slots.put(1) on complete</text>
+
+      <line x1="210" y1="90" x2="288" y2="90" stroke="#1a4fa0" stroke-width="1.5" marker-end="url(#sa)"/>
+      <text x="249" y="82" text-anchor="middle" font-size="9" fill="#1a4fa0">get</text>
+      <line x1="490" y1="110" x2="412" y2="110" stroke="#0e7d6e" stroke-width="1.5" marker-end="url(#sa)"/>
+      <text x="451" y="125" text-anchor="middle" font-size="9" fill="#0e7d6e">put</text>
+      <text x="350" y="175" text-anchor="middle" font-size="9.5" fill="#5c5c66">When keys run out, issue_thread blocks automatically. Completions return keys and unblock it.</text>
+      <text x="350" y="195" text-anchor="middle" font-size="9.5" fill="#5c5c66">This is self-throttling back-pressure — no manual polling of any counter.</text>
+    </svg>
+    <figcaption>The semaphore as a slot pool. Issue consumes a key, completion returns one; the cap is enforced automatically by blocking.</figcaption>
+  </figure>
+
+  <h3>Enforcing per-ID depth as well</h3>
+  <p>The total cap alone doesn't stop one ID from hogging all slots, which may exceed a per-ID limit the DUT
+  enforces. Add a per-ID semaphore (or counter) keyed by ID:</p>
+
+  <pre><code class="language-sv"><span class="kw">int</span> max_per_id = <span class="num">8</span>;
+  semaphore id_slots[<span class="type">int</span>];               <span class="cmt">// one semaphore per ID, lazily created</span>
+
+  <span class="kw">task</span> issue_thread();
+    <span class="kw">forever</span> <span class="kw">begin</span>
+      seq_item_port.get_next_item(req);
+      <span class="kw">if</span> (!id_slots.exists(req.id))
+        id_slots[req.id] = <span class="kw">new</span>(max_per_id); <span class="cmt">// create on first use</span>
+      slots.get(<span class="num">1</span>);                       <span class="cmt">// total cap</span>
+      id_slots[req.id].get(<span class="num">1</span>);            <span class="cmt">// per-ID cap (both must be satisfied)</span>
+      drive_addr_phase(req);
+      <span class="kw">if</span> (req.is_write) drive_write_data(req);
+      outstanding[req.id].push_back(req);
+      seq_item_port.item_done();
+    <span class="kw">end</span>
+  <span class="kw">endtask</span>
+  <span class="cmt">// response_thread mirrors: id_slots[r.id].put(1); slots.put(1);</span></code></pre>
+
+  <div class="callout warn">
+    <strong>Watch the ordering of the two get() calls.</strong> Always acquire in a consistent order (e.g. total
+    then per-ID) across all threads. Acquiring two resources in different orders in different code paths is a
+    textbook recipe for a testbench deadlock — the same hazard the DUT itself must avoid.
+  </div>
+
+  <h3>Reacting to DUT back-pressure on the address channel</h3>
+  <p>Separately from your own cap, the DUT can refuse new addresses by holding <code>AWREADY</code>/<code>ARREADY</code>
+  low. The <code>drive_addr_phase</code> task naturally handles this: it asserts VALID and waits for READY,
+  holding the payload stable. While it waits, no new item is fetched — so DUT back-pressure also throttles issue,
+  for free. The two mechanisms compose: your semaphore caps the count; the DUT's READY caps the rate.</p>
+
+  <h3>Randomising the depth to explore load</h3>
+  <p>A fixed cap tests one operating point. To explore the range, randomise the effective cap per phase or inject
+  random gaps in the issue thread, so the design sees shallow, medium, and saturated outstanding over a run:</p>
+  <pre><code class="language-sv"><span class="cmt">// Vary load: occasionally idle the issue thread to create depth variation</span>
+<span class="kw">if</span> (!std::randomize(gap) <span class="kw">with</span> { gap <span class="kw">dist</span> {<span class="num">0</span> := <span class="num">70</span>, [<span class="num">1</span>:<span class="num">5</span>] := <span class="num">30</span>}; })
+  `uvm_fatal("RAND","gap")
+<span class="kw">repeat</span>(gap) @(<span class="kw">posedge</span> vif.clk);   <span class="cmt">// 70% no gap (push depth up), 30% small pause</span></code></pre>
+
+  <div class="activity">
+    <h4>Activity — diagnose the stuck driver</h4>
+    <p>A driver uses a total semaphore initialised to 16 and a per-ID semaphore (max 8 each). After running a while
+    with heavy single-ID traffic, the driver hangs — no new transactions issue, but the DUT is idle and accepting.
+    The response thread calls only <code>slots.put(1)</code> on completion. What's the bug?</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Count keys. The issue thread does TWO get() calls (total and per-ID). How many put() calls does the response thread do? With heavy single-ID traffic, which semaphore runs out of keys and never gets them back?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p>The response thread returns a key to the <em>total</em> semaphore but never to the <em>per-ID</em>
+      semaphore (<code>id_slots[r.id].put(1)</code> is missing). With heavy single-ID traffic, that ID's
+      per-ID semaphore drains to zero after 8 transactions and is never replenished, so the issue thread blocks
+      forever on <code>id_slots[req.id].get(1)</code> — even though total slots and the DUT are free.</p>
+      <p><strong>Fix:</strong> the response thread must mirror every acquire with a matching release:
+      <code>id_slots[r.id].put(1); slots.put(1);</code>. Every <code>get()</code> needs exactly one corresponding
+      <code>put()</code>, or the pool leaks keys and eventually deadlocks. This is the most common semaphore bug
+      in throttled drivers.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="c">
+    <p class="quiz-question">What is the cleanest way for a pipelined driver to cap its outstanding depth at N?</p>
+    <div class="quiz-options">
+      <button data-opt="a">Poll a counter in a while loop every cycle</button>
+      <button data-opt="b">Insert a fixed delay between transactions</button>
+      <button data-opt="c">Use a counting semaphore with N keys: get() before issue, put() on completion</button>
+      <button data-opt="d">Limit the sequence to N items total</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">A counting semaphore caps depth automatically: the issue thread blocks when keys run out and resumes when completions return them. Polling is wasteful and error-prone, fixed delays don't track actual completions, and limiting total items caps the run length, not the in-flight depth.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Pair every semaphore <code>get()</code> with exactly one <code>put()</code> on the completion path, for both total and per-ID pools.</p><p class="practice-why"><em>Why: a leaked key permanently lowers the effective cap and eventually deadlocks the driver — a hang that's painful to trace.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Returning the total key but forgetting the per-ID key (or vice versa).</p><p class="practice-why"><em>Why it hurts: one pool slowly drains to zero and the driver wedges, often only under sustained single-ID load — so it passes light tests and hangs in regression.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Acquire multiple resources in a single consistent order everywhere.</p><p class="practice-why"><em>Why: inconsistent acquire order between threads is a classic deadlock; keeping it uniform makes the testbench race-free by construction.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Driving at a single fixed outstanding depth for the whole run.</p><p class="practice-why"><em>Why it hurts: you test one occupancy point. Bugs at shallow depth (counter underflow) and at saturation (overflow/back-pressure) both go unseen. Randomise the depth.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 6 ===== -->
+<section class="module" id="m6">
+  <div class="mod-num">MODULE 6</div>
+  <h2 class="mod-title">Scoreboard Architecture for Outstanding Transactions</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>See why a single in-order FIFO scoreboard fails with outstanding transactions.</li>
+      <li>Design the per-ID expected-queue model.</li>
+      <li>Match returning responses to requests using ID.</li>
+      <li>Build the scoreboard skeleton with UVM analysis ports.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a coat check with numbered tickets.</strong> A coat check doesn't assume coats are collected
+    in the order they were handed in. It gives each coat a numbered ticket and files it. When you return your
+    ticket, it finds <em>your</em> coat by number, regardless of who arrived before or after you. The scoreboard
+    is the coat check; the AxID is the ticket number; the per-ID queues are the numbered racks.
+  </div>
+
+  <h3>How a scoreboard works, in one sentence</h3>
+  <p>A scoreboard receives a copy of every <em>request</em> (from a monitor on the address side) and every
+  <em>response</em> (from a monitor on the data/response side), computes what the response <em>should</em> be, and
+  checks the actual response against the expectation. With outstanding transactions, the only hard part is
+  matching each response to the right request.</p>
+
+  <h3>Why the naive single-FIFO scoreboard fails</h3>
+  <p>The textbook scoreboard pushes each expected result into one queue as requests arrive, and pops from the
+  front as responses arrive — assuming responses come back in issue order. The instant two different-ID
+  transactions are outstanding and the DUT legally reorders them, the front of the FIFO is the <em>wrong</em>
+  transaction, and the scoreboard reports a mismatch that is not a bug.</p>
+
+  <figure>
+    <svg viewBox="0 0 700 250" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <text x="350" y="20" text-anchor="middle" font-size="12" fill="#c62828" font-weight="600">Single FIFO — breaks on reorder</text>
+      <!-- issue order into one fifo -->
+      <g font-size="10" text-anchor="middle">
+        <rect x="60" y="40" width="60" height="26" rx="4" fill="#e8f0fe" stroke="#1a4fa0"/><text x="90" y="57">A id5</text>
+        <rect x="125" y="40" width="60" height="26" rx="4" fill="#e8f4f1" stroke="#0e7d6e"/><text x="155" y="57">B id9</text>
+        <rect x="190" y="40" width="60" height="26" rx="4" fill="#e8f0fe" stroke="#1a4fa0"/><text x="220" y="57">C id5</text>
+      </g>
+      <text x="270" y="57" font-size="9" fill="#5c5c66">front → A</text>
+      <!-- response B arrives first -->
+      <text x="60" y="100" font-size="10" fill="#c62828">Response B (id9) returns first…</text>
+      <text x="60" y="118" font-size="10" fill="#c62828">…but FIFO front is A → FALSE mismatch!</text>
+
+      <line x1="60" y1="135" x2="640" y2="135" stroke="#e2e0db"/>
+      <text x="350" y="160" text-anchor="middle" font-size="12" fill="#0e7d6e" font-weight="600">Per-ID queues — correct</text>
+      <g font-size="10" text-anchor="middle">
+        <text x="60" y="190" fill="#1a4fa0" font-weight="600">id5:</text>
+        <rect x="100" y="177" width="60" height="24" rx="4" fill="#e8f0fe" stroke="#1a4fa0"/><text x="130" y="193">A</text>
+        <rect x="165" y="177" width="60" height="24" rx="4" fill="#e8f0fe" stroke="#1a4fa0"/><text x="195" y="193">C</text>
+        <text x="300" y="190" fill="#0e7d6e" font-weight="600">id9:</text>
+        <rect x="340" y="177" width="60" height="24" rx="4" fill="#e8f4f1" stroke="#0e7d6e"/><text x="370" y="193">B</text>
+      </g>
+      <text x="500" y="193" font-size="9.5" fill="#0e7d6e">B returns → check id9 queue front (B) ✓</text>
+      <text x="350" y="232" text-anchor="middle" font-size="9.5" fill="#5c5c66">The response's ID selects which queue to check. Reordering across IDs is handled naturally.</text>
+    </svg>
+    <figcaption>Top: one FIFO mis-matches as soon as responses reorder. Bottom: per-ID queues route each response to the right expected item.</figcaption>
+  </figure>
+
+  <h3>The per-ID expected-queue model</h3>
+  <p>The fix follows directly from the ordering rules (Module 3): keep <strong>one expected-queue per ID</strong>.
+  On a request, enqueue the expected result into that ID's queue. On a response, use the response's ID to pick the
+  queue, and compare against its <em>head</em> (same-ID ordering guarantees the oldest outstanding item of that ID
+  is the match). This single data structure encodes both ordering rules: strict order within a queue, independence
+  across queues.</p>
+
+  <h3>The scoreboard skeleton with analysis ports</h3>
+  <p>In UVM, monitors broadcast observed transactions through <code>uvm_analysis_port</code>. The scoreboard
+  receives them via <code>uvm_analysis_imp</code>. We use two — one for requests, one for responses — with the
+  macro <code>`uvm_analysis_imp_decl</code> to give each its own write method.</p>
+
+  <pre><code class="language-sv"><span class="cmt">// Declare two distinct analysis imp suffixes: _req and _rsp</span>
+`uvm_analysis_imp_decl(_req)
+`uvm_analysis_imp_decl(_rsp)
+
+<span class="kw">class</span> axi_scoreboard <span class="kw">extends</span> uvm_scoreboard;
+  `uvm_component_utils(axi_scoreboard)
+
+  uvm_analysis_imp_req #(axi_seq_item, axi_scoreboard) req_imp;
+  uvm_analysis_imp_rsp #(axi_seq_item, axi_scoreboard) rsp_imp;
+
+  <span class="cmt">// THE key data structure: per-ID queues of expected results, in issue order.</span>
+  axi_seq_item expected[<span class="type">int</span>][$];   <span class="cmt">// expected[id] is a FIFO for that ID</span>
+
+  <span class="cmt">// A reference memory model so we can predict read data and apply writes.</span>
+  <span class="type">bit</span> [<span class="num">7</span>:<span class="num">0</span>] mem [<span class="type">bit</span>[<span class="num">31</span>:<span class="num">0</span>]];   <span class="cmt">// sparse byte-addressable memory</span>
+
+  <span class="kw">int</span> unsigned matches, mismatches;
+
+  <span class="kw">function</span> <span class="type">void</span> build_phase(uvm_phase phase);
+    req_imp = <span class="kw">new</span>(<span class="str">"req_imp"</span>, <span class="kw">this</span>);
+    rsp_imp = <span class="kw">new</span>(<span class="str">"rsp_imp"</span>, <span class="kw">this</span>);
+  <span class="kw">endfunction</span>
+
+  <span class="cmt">// Called by the address-side monitor for every accepted request.</span>
+  <span class="kw">function</span> <span class="type">void</span> write_req(axi_seq_item t);
+    axi_seq_item exp = predict(t);        <span class="cmt">// compute expected result from the ref model</span>
+    expected[t.id].push_back(exp);        <span class="cmt">// enqueue in issue order, per ID</span>
+  <span class="kw">endfunction</span>
+
+  <span class="cmt">// Called by the response-side monitor for every completed response.</span>
+  <span class="kw">function</span> <span class="type">void</span> write_rsp(axi_seq_item actual);
+    <span class="kw">if</span> (expected[actual.id].size() == <span class="num">0</span>) <span class="kw">begin</span>
+      `uvm_error("SB", $sformatf(<span class="str">"Response for ID %0d with no outstanding request!"</span>, actual.id))
+      <span class="kw">return</span>;
+    <span class="kw">end</span>
+    axi_seq_item exp = expected[actual.id].pop_front(); <span class="cmt">// same-ID order ⇒ head is the match</span>
+    compare(exp, actual);
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></code></pre>
+
+  <h3>predict() and compare() — the reference model</h3>
+  <p>The scoreboard's correctness rests on a faithful reference model. <code>predict()</code> turns a request into
+  the expected response; for a write it applies the data to the reference memory (honouring byte strobes), for a
+  read it gathers the expected bytes. <code>compare()</code> checks the actual response against it.</p>
+
+  <pre><code class="language-sv"><span class="kw">function</span> axi_seq_item predict(axi_seq_item t);
+  axi_seq_item exp = axi_seq_item::type_id::create(<span class="str">"exp"</span>);
+  exp.id = t.id; exp.is_write = t.is_write;
+  <span class="kw">foreach</span> (t.beat_addr[i]) <span class="kw">begin</span>            <span class="cmt">// per-beat addresses (from burst calc)</span>
+    <span class="kw">if</span> (t.is_write) <span class="kw">begin</span>
+      <span class="kw">for</span> (<span class="type">int</span> b=<span class="num">0</span>; b&lt;t.bytes_per_beat; b++)
+        <span class="kw">if</span> (t.wstrb[i][b])               <span class="cmt">// only strobed bytes are written</span>
+          mem[t.beat_addr[i]+b] = t.wdata[i][<span class="num">8</span>*b +: <span class="num">8</span>];
+      exp.resp = OKAY;                   <span class="cmt">// expected B response</span>
+    <span class="kw">end</span> <span class="kw">else</span> <span class="kw">begin</span>
+      <span class="kw">for</span> (<span class="type">int</span> b=<span class="num">0</span>; b&lt;t.bytes_per_beat; b++)
+        exp.rdata[i][<span class="num">8</span>*b +: <span class="num">8</span>] = mem.exists(t.beat_addr[i]+b)
+                                       ? mem[t.beat_addr[i]+b] : <span class="num">8'h00</span>;
+      exp.resp = OKAY;                   <span class="cmt">// per-beat RRESP</span>
+    <span class="kw">end</span>
+  <span class="kw">end</span>
+  <span class="kw">return</span> exp;
+<span class="kw">endfunction</span>
+
+<span class="kw">function</span> <span class="type">void</span> compare(axi_seq_item exp, axi_seq_item act);
+  <span class="kw">if</span> (act.is_write) <span class="kw">begin</span>
+    <span class="kw">if</span> (act.resp !== exp.resp)
+      `uvm_error("SB", $sformatf(<span class="str">"ID %0d write resp exp %s got %s"</span>, act.id, exp.resp.name, act.resp.name))
+    <span class="kw">else</span> matches++;
+  <span class="kw">end</span> <span class="kw">else</span> <span class="kw">begin</span>
+    <span class="kw">foreach</span> (exp.rdata[i])
+      <span class="kw">if</span> (act.rdata[i] !== exp.rdata[i]) <span class="kw">begin</span>
+        `uvm_error("SB", $sformatf(<span class="str">"ID %0d beat %0d data exp %h got %h"</span>, act.id, i, exp.rdata[i], act.rdata[i]))
+        mismatches++; <span class="kw">return</span>;
+      <span class="kw">end</span>
+    matches++;
+  <span class="kw">end</span>
+<span class="kw">endfunction</span></code></pre>
+
+  <div class="callout">
+    <strong>Where requests and responses come from:</strong> the scoreboard does <em>not</em> snoop the driver. Two
+    independent monitors observe the bus — one watches the address channels and emits the request to
+    <code>write_req</code>; the other watches the data/response channels and emits the completion to
+    <code>write_rsp</code>. Keeping the scoreboard fed by monitors (not the driver) means it verifies what actually
+    happened on the wires, not what the driver intended.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — choose the data structure</h4>
+    <p>You must store expected results for up to 32 outstanding transactions spread across up to 4 distinct IDs,
+    where responses can return out of order across IDs but in order within an ID. Someone proposes a single
+    <code>axi_seq_item expected[$]</code> queue and "search it for a matching ID on each response." Why is the
+    per-ID queue (<code>expected[int][$]</code>) better, both for correctness and for performance?</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Think about how you find the right expected item on a response. With one queue you must search; which matching item do you pick if an ID has several entries? With per-ID queues, where is the guaranteed match, and how long does finding it take?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>Correctness:</strong> with per-ID queues the match for a response is always the <em>head</em> of
+      that ID's queue — guaranteed by same-ID ordering. With a single searched queue you must decide <em>which</em>
+      matching-ID entry to pick; pick the wrong one (e.g. not the oldest) and you mis-compare. The per-ID structure
+      bakes the ordering rule into the data structure so you can't get it wrong.</p>
+      <p><strong>Performance:</strong> per-ID is an O(1) <code>pop_front</code> on a small queue. The single-queue
+      search is O(N) per response, and with deep outstanding in long regressions that overhead is real. The per-ID
+      map also makes per-ID depth tracking and coverage trivial. It is both safer and faster.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="b">
+    <p class="quiz-question">Why does a single in-order FIFO scoreboard produce false mismatches with outstanding transactions?</p>
+    <div class="quiz-options">
+      <button data-opt="a">FIFOs cannot store transactions</button>
+      <button data-opt="b">Responses can legally return out of order across IDs, so the FIFO front is often not the matching transaction</button>
+      <button data-opt="c">The FIFO is too small</button>
+      <button data-opt="d">Write responses have no ID</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Different-ID transactions may complete in any order. A single FIFO assumes issue-order completion, so when a later-issued different-ID response returns first, the FIFO front is the wrong item and the compare fails — a testbench bug, not an RTL bug. Per-ID queues fix it.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Use a per-ID expected-queue map; pop the head of the response's ID queue to find the match.</p><p class="practice-why"><em>Why: it encodes both ordering rules in the data structure, is O(1) per response, and makes per-ID depth tracking free.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Feeding the scoreboard from the driver instead of from monitors.</p><p class="practice-why"><em>Why it hurts: you'd be checking what the driver intended, not what reached the wires — bugs in the driver or DUT pin-level behaviour become invisible.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Flag a response that arrives with an empty expected-queue for its ID as an error.</p><p class="practice-why"><em>Why: an unexpected/extra response (or a duplicated one) is a real protocol bug; silently ignoring it hides DUT errors.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Modelling read data by reading the DUT's memory backdoor instead of a reference model.</p><p class="practice-why"><em>Why it hurts: backdoor reads can mask the very datapath bug you're testing; an independent reference model is what makes the check meaningful.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 7 ===== -->
+<section class="module" id="m7">
+  <div class="mod-num">MODULE 7</div>
+  <h2 class="mod-title">Out-of-Order Completion in the Scoreboard</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Confirm that per-ID queues accept all legal reorderings automatically.</li>
+      <li>Detect the one illegal case: within-ID reordering.</li>
+      <li>Add per-transaction timeouts to catch dropped (never-returning) responses.</li>
+      <li>Handle read-data interleaving on the R channel.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a relay race with multiple lanes.</strong> Each lane (ID) must pass its baton in strict
+    runner order — runner 2 can't finish before runner 1 in the same lane. But lane 3 can finish its whole relay
+    before lane 1 finishes its first leg. The referee (scoreboard) only disqualifies a lane that passes its baton
+    out of order <em>within</em> the lane; cross-lane finishing order is never a foul.
+  </div>
+
+  <h3>Legal reordering is already handled — by construction</h3>
+  <p>Here's the elegant part: the per-ID queue model from Module 6 needs <em>no extra code</em> to accept
+  out-of-order completion across IDs. Because each response is routed to its own ID's queue, responses from
+  different IDs arriving in any order each find the correct head. The scoreboard simply doesn't care about the
+  relative order of different-ID responses — which is exactly the protocol rule.</p>
+
+  <div class="keybox">
+    <strong>The structure is the check.</strong> Routing by ID + comparing against the head of that ID's queue
+    means: across IDs → any order works (different queues); within an ID → order is enforced (FIFO discipline). The
+    two ordering rules fall out of the data structure for free.
+  </div>
+
+  <h3>Detecting illegal within-ID reordering</h3>
+  <p>So what catches a <em>bug</em>? If the DUT returns two same-ID responses out of order, the data at the head of
+  that ID's queue won't match the returned data — the compare fails. That's the detection. But the failure message
+  ("data mismatch") doesn't scream "ordering violation," so it's worth adding an explicit check that makes the
+  diagnosis obvious. Tag each expected item with a per-ID sequence number and verify responses arrive in
+  increasing sequence within the ID:</p>
+
+  <pre><code class="language-sv"><span class="kw">int</span> issue_seq[<span class="type">int</span>];        <span class="cmt">// next issue sequence number, per ID</span>
+<span class="kw">int</span> expect_seq[<span class="type">int</span>];       <span class="cmt">// next expected completion sequence, per ID</span>
+
+<span class="kw">function</span> <span class="type">void</span> write_req(axi_seq_item t);
+  t.seq_no = issue_seq[t.id]++;     <span class="cmt">// stamp issue order within this ID</span>
+  axi_seq_item exp = predict(t);
+  exp.seq_no = t.seq_no;
+  expected[t.id].push_back(exp);
+<span class="kw">endfunction</span>
+
+<span class="kw">function</span> <span class="type">void</span> write_rsp(axi_seq_item actual);
+  <span class="kw">if</span> (expected[actual.id].size() == <span class="num">0</span>) <span class="kw">begin</span>
+    `uvm_error(<span class="str">"SB"</span>, $sformatf(<span class="str">"Unexpected response, ID %0d"</span>, actual.id)) <span class="kw">return</span>;
+  <span class="kw">end</span>
+  axi_seq_item exp = expected[actual.id].pop_front();
+  <span class="cmt">// Explicit ordering guard: the head MUST be the next expected sequence.</span>
+  <span class="kw">if</span> (exp.seq_no !== expect_seq[actual.id]) <span class="kw">begin</span>
+    `uvm_error(<span class="str">"SB_ORDER"</span>, $sformatf(
+       <span class="str">"ID %0d completed out of order: expected seq %0d, head seq %0d"</span>,
+       actual.id, expect_seq[actual.id], exp.seq_no))
+  <span class="kw">end</span>
+  expect_seq[actual.id]++;
+  compare(exp, actual);
+<span class="kw">endfunction</span></code></pre>
+  <p>Now a within-ID ordering violation produces a clear <code>SB_ORDER</code> error naming the IDs and sequence
+  numbers — far easier to triage than a bare data mismatch.</p>
+
+  <figure>
+    <svg viewBox="0 0 700 230" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <defs><marker id="o7" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker></defs>
+      <text x="350" y="20" text-anchor="middle" font-size="12" fill="#5c5c66">Response routing in the scoreboard</text>
+      <rect x="40" y="40" width="150" height="50" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="115" y="62" text-anchor="middle" font-size="11" fill="#0e7d6e" font-weight="600">response arrives</text>
+      <text x="115" y="80" text-anchor="middle" font-size="10" fill="#5c5c66">RID / BID = k</text>
+
+      <rect x="270" y="40" width="160" height="50" rx="6" fill="#f3f0fa" stroke="#6a1b9a" stroke-width="2"/>
+      <text x="350" y="62" text-anchor="middle" font-size="11" fill="#6a1b9a" font-weight="600">select expected[k]</text>
+      <text x="350" y="80" text-anchor="middle" font-size="10" fill="#5c5c66">pop_front()</text>
+
+      <rect x="510" y="20" width="160" height="44" rx="6" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2"/>
+      <text x="590" y="40" text-anchor="middle" font-size="10" fill="#2e7d32" font-weight="600">seq matches → compare</text>
+      <text x="590" y="56" text-anchor="middle" font-size="9" fill="#5c5c66">data/resp check</text>
+      <rect x="510" y="72" width="160" height="44" rx="6" fill="#fdecea" stroke="#c62828" stroke-width="2"/>
+      <text x="590" y="92" text-anchor="middle" font-size="10" fill="#c62828" font-weight="600">seq wrong → SB_ORDER</text>
+      <text x="590" y="108" text-anchor="middle" font-size="9" fill="#5c5c66">within-ID reorder bug</text>
+
+      <line x1="190" y1="65" x2="268" y2="65" stroke="#5c5c66" stroke-width="1.5" marker-end="url(#o7)"/>
+      <line x1="430" y1="58" x2="508" y2="44" stroke="#2e7d32" stroke-width="1.5" marker-end="url(#o7)"/>
+      <line x1="430" y1="74" x2="508" y2="90" stroke="#c62828" stroke-width="1.5" marker-end="url(#o7)"/>
+      <text x="350" y="150" text-anchor="middle" font-size="9.5" fill="#5c5c66">Different-ID responses route to different queues — any arrival order is fine.</text>
+      <text x="350" y="170" text-anchor="middle" font-size="9.5" fill="#5c5c66">Within an ID, the sequence guard turns a reorder bug into a clear, named error.</text>
+      <!-- queues -->
+      <g font-size="9" text-anchor="middle">
+        <text x="300" y="200" fill="#1a4fa0">expected[5]: [s0,s1,s2]</text>
+        <text x="470" y="200" fill="#0e7d6e">expected[9]: [s0,s1]</text>
+      </g>
+    </svg>
+    <figcaption>Each response is routed by ID to its queue; the sequence guard converts a within-ID ordering bug into an explicit SB_ORDER failure.</figcaption>
+  </figure>
+
+  <h3>Timeouts — catching the response that never comes</h3>
+  <p>The most dangerous bug is a <em>dropped</em> transaction: the DUT accepts a request and never returns its
+  response. Nothing mismatches — the expected item just sits in its queue forever, and a naive scoreboard reports
+  success at end-of-test. You must actively hunt this with a timeout.</p>
+
+  <pre><code class="language-sv"><span class="cmt">// Stamp each expected item with the time it was issued; a watchdog scans for staleness.</span>
+<span class="kw">function</span> <span class="type">void</span> write_req(axi_seq_item t);
+  t.issue_time = $time;
+  <span class="cmt">// ... seq stamping + predict + push_back as before ...</span>
+<span class="kw">endfunction</span>
+
+<span class="kw">task</span> run_phase(uvm_phase phase);
+  <span class="kw">forever</span> <span class="kw">begin</span>
+    #(<span class="num">1000</span>);                                <span class="cmt">// check periodically</span>
+    <span class="kw">foreach</span> (expected[id])
+      <span class="kw">if</span> (expected[id].size() &gt; <span class="num">0</span>) <span class="kw">begin</span>
+        axi_seq_item head = expected[id][<span class="num">0</span>];
+        <span class="kw">if</span> ($time - head.issue_time &gt; TIMEOUT_NS)
+          `uvm_error(<span class="str">"SB_TIMEOUT"</span>, $sformatf(
+            <span class="str">"ID %0d txn (seq %0d) outstanding &gt; %0d ns — response dropped?"</span>,
+            id, head.seq_no, TIMEOUT_NS))
+      <span class="kw">end</span>
+  <span class="kw">end</span>
+<span class="kw">endtask</span>
+
+<span class="cmt">// Also verify at end-of-test that NOTHING is left outstanding.</span>
+<span class="kw">function</span> <span class="type">void</span> check_phase(uvm_phase phase);
+  <span class="kw">foreach</span> (expected[id])
+    <span class="kw">if</span> (expected[id].size() != <span class="num">0</span>)
+      `uvm_error(<span class="str">"SB_LEFTOVER"</span>, $sformatf(<span class="str">"ID %0d has %0d unmatched requests at end of test"</span>,
+                 id, expected[id].size()))
+<span class="kw">endfunction</span></code></pre>
+
+  <div class="callout warn">
+    <strong>Two safety nets, both required.</strong> The periodic <em>timeout</em> catches a hang <em>during</em>
+    the run (so the regression fails fast with a useful message). The <em>check_phase</em> leftover-scan catches
+    anything still outstanding at the <em>end</em>. Without both, a dropped response can masquerade as a passing
+    test — the most insidious verification escape there is.
+  </div>
+
+  <h3>Read-data interleaving</h3>
+  <p>One more wrinkle for reads: AXI allows R-channel beats of <em>different IDs</em> to interleave (the RID on each
+  beat says which transaction it belongs to). Your response monitor must reassemble beats per RID into complete
+  transactions before handing them to <code>write_rsp</code>. (Note: AXI4 removed <em>write</em>-data interleaving,
+  so the W side is contiguous; only reads need per-RID beat reassembly.)</p>
+
+  <div class="activity">
+    <h4>Activity — will this scoreboard catch the bug?</h4>
+    <p>A DUT has a bug: under load, it occasionally drops a single read response entirely (accepts the AR, never
+    returns the R). A reviewer says "our per-ID-queue scoreboard with data comparison will catch it." Are they
+    right? What exactly is needed to catch this class of bug?</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>If a response never arrives, is write_rsp ever called for it? Does the compare ever run? What happens to the expected item — and when, if ever, would a pure data-comparison scoreboard notice it's still sitting there?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>Not by data comparison alone.</strong> A dropped response means <code>write_rsp</code> is never
+      called for that transaction, so <code>compare()</code> never runs — there is no mismatch to report. The
+      expected item simply stays in its ID's queue. A scoreboard that only compares on response will report a clean
+      pass.</p>
+      <p><strong>What catches it:</strong> the <em>timeout watchdog</em> (flags the stale head of the queue during
+      the run) and/or the <em>check_phase leftover-scan</em> (flags the unmatched item at end-of-test). This is why
+      those two mechanisms aren't optional extras — they catch an entire class of bugs that data comparison
+      structurally cannot. Add an end-to-end transaction-count check (issued vs completed per ID) for belt-and-braces.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="c">
+    <p class="quiz-question">With per-ID queues, what extra logic is needed to <em>accept</em> legal out-of-order completion across different IDs?</p>
+    <div class="quiz-options">
+      <button data-opt="a">A global reorder buffer</button>
+      <button data-opt="b">A sorting step on every response</button>
+      <button data-opt="c">None — routing each response to its own ID queue handles it automatically</button>
+      <button data-opt="d">A second scoreboard</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Because each response is matched against the head of its own ID's queue, different-ID responses arriving in any order each find the right expected item with no extra logic. The data structure itself encodes "any order across IDs, strict order within an ID."</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Add an explicit per-ID sequence guard so within-ID reordering produces a clear, named error.</p><p class="practice-why"><em>Why: relying on a data mismatch to flag an ordering bug gives a misleading message; an SB_ORDER error names the exact IDs and sequence numbers.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Trusting a data-comparison scoreboard to catch dropped responses.</p><p class="practice-why"><em>Why it hurts: a never-returning response triggers no compare and looks like a pass — the worst kind of silent escape. You need timeouts and a leftover-scan.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Check at <code>check_phase</code> that every per-ID queue is empty and issued counts equal completed counts.</p><p class="practice-why"><em>Why: it's the definitive end-of-test proof that nothing was lost or duplicated, independent of data values.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Forgetting to reassemble interleaved read beats per RID before comparing.</p><p class="practice-why"><em>Why it hurts: interleaved R beats from different IDs will be stitched into the wrong transactions, producing false data mismatches that look like DUT bugs.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 8 ===== -->
+<section class="module" id="m8">
+  <div class="mod-num">MODULE 8</div>
+  <h2 class="mod-title">Coverage &amp; Corner Cases</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Build a functional coverage model specific to outstanding behaviour.</li>
+      <li>Cover outstanding depth, per-ID depth, and out-of-order "distance."</li>
+      <li>Enumerate the "try to break it" corners for outstanding transactions.</li>
+      <li>Understand why coverage, not passing tests, defines completeness here.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a checklist for a test pilot.</strong> A plane that lands safely once hasn't been tested —
+    it's been flown. Real testing is a checklist of regimes: max load, stall, sharp turns, engine-out. Functional
+    coverage is that checklist for the design: it records which regimes you actually flew, so "all green" means
+    "we deliberately exercised every regime," not "nothing happened to break."
+  </div>
+
+  <h3>What to cover for outstanding transactions</h3>
+  <p>The performance and ordering arguments tell you exactly what regimes matter. The coverage model should capture
+  the <em>occupancy</em> of the system and the <em>shape</em> of the reordering, not just individual transactions.</p>
+
+  <pre><code class="language-sv"><span class="kw">class</span> axi_outstanding_cov <span class="kw">extends</span> uvm_subscriber #(axi_event);
+  `uvm_component_utils(axi_outstanding_cov)
+
+  <span class="kw">int</span> cur_total;        <span class="cmt">// current total outstanding (updated on issue/complete)</span>
+  <span class="kw">int</span> cur_per_id;       <span class="cmt">// outstanding for the ID of the sampled event</span>
+  <span class="kw">int</span> ooo_distance;     <span class="cmt">// how far out of issue order this completion was</span>
+  <span class="type">bit</span> [<span class="num">3</span>:<span class="num">0</span>] id;
+
+  covergroup cg;
+    <span class="cmt">// How deep did we actually go? Hitting the max bin is the key goal.</span>
+    depth_cp : coverpoint cur_total {
+      bins empty   = {<span class="num">0</span>};
+      bins low     = {[<span class="num">1</span>:<span class="num">4</span>]};
+      bins mid     = {[<span class="num">5</span>:<span class="num">12</span>]};
+      bins near_max= {[<span class="num">13</span>:<span class="num">15</span>]};
+      bins at_max  = {<span class="num">16</span>};          <span class="cmt">// the cap — must be hit</span>
+    }
+    per_id_cp : coverpoint cur_per_id {
+      bins one = {<span class="num">1</span>}; bins few = {[<span class="num">2</span>:<span class="num">7</span>]}; bins at_id_max = {<span class="num">8</span>};
+    }
+    <span class="cmt">// Reorder shape: 0 = in order; larger = a response jumped ahead of N older ones.</span>
+    ooo_cp : coverpoint ooo_distance {
+      bins inorder = {<span class="num">0</span>};
+      bins near    = {[<span class="num">1</span>:<span class="num">3</span>]};
+      bins far     = {[<span class="num">4</span>:<span class="num">31</span>]};   <span class="cmt">// a much-later txn overtaking</span>
+    }
+    id_cp : coverpoint id;
+    <span class="cmt">// Crosses — bugs cluster at intersections, not single values.</span>
+    depth_x_ooo : <span class="kw">cross</span> depth_cp, ooo_cp;     <span class="cmt">// deep AND heavily reordered?</span>
+    id_x_depth  : <span class="kw">cross</span> id_cp, per_id_cp;     <span class="cmt">// did EACH id reach its per-id max?</span>
+  endgroup
+
+  <span class="kw">function</span> <span class="type">void</span> write(axi_event e);
+    <span class="cmt">// update cur_total / cur_per_id / ooo_distance / id from e, then:</span>
+    cg.sample();
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></code></pre>
+
+  <div class="callout">
+    <strong>The cross is the point.</strong> <code>depth_x_ooo</code> is the coverage bin that matters most:
+    "reached max outstanding <em>and</em> saw a far reorder" is precisely the high-stress state where buffer and
+    reorder logic interact. Covering depth alone or reorder alone can read 100% while that interaction was never
+    hit — and that interaction is where the nastiest bugs live.
+  </div>
+
+  <h3>The "try to break it" corner cases</h3>
+  <p>Beyond random coverage, write directed tests for the corners that random rarely lands on cleanly:</p>
+  <table>
+    <tr><th>Corner case</th><th>What it stresses / why it bites</th></tr>
+    <tr><td>Reach exactly the max outstanding, then issue one more</td><td>The accept/back-pressure boundary — does the DUT correctly stall vs overflow its buffer?</td></tr>
+    <tr><td>All transactions share one ID</td><td>Forces strict in-order completion through the full depth — stresses the per-ID queue, not the reorder path.</td></tr>
+    <tr><td>Every transaction a different ID</td><td>Maximises reorder freedom — stresses the reorder/tracking buffer and ID-CAM.</td></tr>
+    <tr><td>Maximal out-of-order: complete newest-first</td><td>The reorder buffer must hold everything; exposes capacity and pointer bugs.</td></tr>
+    <tr><td>Reset asserted with N transactions outstanding</td><td>Do in-flight transactions drain or get cleanly dropped? Do counters/queues re-initialise?</td></tr>
+    <tr><td>Response storm: many completions in consecutive cycles</td><td>Back-to-back retire path; can the scoreboard and DUT response logic keep up?</td></tr>
+    <tr><td>Mixed reads and writes at full depth on both</td><td>Independent budgets — does write depth bleed into read depth or vice versa?</td></tr>
+  </table>
+
+  <h3>Why coverage defines "done" here</h3>
+  <p>For outstanding transactions, "all tests pass" is especially weak: a shallow random run can pass forever while
+  never reaching max depth or a far reorder. Completion is when the <em>coverage</em> model — especially the
+  depth and depth×ooo crosses — is closed. That's your evidence that the high-stress states the design was built
+  to survive were actually visited.</p>
+
+  <div class="activity">
+    <h4>Activity — design the highest-value coverage cross</h4>
+    <p>Your DUT supports 16 total / 8 per-ID outstanding, with out-of-order completion across 4 IDs. You can add
+    one more coverage cross to your model. Which would you add to most increase confidence, and why — what bug
+    would it be designed to expose?</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>The riskiest states combine high occupancy with heavy reordering. You already have depth×ooo. What about whether the design holds up when it's simultaneously near max total depth AND a specific ID is at its per-ID max — i.e. one ID dominating a full buffer?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p>A strong choice: <code>cross (cur_total at/near max) × (cur_per_id at id_max) × (ooo far)</code> — the
+      state where the buffer is nearly full, a single ID is holding its maximum share, <em>and</em> a far reorder
+      occurs. </p>
+      <p><strong>Bug it targets:</strong> ID-tracking/allocation logic that works when load is spread across IDs
+      but mismanages pointers when one ID monopolises a near-full buffer and responses come back badly reordered.
+      That's a realistic corner where a reorder buffer's per-ID free-list or CAM can mis-allocate — and it's almost
+      impossible to hit by accident, so an explicit cross (plus a directed test to fill the bin) is the only way to
+      prove you exercised it. Covering total depth, per-ID depth, and ooo <em>independently</em> could all read
+      100% while this triple-intersection was never reached.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="b">
+    <p class="quiz-question">Why is functional coverage (not just passing tests) the right completion criterion for outstanding-transaction verification?</p>
+    <div class="quiz-options">
+      <button data-opt="a">Passing tests are impossible to achieve</button>
+      <button data-opt="b">A run can pass while never reaching max depth or a far reorder; coverage proves those high-stress states were actually exercised</button>
+      <button data-opt="c">Coverage runs faster than checking</button>
+      <button data-opt="d">Functional coverage replaces the scoreboard</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Tests passing only means the states you happened to reach were clean. The dangerous states (max depth, far reorder, their cross) may never have occurred. Functional coverage measures which of those regimes were actually visited — that's what "done" means here. It complements, not replaces, the scoreboard.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Make "reached max outstanding" and "depth × out-of-order distance" explicit coverage bins.</p><p class="practice-why"><em>Why: these are the high-stress regimes the design was sized for; if you don't measure them you can't claim to have verified them.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Covering depth and reorder independently and declaring victory at 100% each.</p><p class="practice-why"><em>Why it hurts: the interaction (deep AND reordered) can be entirely unexercised while both individual coverpoints read full — and that interaction is where bugs hide.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Pair the coverage model with directed corner tests (max+1, all-same-ID, reset-with-N-outstanding).</p><p class="practice-why"><em>Why: random stimulus rarely lands cleanly on the exact boundary; directed tests guarantee the corner bins close.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Never testing reset while transactions are outstanding.</p><p class="practice-why"><em>Why it hurts: reset-with-in-flight-traffic is a top source of silicon bugs (stale pointers, stuck counters) and is trivially missed by steady-state random tests.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 9 ===== -->
+<section class="module" id="m9">
+  <div class="mod-num">MODULE 9</div>
+  <h2 class="mod-title">Capstone — A Complete Environment &amp; a Debug Walkthrough</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Assemble driver, monitors, scoreboard, and coverage into one environment.</li>
+      <li>See how the pieces connect via analysis ports and config.</li>
+      <li>Work through a realistic out-of-order debug from symptom to root cause.</li>
+      <li>Consolidate the whole topic into a mental checklist.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — the full customs operation.</strong> The throttled driver is the gate letting in a managed
+    number of trucks (outstanding cap). The monitors are inspectors recording every truck in and every truck out.
+    The scoreboard is the manifest office matching departures to arrivals by tracking number (ID). Coverage is the
+    logbook proving every category of cargo and every load level was inspected. Together they prove nothing slipped
+    through.
+  </div>
+
+  <h3>The complete environment</h3>
+  <figure>
+    <svg viewBox="0 0 700 330" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <defs><marker id="c9" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker></defs>
+      <rect x="20" y="20" width="660" height="300" rx="8" fill="none" stroke="#5c5c66" stroke-dasharray="4 3"/>
+      <text x="34" y="40" font-size="11" fill="#5c5c66">axi_env</text>
+
+      <rect x="50" y="55" width="150" height="58" rx="6" fill="#eef3fb" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="125" y="78" text-anchor="middle" font-size="11" fill="#1a4fa0" font-weight="600">Sequencer</text>
+      <text x="125" y="96" text-anchor="middle" font-size="9" fill="#5c5c66">seqs: random depth/IDs</text>
+
+      <rect x="50" y="135" width="150" height="58" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="125" y="158" text-anchor="middle" font-size="11" fill="#1a4fa0" font-weight="600">Throttled driver</text>
+      <text x="125" y="176" text-anchor="middle" font-size="9" fill="#5c5c66">issue + response threads</text>
+
+      <rect x="300" y="135" width="120" height="58" rx="6" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+      <text x="360" y="160" text-anchor="middle" font-size="11" fill="#a86a00" font-weight="700">DUT</text>
+      <text x="360" y="178" text-anchor="middle" font-size="9" fill="#5c5c66">N outstanding</text>
+
+      <rect x="50" y="215" width="150" height="46" rx="6" fill="#fff" stroke="#1a4fa0"/>
+      <text x="125" y="243" text-anchor="middle" font-size="10" fill="#1a4fa0">Addr monitor → req</text>
+      <rect x="300" y="215" width="120" height="46" rx="6" fill="#fff" stroke="#0e7d6e"/>
+      <text x="360" y="243" text-anchor="middle" font-size="10" fill="#0e7d6e">Resp monitor → rsp</text>
+
+      <rect x="470" y="120" width="190" height="60" rx="6" fill="#f3f0fa" stroke="#6a1b9a" stroke-width="2"/>
+      <text x="565" y="143" text-anchor="middle" font-size="11" fill="#6a1b9a" font-weight="600">Scoreboard</text>
+      <text x="565" y="161" text-anchor="middle" font-size="9" fill="#5c5c66">per-ID queues + ref model</text>
+      <text x="565" y="174" text-anchor="middle" font-size="9" fill="#5c5c66">+ timeout watchdog</text>
+
+      <rect x="470" y="200" width="190" height="50" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="565" y="223" text-anchor="middle" font-size="11" fill="#0e7d6e" font-weight="600">Coverage</text>
+      <text x="565" y="240" text-anchor="middle" font-size="9" fill="#5c5c66">depth × ooo crosses</text>
+
+      <!-- arrows -->
+      <line x1="125" y1="113" x2="125" y2="133" stroke="#5c5c66" stroke-width="1.5" marker-end="url(#c9)"/>
+      <line x1="200" y1="164" x2="298" y2="164" stroke="#1a4fa0" stroke-width="1.5" marker-end="url(#c9)"/>
+      <line x1="200" y1="180" x2="300" y2="225" stroke="#5c5c66" stroke-width="1" marker-end="url(#c9)"/>
+      <line x1="360" y1="193" x2="360" y2="213" stroke="#0e7d6e" stroke-width="1.5" marker-end="url(#c9)"/>
+      <line x1="200" y1="235" x2="468" y2="160" stroke="#1a4fa0" stroke-width="1.2" marker-end="url(#c9)"/>
+      <text x="300" y="205" font-size="8" fill="#1a4fa0">req (write_req)</text>
+      <line x1="420" y1="238" x2="468" y2="170" stroke="#0e7d6e" stroke-width="1.2" marker-end="url(#c9)"/>
+      <text x="430" y="215" font-size="8" fill="#0e7d6e">rsp (write_rsp)</text>
+      <line x1="565" y1="180" x2="565" y2="198" stroke="#6a1b9a" stroke-width="1.2" marker-end="url(#c9)"/>
+      <text x="350" y="300" text-anchor="middle" font-size="9.5" fill="#5c5c66">Monitors (not the driver) feed the scoreboard, so it verifies what truly reached the wires.</text>
+    </svg>
+    <figcaption>The complete outstanding-aware environment: throttled driver creates the load, two monitors observe, the scoreboard matches by ID with a timeout, coverage proves the regimes were hit.</figcaption>
+  </figure>
+
+  <h3>Wiring it together</h3>
+  <pre><code class="language-sv"><span class="kw">class</span> axi_env <span class="kw">extends</span> uvm_env;
+  `uvm_component_utils(axi_env)
+  axi_agent       agent;     <span class="cmt">// contains sequencer + throttled driver + 2 monitors</span>
+  axi_scoreboard  sb;
+  axi_outstanding_cov cov;
+
+  <span class="kw">function</span> <span class="type">void</span> build_phase(uvm_phase phase);
+    agent = axi_agent::type_id::create(<span class="str">"agent"</span>, <span class="kw">this</span>);
+    sb    = axi_scoreboard::type_id::create(<span class="str">"sb"</span>, <span class="kw">this</span>);
+    cov   = axi_outstanding_cov::type_id::create(<span class="str">"cov"</span>, <span class="kw">this</span>);
+  <span class="kw">endfunction</span>
+
+  <span class="kw">function</span> <span class="type">void</span> connect_phase(uvm_phase phase);
+    <span class="cmt">// Address-side monitor → scoreboard request input</span>
+    agent.addr_mon.ap.connect(sb.req_imp);
+    <span class="cmt">// Response-side monitor → scoreboard response input + coverage</span>
+    agent.resp_mon.ap.connect(sb.rsp_imp);
+    agent.resp_mon.ap.connect(cov.analysis_export);
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></code></pre>
+
+  <h3>Debug walkthrough — "intermittent mismatch under load"</h3>
+  <div class="callout">
+    <strong>Symptom.</strong> A nightly regression fails ~1 run in 20 with <code>SB</code> data mismatches on
+    <code>ID 2</code>. It only fails when the random seed produces heavy multi-ID traffic near max depth. Handshake
+    (protocol) assertions are all silent. Reproducing with the logged seed is reliable.
+  </div>
+  <p><strong>Step 1 — trust the silence of the assertions.</strong> Protocol assertions passing means the bus
+  behaviour is legal AXI (handshakes, RLAST, response legality all fine). So the fault is either a real data/ordering
+  bug in the DUT or a testbench modelling error. Don't assume DUT yet.</p>
+  <p><strong>Step 2 — read the failure's shape.</strong> Mismatch only on heavy multi-ID load near max depth points
+  squarely at out-of-order handling. Single-ID and shallow runs pass — so the per-ID <em>data</em> is fine in
+  isolation; the problem appears only when reordering across IDs is intense.</p>
+  <p><strong>Step 3 — form hypotheses, cheapest first.</strong></p>
+  <ol>
+    <li><strong>TB: single-FIFO leak.</strong> Is the scoreboard truly per-ID, or did someone "optimise" it back to
+    a shared queue? A shared queue mis-pairs exactly under heavy reorder. <em>Check first — it's the most common
+    cause and easy to confirm.</em></li>
+    <li><strong>TB: read-beat interleaving.</strong> If R beats of different IDs interleave and the monitor stitches
+    them by arrival rather than by RID, it builds the wrong transaction → false mismatch on the busiest IDs.</li>
+    <li><strong>DUT: reorder buffer aliasing.</strong> A genuine bug where, near full occupancy, the DUT's per-ID
+    tracking aliases two entries and returns ID 2's data for the wrong request.</li>
+  </ol>
+  <p><strong>Step 4 — localise with the sequence guard.</strong> Enable the <code>SB_ORDER</code> check (Module 7).
+  If it fires <em>before</em> the data mismatch, the completion order itself is wrong → suspect DUT reorder logic
+  (hypothesis 3) or monitor reassembly (hypothesis 2). If <code>SB_ORDER</code> stays silent but data still
+  mismatches, the order is correct and the <em>data</em> is wrong → reference-model/strobe issue or a DUT datapath
+  bug.</p>
+  <p><strong>Step 5 — confirm with a minimal directed test.</strong> Recreate the seed's essential shape with a
+  tiny directed test: 4 IDs, fill to max depth, complete newest-first. If it reproduces, you have a 20-line
+  repro instead of a 10-million-cycle regression — and the per-ID queue dump at the mismatch cycle tells you
+  immediately whether the head was the wrong item (TB) or the right item with wrong data (DUT).</p>
+  <div class="callout warn">
+    <strong>The discipline:</strong> silent protocol assertions → suspect TB or data/ordering, not handshakes.
+    Shape of failure (heavy reorder, near max) → narrows to the out-of-order path. Cheapest hypothesis first
+    (is the scoreboard really per-ID?). Then a named ordering guard and a minimal repro to split TB-bug from
+    DUT-bug. This sequence resolves the large majority of outstanding-transaction failures.
+  </div>
+
+  <h3>The whole topic, as a checklist</h3>
+  <table>
+    <tr><th>Area</th><th>The one thing to get right</th></tr>
+    <tr><td>Concept</td><td>Outstanding = accepted-but-not-completed; count windows precisely.</td></tr>
+    <tr><td>Why</td><td>Depth ≈ latency × throughput; test to the cap and beyond.</td></tr>
+    <tr><td>Ordering</td><td>Same ID → in order; different ID → any order; reads/writes separate.</td></tr>
+    <tr><td>Driver</td><td>Split issue from response threads; <code>item_done()</code> right after accept.</td></tr>
+    <tr><td>Throttle</td><td>Semaphore caps (total + per-ID); every get() has a matching put().</td></tr>
+    <tr><td>Scoreboard</td><td>Per-ID expected queues; match response to head of its ID's queue.</td></tr>
+    <tr><td>OOO</td><td>Routing by ID handles legal reorder for free; sequence guard names illegal reorder.</td></tr>
+    <tr><td>Safety nets</td><td>Timeout watchdog + check_phase leftover scan catch dropped responses.</td></tr>
+    <tr><td>Coverage</td><td>depth, per-ID depth, and depth × ooo crosses define "done."</td></tr>
+  </table>
+
+  <div class="activity">
+    <h4>Activity — full root-cause reasoning</h4>
+    <p>Using the debug walkthrough's method: a regression fails with <code>SB_TIMEOUT</code> on ID 0 only, only
+    when writes and reads run at full depth simultaneously. No data mismatches, no <code>SB_ORDER</code>. What is
+    your leading hypothesis and your next concrete step?</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>A timeout (not a mismatch) means a response never came back — a dropped transaction. It happens only when reads AND writes are both at full depth. What shared resource might reads and writes contend for that should be independent? Recall the rule that read and write outstanding budgets are separate.</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>Leading hypothesis:</strong> a dropped response caused by read/write budget interference. The
+      timeout (not a mismatch) means a transaction for ID 0 was accepted but never completed. That it appears only
+      when reads and writes are <em>both</em> saturated points at a shared resource that should be independent —
+      e.g. a combined outstanding counter or a shared buffer slot pool in the DUT that lets write pressure starve a
+      read response (or vice versa), violating the "reads and writes are separate budgets" rule.</p>
+      <p><strong>Next concrete step:</strong> reproduce with the logged seed, then run two control experiments —
+      (a) reads-only at full depth, (b) writes-only at full depth. If both pass and only the <em>combination</em>
+      fails, that strongly confirms cross-budget interference in the DUT rather than a testbench bug. Then dump the
+      DUT's outstanding counters at the timeout to see whether the read path's credits were consumed by write
+      traffic. A minimal directed test (saturate writes, issue one read to ID 0, watch for its response) gives a
+      tiny repro for the designer.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="a">
+    <p class="quiz-question">In the debug method, what does it tell you when protocol (handshake) assertions are silent but the scoreboard reports a mismatch?</p>
+    <div class="quiz-options">
+      <button data-opt="a">The bus behaviour is legal AXI, so suspect a testbench/ordering/data-model issue or a functional DUT bug — not a handshake violation</button>
+      <button data-opt="b">The assertions are broken</button>
+      <button data-opt="c">The clock has stopped</button>
+      <button data-opt="d">There is definitely no bug</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Silent protocol assertions mean the observed handshakes and ordering primitives are legal. A mismatch then points to the checking/modelling side (scoreboard assuming in-order, monitor mis-reassembling interleaved beats, reference-model/strobe error) or a functional DUT data/ordering bug — but not a handshake violation. That narrowing is the first move in efficient debug.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Feed the scoreboard and coverage from monitors on the bus, connected via analysis ports in <code>connect_phase</code>.</p><p class="practice-why"><em>Why: it decouples checking from stimulus and verifies real pin-level behaviour; the same scoreboard then works with any driver or in passive (monitor-only) reuse.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>When debugging, assuming a scoreboard mismatch means a DUT bug.</p><p class="practice-why"><em>Why it hurts: with outstanding traffic, the most common cause is a testbench that mishandles legal reordering. Rule out the TB first or you'll waste days blaming correct RTL.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Reduce a failing seed to a minimal directed repro before deep-diving.</p><p class="practice-why"><em>Why: a 20-line repro turns an intractable 10M-cycle failure into something you can single-step; it also becomes a permanent regression test for the fixed bug.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Shipping when tests pass but the depth and depth×ooo coverage bins are still open.</p><p class="practice-why"><em>Why it hurts: open high-stress bins mean the regimes the design was built to survive were never exercised — passing tests there prove nothing.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="alert('That completes the AXI Outstanding Transactions deep-course. You now have the concept, the driver, the scoreboard, coverage, and a debug method.');">Finish ✓</button></div>
+</section>
+
+</main>
+</div>
+
+<script>
+const modules = ['m1','m2','m3','m4','m5','m6','m7','m8','m9'];
+let visited = new Set();
+function showModule(id){
+  document.querySelectorAll('section.module').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.sidebar a').forEach(a=>a.classList.toggle('active', a.dataset.target===id));
+  visited.add(id); updateProgress();
+  window.scrollTo({top:0,behavior:'smooth'});
+  document.querySelector('.sidebar').classList.remove('open');
+}
+function currentIndex(){return modules.indexOf(document.querySelector('section.module.active').id);}
+function goNext(){const i=currentIndex();if(i<modules.length-1)showModule(modules[i+1]);}
+function goPrev(){const i=currentIndex();if(i>0)showModule(modules[i-1]);}
+function updateProgress(){
+  const pct=Math.round(visited.size/modules.length*100);
+  document.getElementById('pfill').style.width=pct+'%';
+  document.getElementById('plabel').textContent=pct+'%';
+  document.querySelectorAll('.sidebar a').forEach(a=>{
+    if(visited.has(a.dataset.target)&&!a.querySelector('.vbadge')){
+      const b=document.createElement('span');b.className='vbadge';b.textContent='✓';a.appendChild(b);
+    }
+  });
+}
+document.querySelectorAll('.sidebar a').forEach(a=>a.addEventListener('click',()=>showModule(a.dataset.target)));
+document.querySelectorAll('.quiz-block').forEach(block=>{
+  const correct=block.dataset.correct;const fb=block.querySelector('.quiz-feedback');
+  block.querySelectorAll('.quiz-options button').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const chosen=btn.dataset.opt;
+      block.querySelectorAll('.quiz-options button').forEach(b=>{b.disabled=true;if(b.dataset.opt===correct)b.classList.add('correct');});
+      if(chosen!==correct)btn.classList.add('wrong');
+      fb.hidden=false;
+      fb.querySelector('.feedback-text').textContent=(chosen===correct)?'✓ Correct':'✗ Not quite';
+    });
+  });
+});
+document.querySelectorAll('.activity').forEach(act=>{
+  const hintBtn=act.querySelector('.hint-btn');const hintBox=act.querySelector('.hint-box');
+  const solBtn=act.querySelector('.solution-btn');const solBox=act.querySelector('.solution-box');
+  if(hintBtn)hintBtn.addEventListener('click',()=>{hintBox.hidden=false;hintBtn.style.display='none';if(solBtn)solBtn.hidden=false;});
+  if(solBtn)solBtn.addEventListener('click',()=>{solBox.hidden=false;solBtn.style.display='none';});
+});
+updateProgress();
+</script>
+</body>
+</html>
