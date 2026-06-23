@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoC Verification — A 2×2×2 Interconnect Deep-Dive</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#f9f8f6;--surface:#ffffff;--border:#e2e0db;--primary:#1a4fa0;--accent:#0e7d6e;--code-bg:#f4f3ef;
+  --text-main:#1c1c1e;--text-muted:#5c5c66;--good-bg:#e8f5e9;--good-border:#2e7d32;--bad-bg:#fdecea;
+  --bad-border:#c62828;--hint-bg:#fff8e1;--quiz-right:#e8f5e9;--quiz-wrong:#fdecea;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text-main);font-family:'Source Serif 4',serif;line-height:1.6;font-size:16px;}
+.topbar{position:fixed;top:0;left:0;right:0;height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;z-index:100;gap:16px;}
+.topbar h1{font-family:'IBM Plex Sans',sans-serif;font-size:16px;font-weight:600;color:var(--primary);flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hamburger{display:none;font-size:22px;background:none;border:none;cursor:pointer;color:var(--primary);}
+.progress-wrap{flex:1;max-width:340px;margin-left:auto;display:flex;align-items:center;gap:10px;}
+.progress-track{flex:1;height:8px;background:var(--code-bg);border-radius:4px;overflow:hidden;}
+.progress-fill{height:100%;width:0;background:var(--accent);transition:width .3s ease;}
+.progress-label{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);white-space:nowrap;}
+.layout{display:flex;margin-top:56px;}
+.sidebar{position:fixed;top:56px;bottom:0;left:0;width:260px;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:16px 0;}
+.sidebar a{display:block;padding:9px 20px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text-muted);text-decoration:none;border-left:3px solid transparent;cursor:pointer;transition:all .15s;}
+.sidebar a:hover{background:var(--code-bg);color:var(--text-main);}
+.sidebar a.active{color:var(--primary);border-left-color:var(--primary);background:#eef3fb;font-weight:600;}
+.sidebar a .vbadge{color:var(--good-border);font-weight:700;margin-left:6px;}
+.sidebar .grp{font-family:'IBM Plex Sans',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);padding:14px 20px 6px;font-weight:600;}
+.content{margin-left:260px;flex:1;padding:36px 48px 120px;max-width:1000px;}
+section.module{display:none;animation:fade .35s ease;}
+section.module.active{display:block;}
+@keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+h2.mod-title{font-family:'IBM Plex Sans',sans-serif;font-size:27px;font-weight:700;color:var(--primary);margin-bottom:6px;}
+.mod-num{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent);font-weight:500;}
+h3{font-family:'IBM Plex Sans',sans-serif;font-size:19px;font-weight:600;margin:28px 0 10px;color:var(--text-main);}
+h4{font-family:'IBM Plex Sans',sans-serif;font-size:15.5px;font-weight:600;margin:18px 0 8px;}
+p{margin:10px 0;}ul,ol{margin:10px 0 10px 26px;}li{margin:5px 0;}strong{font-weight:600;}
+.objectives{background:#eef3fb;border:1px solid #d3e0f2;border-radius:8px;padding:16px 20px;margin:18px 0;}
+.objectives h4{margin-top:0;color:var(--primary);}.objectives ul{margin-bottom:0;}
+.analogy{background:#f3f0fa;border-left:4px solid #6a1b9a;padding:14px 18px;margin:18px 0;border-radius:0 6px 6px 0;font-style:italic;}
+.analogy strong{color:#6a1b9a;font-style:normal;}
+.keybox{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin:18px 0;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+figure{margin:22px 0;text-align:center;}
+figure svg{max-width:100%;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;}
+figcaption{font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'IBM Plex Sans',sans-serif;}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:14px 0;}
+code{font-family:'JetBrains Mono',monospace;font-size:13px;}
+p code,li code,td code{background:var(--code-bg);padding:1px 6px;border-radius:4px;font-size:13px;color:#6a1b9a;}
+.kw{color:#1a4fa0;font-weight:500;}.type{color:#6a1b9a;}.num{color:#0e7d6e;}.str{color:#c62828;}.cmt{color:#5c5c66;font-style:italic;}.dir{color:#f57f17;}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.5px;}
+th,td{border:1px solid var(--border);padding:8px 11px;text-align:left;vertical-align:top;}
+th{background:#eef3fb;font-family:'IBM Plex Sans',sans-serif;font-weight:600;color:var(--primary);}
+tr:nth-child(even) td{background:#fbfaf8;}
+.activity{background:#fffdf7;border:1px solid #f0e6c8;border-radius:8px;padding:18px 20px;margin:22px 0;}
+.activity h4{margin-top:0;color:#a86a00;}.activity h4::before{content:"✎ ";}
+.hint-btn,.solution-btn{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:500;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 14px;cursor:pointer;margin:8px 8px 0 0;color:var(--primary);}
+.hint-btn:hover,.solution-btn:hover{background:var(--code-bg);}
+.hint-box{background:var(--hint-bg);border-left:4px solid #f5a623;padding:12px 16px;margin-top:12px;border-radius:0 6px 6px 0;}
+.solution-box{background:#eef7f4;border-left:4px solid var(--accent);padding:12px 16px;margin-top:12px;border-radius:0 6px 6px 0;}
+.quiz-block{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px 20px;margin:22px 0;}
+.quiz-question{font-weight:600;font-family:'IBM Plex Sans',sans-serif;margin-bottom:12px;}
+.quiz-question::before{content:"? ";color:var(--accent);font-weight:700;}
+.quiz-options{display:flex;flex-direction:column;gap:8px;}
+.quiz-options button{font-family:'Source Serif 4',serif;font-size:14.5px;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 14px;cursor:pointer;transition:all .15s;}
+.quiz-options button:hover:not(:disabled){border-color:var(--primary);background:#f5f8fd;}
+.quiz-options button:disabled{cursor:default;opacity:.92;}
+.quiz-options button.correct{background:var(--quiz-right);border-color:var(--good-border);font-weight:600;}
+.quiz-options button.wrong{background:var(--quiz-wrong);border-color:var(--bad-border);}
+.quiz-feedback{margin-top:14px;padding:12px 16px;border-radius:6px;background:var(--code-bg);}
+.feedback-text{font-weight:600;font-family:'IBM Plex Sans',sans-serif;}
+.feedback-explain{margin-top:6px;font-size:14px;}
+.practices-section>h3::before{content:"⚖ ";}
+.practices-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0;}
+.practice-card{border-radius:8px;padding:16px 18px;}
+.practice-card.good{background:var(--good-bg);border:1px solid var(--good-border);}
+.practice-card.bad{background:var(--bad-bg);border:1px solid var(--bad-border);}
+.practice-card h4{margin-top:0;}
+.practice-card.good h4{color:var(--good-border);}.practice-card.bad h4{color:var(--bad-border);}
+.practice-why{margin-top:8px;font-size:13.5px;color:var(--text-muted);}
+.navbtns{display:flex;justify-content:space-between;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);}
+.navbtns button{font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:500;background:var(--primary);color:#fff;border:none;border-radius:6px;padding:10px 20px;cursor:pointer;transition:opacity .15s;}
+.navbtns button:hover{opacity:.88;}
+.navbtns button:disabled{background:var(--border);color:var(--text-muted);cursor:not-allowed;}
+.callout{border-left:4px solid var(--accent);background:#eef7f4;padding:12px 16px;margin:16px 0;border-radius:0 6px 6px 0;}
+.callout.warn{border-left-color:#f5a623;background:var(--hint-bg);}
+.tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;background:#eef3fb;color:var(--primary);border:1px solid #d3e0f2;border-radius:4px;padding:1px 7px;margin:0 2px;}
+@media(max-width:880px){
+  .sidebar{transform:translateX(-100%);transition:transform .25s;z-index:90;}
+  .sidebar.open{transform:none;}
+  .content{margin-left:0;padding:24px 18px 100px;}
+  .hamburger{display:block;}.practices-grid{grid-template-columns:1fr;}.progress-wrap{max-width:160px;}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <h1>NoC Verification — A 2×2×2 Interconnect Deep-Dive</h1>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="pfill"></div></div>
+    <span class="progress-label" id="plabel">0%</span>
+  </div>
+</div>
+<div class="layout">
+<nav class="sidebar" id="sidebar">
+  <div class="grp">The DUT</div>
+  <a data-target="m1" class="active">1 · The 2×2×2 NoC</a>
+  <a data-target="m2">2 · Routing &amp; Decode</a>
+  <div class="grp">Arbitration</div>
+  <a data-target="m3">3 · Round-Robin</a>
+  <a data-target="m4">4 · Priority + RR</a>
+  <div class="grp">Conversion &amp; Concurrency</div>
+  <a data-target="m5">5 · AXI→APB Bridge</a>
+  <a data-target="m6">6 · Outstanding &amp; Ordering</a>
+  <div class="grp">Verification</div>
+  <a data-target="m7">7 · The UVM Environment</a>
+  <a data-target="m8">8 · Routing-Aware Scoreboard</a>
+  <a data-target="m9">9 · Coverage &amp; Debug</a>
+</nav>
+<main class="content">
+
+<!-- ===== MODULE 1 ===== -->
+<section class="module active" id="m1">
+  <div class="mod-num">MODULE 1</div>
+  <h2 class="mod-title">The DUT — Our 2×2×2 NoC</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Describe the exact topology we will verify: 2 AXI masters, 2 AXI slaves, 2 APB slaves.</li>
+      <li>List the four jobs the NoC performs on every transaction.</li>
+      <li>Read the address map that defines where each slave lives.</li>
+      <li>See the complete verification surface so every later module has a place.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a small postal hub.</strong> Two people drop letters (the AXI masters). The hub reads each
+    address and sorts it to one of four mailboxes (two AXI slaves, two APB slaves). When both people want the same
+    mailbox at once, a clerk decides who goes first (arbitration). Some mailboxes speak a different language, so the
+    hub translates (the AXI→APB bridge). The NoC is that hub: route, arbitrate, translate, and never lose a letter.
+  </div>
+
+  <h3>What a NoC is, in one paragraph</h3>
+  <p>A <strong>Network-on-Chip (NoC)</strong> — here a compact interconnect — is the fabric that connects
+  initiators (masters) to targets (slaves) so that any master can reach any slave it is allowed to, even when
+  several masters compete at once. Our DUT is deliberately small enough to reason about completely, yet it contains
+  every hard problem a large fabric has: routing, arbitration, protocol conversion, ordering, and deadlock
+  avoidance. Master it here and the concepts scale up.</p>
+
+  <h3>The topology we will verify</h3>
+  <figure>
+    <svg viewBox="0 0 700 420" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <defs><marker id="m1a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker></defs>
+      <!-- masters -->
+      <rect x="40" y="60" width="130" height="60" rx="8" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="105" y="86" text-anchor="middle" font-size="13" fill="#1a4fa0" font-weight="700">AXI Master M0</text>
+      <text x="105" y="105" text-anchor="middle" font-size="9" fill="#5c5c66">initiator</text>
+      <rect x="40" y="300" width="130" height="60" rx="8" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="105" y="326" text-anchor="middle" font-size="13" fill="#1a4fa0" font-weight="700">AXI Master M1</text>
+      <text x="105" y="345" text-anchor="middle" font-size="9" fill="#5c5c66">initiator</text>
+
+      <!-- NoC core -->
+      <rect x="250" y="120" width="200" height="180" rx="10" fill="#f3f0fa" stroke="#6a1b9a" stroke-width="2.5"/>
+      <text x="350" y="150" text-anchor="middle" font-size="15" fill="#6a1b9a" font-weight="700">NoC fabric</text>
+      <text x="350" y="178" text-anchor="middle" font-size="11" fill="#5c5c66">• address decode / route</text>
+      <text x="350" y="200" text-anchor="middle" font-size="11" fill="#5c5c66">• arbitration (RR + priority)</text>
+      <text x="350" y="222" text-anchor="middle" font-size="11" fill="#5c5c66">• AXI→APB bridge</text>
+      <text x="350" y="244" text-anchor="middle" font-size="11" fill="#5c5c66">• ordering &amp; outstanding</text>
+      <text x="350" y="266" text-anchor="middle" font-size="11" fill="#5c5c66">• error / decode handling</text>
+
+      <!-- slaves -->
+      <rect x="530" y="40" width="130" height="52" rx="8" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="595" y="63" text-anchor="middle" font-size="12" fill="#0e7d6e" font-weight="700">AXI Slave S0</text>
+      <text x="595" y="80" text-anchor="middle" font-size="9" fill="#5c5c66">memory</text>
+      <rect x="530" y="108" width="130" height="52" rx="8" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="595" y="131" text-anchor="middle" font-size="12" fill="#0e7d6e" font-weight="700">AXI Slave S1</text>
+      <text x="595" y="148" text-anchor="middle" font-size="9" fill="#5c5c66">memory</text>
+      <rect x="530" y="248" width="130" height="52" rx="8" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+      <text x="595" y="271" text-anchor="middle" font-size="12" fill="#a86a00" font-weight="700">APB Slave P0</text>
+      <text x="595" y="288" text-anchor="middle" font-size="9" fill="#5c5c66">peripheral</text>
+      <rect x="530" y="316" width="130" height="52" rx="8" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+      <text x="595" y="339" text-anchor="middle" font-size="12" fill="#a86a00" font-weight="700">APB Slave P1</text>
+      <text x="595" y="356" text-anchor="middle" font-size="9" fill="#5c5c66">peripheral</text>
+
+      <!-- master -> noc -->
+      <line x1="170" y1="90" x2="250" y2="160" stroke="#1a4fa0" stroke-width="2" marker-end="url(#m1a)"/>
+      <line x1="170" y1="330" x2="250" y2="260" stroke="#1a4fa0" stroke-width="2" marker-end="url(#m1a)"/>
+      <!-- noc -> axi slaves -->
+      <line x1="450" y1="160" x2="530" y2="66" stroke="#0e7d6e" stroke-width="2" marker-end="url(#m1a)"/>
+      <line x1="450" y1="175" x2="530" y2="134" stroke="#0e7d6e" stroke-width="2" marker-end="url(#m1a)"/>
+      <!-- noc -> apb (through bridge) -->
+      <line x1="450" y1="245" x2="530" y2="274" stroke="#a86a00" stroke-width="2" marker-end="url(#m1a)"/>
+      <line x1="450" y1="260" x2="530" y2="342" stroke="#a86a00" stroke-width="2" marker-end="url(#m1a)"/>
+      <text x="490" y="232" font-size="9" fill="#a86a00" transform="rotate(20 490 232)">AXI→APB</text>
+
+      <text x="350" y="400" text-anchor="middle" font-size="10" fill="#5c5c66">Blue = AXI masters · Teal = AXI slaves · Orange = APB slaves (behind a bridge) · Purple = the NoC under test</text>
+    </svg>
+    <figcaption>The complete DUT. Two AXI masters reach two AXI slaves directly and two APB slaves through an AXI→APB bridge, all arbitrated and routed by the NoC.</figcaption>
+  </figure>
+
+  <h3>The four jobs the NoC does on every transaction</h3>
+  <table>
+    <tr><th>Job</th><th>What it means here</th><th>Covered in</th></tr>
+    <tr><td><strong>Route</strong></td><td>Decode the address to pick S0, S1, P0, or P1 (or raise a decode error).</td><td>Module 2</td></tr>
+    <tr><td><strong>Arbitrate</strong></td><td>When M0 and M1 target the same slave, decide order via round-robin and priority.</td><td>Modules 3–4</td></tr>
+    <tr><td><strong>Convert</strong></td><td>Translate AXI transactions into APB for P0/P1 and map responses back.</td><td>Module 5</td></tr>
+    <tr><td><strong>Preserve order</strong></td><td>Honour AXI ordering rules and outstanding limits across the fabric without deadlock.</td><td>Module 6</td></tr>
+  </table>
+
+  <h3>The address map — the contract</h3>
+  <p>Every slave owns a fixed, non-overlapping address range. This map is the single source of truth that masters,
+  the NoC's decoder, and your scoreboard all rely on. We use it for the entire course.</p>
+  <table>
+    <tr><th>Target</th><th>Type</th><th>Base</th><th>Size</th><th>End</th></tr>
+    <tr><td><strong>S0</strong></td><td>AXI</td><td><code>0x0000_0000</code></td><td>256 MB</td><td><code>0x0FFF_FFFF</code></td></tr>
+    <tr><td><strong>S1</strong></td><td>AXI</td><td><code>0x1000_0000</code></td><td>256 MB</td><td><code>0x1FFF_FFFF</code></td></tr>
+    <tr><td><strong>P0</strong></td><td>APB</td><td><code>0x2000_0000</code></td><td>64 KB</td><td><code>0x2000_FFFF</code></td></tr>
+    <tr><td><strong>P1</strong></td><td>APB</td><td><code>0x2001_0000</code></td><td>64 KB</td><td><code>0x2001_FFFF</code></td></tr>
+    <tr><td colspan="5"><em>Everything else (e.g. <code>0x3000_0000</code>) is unmapped → must return DECERR.</em></td></tr>
+  </table>
+
+  <h3>The complete verification surface</h3>
+  <p>Naming the whole job up front keeps the rest of the course organised. To sign off this NoC you must prove:</p>
+  <ul>
+    <li><strong>Connectivity:</strong> every legal master→slave path works (M0→S0, M0→S1, M0→P0, M0→P1, and the same for M1) — a 2×4 routing matrix.</li>
+    <li><strong>Decode correctness:</strong> in-range routes to the right slave; out-of-range returns DECERR; no overlaps or holes.</li>
+    <li><strong>Arbitration:</strong> round-robin is fair, priority is honoured, no master starves, the combined scheme behaves per spec.</li>
+    <li><strong>Protocol conversion:</strong> AXI bursts/responses correctly become APB transfers and back.</li>
+    <li><strong>Concurrency:</strong> ordering and outstanding limits hold under simultaneous multi-master load; no deadlock.</li>
+    <li><strong>Robustness:</strong> errors, reset under load, and saturation are handled cleanly.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Why this DUT is the perfect teaching vehicle:</strong> it is small enough that your scoreboard can model
+    every slave's memory and every legal path exhaustively, yet it contains arbitration, conversion, and concurrency
+    — the three things that make real interconnect verification hard. Nothing here is a toy; it is a real fabric in
+    miniature.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — map the routing matrix</h4>
+    <p>List every legal master→target path in this DUT and state how many distinct connectivity paths your test
+    plan must cover at minimum. Then name one path that does <em>not</em> exist and explain why.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>There are 2 masters and 4 targets (S0, S1, P0, P1). Connectivity is master × target. Masters talk to targets — do masters talk to each other? Do slaves initiate?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>Legal paths (2 × 4 = 8):</strong> M0→S0, M0→S1, M0→P0, M0→P1, M1→S0, M1→S1, M1→P0, M1→P1. Your
+      connectivity test plan must cover all 8 (each with reads and writes where applicable).</p>
+      <p><strong>A path that does not exist:</strong> M0→M1 (master to master). Masters are initiators only; they do
+      not respond to transactions, so there is no master-to-master path. Likewise S0→S1 doesn't exist — slaves are
+      targets, they never initiate. Recognising the legal surface keeps you from writing meaningless tests and tells
+      you exactly how big the connectivity matrix is.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="c">
+    <p class="quiz-question">A master issues a transaction to address <code>0x3000_0000</code>. What must the NoC do?</p>
+    <div class="quiz-options">
+      <button data-opt="a">Route it to the nearest slave (P1)</button>
+      <button data-opt="b">Silently drop it</button>
+      <button data-opt="c">Return a decode error (DECERR) because the address is unmapped</button>
+      <button data-opt="d">Route it to S0 by default</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">0x3000_0000 falls outside every slave's range in the address map, so it's unmapped. A correct NoC must return DECERR so the master can recover — never drop, hang, or guess a target. Probing unmapped addresses is a required test.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Derive a single machine-readable address map and feed it to stimulus, the decoder model, and the scoreboard from one source.</p><p class="practice-why"><em>Why: three hand-copied maps drift apart; one source means a map change updates stimulus and checking together, eliminating a whole class of false fails.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Verifying only the "obvious" paths (M0→S0) and assuming the rest are symmetric.</p><p class="practice-why"><em>Why it hurts: routing and arbitration logic is per-port; M1→P1 can be broken while M0→S0 works. The full 2×4 matrix must be exercised.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Write the verification surface (connectivity, decode, arbitration, conversion, concurrency, robustness) into the test plan before coding.</p><p class="practice-why"><em>Why: the test plan is what coverage closure is measured against; an explicit surface prevents "we never tested the APB error path" gaps.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Treating the APB slaves as "just two more slaves" identical to the AXI ones.</p><p class="practice-why"><em>Why it hurts: they sit behind a protocol bridge with completely different timing and rules; modelling them like AXI slaves produces wrong expectations and missed bridge bugs.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button disabled>← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 2 ===== -->
+<section class="module" id="m2">
+  <div class="mod-num">MODULE 2</div>
+  <h2 class="mod-title">Routing &amp; Address Decoding</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Trace how a master's address is decoded to one of the four targets.</li>
+      <li>Understand decode errors and why the NoC must never hang on one.</li>
+      <li>See how two masters routing concurrently makes decode a per-port problem.</li>
+      <li>Write the decode reference model your scoreboard will reuse.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — the sorting clerk.</strong> Every letter has a postcode. The clerk glances at the first few
+    digits and drops it into the right bin without reading the whole address. The NoC's decoder does the same: it
+    looks at the upper address bits, picks the target, and forwards the transaction. A postcode that matches no bin
+    goes to the "return to sender" tray — that's a decode error.
+  </div>
+
+  <h3>Decode = address in, target out</h3>
+  <p>When a master presents a transaction, the NoC compares the address against each slave's range and selects the
+  one target that owns it. Because the ranges in our map are aligned on neat power-of-two boundaries, the decoder
+  only needs to examine the upper address bits — fast, cheap combinational logic.</p>
+
+  <figure>
+    <svg viewBox="0 0 700 250" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <defs><marker id="m2a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker></defs>
+      <rect x="40" y="100" width="150" height="50" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="115" y="122" text-anchor="middle" font-size="11" fill="#1a4fa0" font-weight="600">address in</text>
+      <text x="115" y="139" text-anchor="middle" font-size="10" fill="#5c5c66">e.g. 0x1000_4000</text>
+      <rect x="260" y="90" width="150" height="70" rx="6" fill="#f3f0fa" stroke="#6a1b9a" stroke-width="2"/>
+      <text x="335" y="118" text-anchor="middle" font-size="12" fill="#6a1b9a" font-weight="600">decoder</text>
+      <text x="335" y="138" text-anchor="middle" font-size="9" fill="#5c5c66">compare upper bits</text>
+      <line x1="190" y1="125" x2="258" y2="125" stroke="#5c5c66" stroke-width="1.5" marker-end="url(#m2a)"/>
+      <!-- outputs -->
+      <g font-size="10" text-anchor="middle">
+        <rect x="500" y="20" width="120" height="34" rx="5" fill="#e8f4f1" stroke="#0e7d6e"/><text x="560" y="42">S0 0x0xxx_xxxx</text>
+        <rect x="500" y="64" width="120" height="34" rx="5" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2.5"/><text x="560" y="86" font-weight="700">S1 0x1xxx_xxxx ✓</text>
+        <rect x="500" y="108" width="120" height="34" rx="5" fill="#fdf3e8" stroke="#a86a00"/><text x="560" y="130">P0 0x2000_xxxx</text>
+        <rect x="500" y="152" width="120" height="34" rx="5" fill="#fdf3e8" stroke="#a86a00"/><text x="560" y="174">P1 0x2001_xxxx</text>
+        <rect x="500" y="196" width="120" height="34" rx="5" fill="#fdecea" stroke="#c62828"/><text x="560" y="218" fill="#c62828">DECERR (none)</text>
+      </g>
+      <line x1="410" y1="120" x2="498" y2="81" stroke="#0e7d6e" stroke-width="2" marker-end="url(#m2a)"/>
+      <line x1="410" y1="130" x2="498" y2="37" stroke="#e2e0db" stroke-width="1"/>
+      <line x1="410" y1="135" x2="498" y2="125" stroke="#e2e0db" stroke-width="1"/>
+      <line x1="410" y1="140" x2="498" y2="169" stroke="#e2e0db" stroke-width="1"/>
+      <line x1="410" y1="148" x2="498" y2="213" stroke="#e2e0db" stroke-width="1"/>
+      <text x="350" y="244" text-anchor="middle" font-size="9.5" fill="#5c5c66">0x1000_4000 has upper nibble 0x1 → routes to S1. Exactly one target matches a legal address.</text>
+    </svg>
+    <figcaption>Address decode picks exactly one target. Here 0x1000_4000 lands in S1's range. An address matching nothing yields DECERR.</figcaption>
+  </figure>
+
+  <h3>The decode reference model</h3>
+  <p>This function is the heart of routing and you will reuse it verbatim in the scoreboard (Module 8) to predict
+  where every transaction should land. Build it once, from the single-source address map.</p>
+
+  <pre><code class="language-sv"><span class="kw">typedef</span> <span class="kw">enum</span> {TGT_S0, TGT_S1, TGT_P0, TGT_P1, TGT_NONE} target_e;
+
+<span class="cmt">// Decode an address to its target. TGT_NONE means a decode error (DECERR).</span>
+<span class="kw">function</span> <span class="kw">automatic</span> target_e decode(<span class="type">bit</span>[<span class="num">31</span>:<span class="num">0</span>] addr);
+  <span class="kw">if</span>      (addr inside {[<span class="num">32'h0000_0000</span>:<span class="num">32'h0FFF_FFFF</span>]}) <span class="kw">return</span> TGT_S0;
+  <span class="kw">else if</span> (addr inside {[<span class="num">32'h1000_0000</span>:<span class="num">32'h1FFF_FFFF</span>]}) <span class="kw">return</span> TGT_S1;
+  <span class="kw">else if</span> (addr inside {[<span class="num">32'h2000_0000</span>:<span class="num">32'h2000_FFFF</span>]}) <span class="kw">return</span> TGT_P0;
+  <span class="kw">else if</span> (addr inside {[<span class="num">32'h2001_0000</span>:<span class="num">32'h2001_FFFF</span>]}) <span class="kw">return</span> TGT_P1;
+  <span class="kw">else</span> <span class="kw">return</span> TGT_NONE;   <span class="cmt">// unmapped → DUT must return DECERR</span>
+<span class="kw">endfunction</span></code></pre>
+
+  <h3>Decode errors — the NoC must never hang</h3>
+  <p>An unmapped access is not an excuse for the fabric to lock up. The NoC must itself generate a clean
+  <span class="tag">DECERR</span> response (on B for a write, on every R beat for a read) so the master recovers.
+  The classic system bug: an unmapped access reaches no slave, no slave responds, and the NoC forgot to generate
+  the error — so the master waits forever and the bus deadlocks. Your tests must deliberately fire unmapped
+  addresses and confirm a prompt DECERR, not a hang.</p>
+
+  <div class="callout warn">
+    <strong>The 4 KB boundary still applies.</strong> An AXI burst must not cross a 4 KB boundary, which guarantees
+    a single burst targets a single slave. A burst engineered to straddle two slaves' ranges is illegal stimulus —
+    your generator must not produce it, and a NoC checker should flag it if it appears. This keeps routing
+    unambiguous: one transaction, one target.
+  </div>
+
+  <h3>Why decode is a <em>per-port</em> problem</h3>
+  <p>Both masters decode independently and simultaneously. M0 might route to S1 in the same cycle M1 routes to P0
+  — fine, different targets, both proceed. But if both decode to S1 at once, decode has done its job (both correctly
+  identified S1) and the conflict passes to <em>arbitration</em> (Modules 3–4). Keep the two stages separate in your
+  mental model: decode answers "which target?", arbitration answers "who first?".</p>
+
+  <div class="activity">
+    <h4>Activity — predict the routing for concurrent traffic</h4>
+    <p>In one cycle: M0 issues to <code>0x2001_0040</code> and M1 issues to <code>0x0800_0000</code>. For each, give
+    the target and say whether the two transactions contend. Then: M0 issues to <code>0x1000_0000</code> and M1 to
+    <code>0x1F00_0000</code> — do these contend?</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Run each address through the decode ranges. Two transactions contend only if they decode to the <em>same</em> target. Different targets proceed in parallel; same target goes to arbitration.</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>First pair:</strong> 0x2001_0040 → P1 (in 0x2001_0000–0x2001_FFFF). 0x0800_0000 → S0 (in
+      0x0000_0000–0x0FFF_FFFF). Different targets → <strong>no contention</strong>; both proceed in parallel.</p>
+      <p><strong>Second pair:</strong> 0x1000_0000 → S1 and 0x1F00_0000 → S1 (both in S1's range, even though the
+      addresses differ). Same target → <strong>they contend</strong>, and arbitration decides which master accesses
+      S1 first. Note: contention is about the <em>target</em>, not the exact address — two different addresses in
+      the same slave still compete for that slave's port.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="b">
+    <p class="quiz-question">Decode determines "which target." What determines the order when two masters decode to the same target?</p>
+    <div class="quiz-options">
+      <button data-opt="a">The address value — lower address wins</button>
+      <button data-opt="b">Arbitration (round-robin / priority)</button>
+      <button data-opt="c">Whichever master has the lower ID</button>
+      <button data-opt="d">They are both rejected with DECERR</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Decode just identifies the target; when two masters want the same target, arbitration (the subject of the next two modules) picks the order. Address value and master ID don't decide ordering, and a legal same-target conflict is never a decode error.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Reuse the exact same <code>decode()</code> function in stimulus, the scoreboard, and any coverage model.</p><p class="practice-why"><em>Why: a single decode source guarantees the scoreboard predicts the same target the DUT should pick; two implementations drift and create false mismatches.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Never testing unmapped addresses because "software won't generate them."</p><p class="practice-why"><em>Why it hurts: stray/buggy software and security probes absolutely do generate them; an un-handled hole is a hang that escapes to silicon.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Test the exact boundary addresses of each range (base, base−1, end, end+1).</p><p class="practice-why"><em>Why: off-by-one decode bugs live precisely at range edges; mid-range addresses never expose them.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Assuming a decode bug will show as a data mismatch.</p><p class="practice-why"><em>Why it hurts: a mis-route can land on a valid-but-wrong slave and still "work" for an address that happens to exist there; you need a routing-aware scoreboard that checks the <em>target</em>, not just the data.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 3 ===== -->
+<section class="module" id="m3">
+  <div class="mod-num">MODULE 3</div>
+  <h2 class="mod-title">Arbitration — Round-Robin</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Explain why arbitration is unavoidable when two masters share one slave.</li>
+      <li>Describe round-robin mechanics and its fairness / no-starvation guarantee.</li>
+      <li>Read a grant timeline for two contending masters.</li>
+      <li>Build the checks that <em>prove</em> round-robin fairness in simulation.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — taking turns at a single doorway.</strong> Two people keep arriving at one narrow door. A
+    polite rule: after one person goes through, the <em>other</em> gets the next turn if they're waiting. Nobody is
+    permanently stuck behind the other. Round-robin is exactly this "you went last time, so you're after them now"
+    rotation of priority.
+  </div>
+
+  <h3>Why arbitration exists</h3>
+  <p>A slave port can serve one transaction's address phase at a time. When both M0 and M1 decode to the same slave
+  in the same window, something must choose who is granted first and who waits. That chooser is the
+  <strong>arbiter</strong>, and it sits in front of each shared resource (each slave port) in the NoC.</p>
+
+  <h3>Round-robin mechanics</h3>
+  <p>Round-robin keeps a pointer to "whose turn is next." When it grants a master, it advances the pointer to the
+  <em>other</em> master. So if M0 was just served, M1 is favoured next; if M1 was just served, M0 is favoured next.
+  The result is a fair alternation under sustained contention — neither master can monopolise the slave.</p>
+
+  <figure>
+    <svg viewBox="0 0 700 250" xmlns="http://www.w3.org/2000/svg" style="font-family:'JetBrains Mono',monospace;">
+      <defs><marker id="m3a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker></defs>
+      <text x="10" y="40" font-size="12" fill="#1c1c1e">M0 req</text>
+      <text x="10" y="90" font-size="12" fill="#1c1c1e">M1 req</text>
+      <text x="10" y="150" font-size="12" fill="#1c1c1e">grant</text>
+      <!-- both request continuously (high whole time) -->
+      <polyline points="90,45 90,25 620,25 620,45" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <polyline points="90,95 90,75 620,75 620,95" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <!-- grant alternates: M0,M1,M0,M1,M0,M1 across 6 slots -->
+      <g font-size="10" text-anchor="middle">
+        <rect x="90" y="135" width="85" height="26" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="132" y="152" fill="#1a4fa0">M0</text>
+        <rect x="178" y="135" width="85" height="26" rx="3" fill="#fdf3e8" stroke="#a86a00"/><text x="220" y="152" fill="#a86a00">M1</text>
+        <rect x="266" y="135" width="85" height="26" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="308" y="152" fill="#1a4fa0">M0</text>
+        <rect x="354" y="135" width="85" height="26" rx="3" fill="#fdf3e8" stroke="#a86a00"/><text x="396" y="152" fill="#a86a00">M1</text>
+        <rect x="442" y="135" width="85" height="26" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="484" y="152" fill="#1a4fa0">M0</text>
+        <rect x="530" y="135" width="85" height="26" rx="3" fill="#fdf3e8" stroke="#a86a00"/><text x="572" y="152" fill="#a86a00">M1</text>
+      </g>
+      <text x="350" y="195" text-anchor="middle" font-size="10" fill="#5c5c66">Both masters request continuously. Round-robin alternates the grant: M0, M1, M0, M1 …</text>
+      <text x="350" y="215" text-anchor="middle" font-size="10" fill="#0e7d6e">Fair share: each master gets exactly 50% under equal sustained load. Neither starves.</text>
+    </svg>
+    <figcaption>Round-robin grant timeline. With both masters always requesting, the grant alternates perfectly — the fairness guarantee made visible.</figcaption>
+  </figure>
+
+  <h3>An illustrative round-robin arbiter</h3>
+  <pre><code class="language-sv"><span class="cmt">// Two-requester round-robin. 'last' = who was granted most recently.</span>
+<span class="cmt">// Favour the OTHER master next, so priority rotates.</span>
+<span class="kw">module</span> rr_arb2(<span class="kw">input</span> logic clk, rstn,
+              <span class="kw">input</span> logic req0, req1,
+              <span class="kw">output</span> logic gnt0, gnt1);
+  logic last;                          <span class="cmt">// 0 = M0 went last, 1 = M1 went last</span>
+  <span class="kw">always_ff</span> @(<span class="kw">posedge</span> clk <span class="kw">or</span> <span class="kw">negedge</span> rstn) <span class="kw">begin</span>
+    <span class="kw">if</span> (!rstn) last &lt;= <span class="num">1'b1</span>;          <span class="cmt">// so M0 is favoured first out of reset</span>
+    <span class="kw">else if</span> (gnt0)      last &lt;= <span class="num">1'b0</span>;
+    <span class="kw">else if</span> (gnt1)      last &lt;= <span class="num">1'b1</span>;
+  <span class="kw">end</span>
+  <span class="kw">always_comb</span> <span class="kw">begin</span>
+    gnt0 = <span class="num">1'b0</span>; gnt1 = <span class="num">1'b0</span>;
+    <span class="kw">if</span> (req0 &amp;&amp; req1) <span class="kw">begin</span>          <span class="cmt">// contention: favour whoever did NOT go last</span>
+      <span class="kw">if</span> (last) gnt0 = <span class="num">1'b1</span>;            <span class="cmt">// M1 went last → grant M0</span>
+      <span class="kw">else</span>      gnt1 = <span class="num">1'b1</span>;
+    <span class="kw">end</span> <span class="kw">else</span> <span class="kw">begin</span> gnt0 = req0; gnt1 = req1; <span class="kw">end</span> <span class="cmt">// no contention: grant the asker</span>
+  <span class="kw">end</span>
+<span class="kw">endmodule</span></code></pre>
+
+  <h3>Verifying round-robin — fairness is the property</h3>
+  <p>Functional correctness is easy ("a grant happened"); the <em>interesting</em> property is fairness, and it
+  only appears under <strong>sustained contention</strong>. So the test must force both masters to request the same
+  slave continuously, then measure the grant distribution. Three concrete checks:</p>
+  <ul>
+    <li><strong>No starvation:</strong> assert that once a master is requesting, it is granted within a bounded
+    number of grants (here: at most one other grant in between).</li>
+    <li><strong>Alternation:</strong> under continuous dual request, grants must strictly alternate M0/M1.</li>
+    <li><strong>Fair share:</strong> over a long run, each master's grant count to the contended slave is ~50%.</li>
+  </ul>
+
+  <pre><code class="language-sv"><span class="cmt">// No-starvation assertion: if M1 requests the contended slave, it must be</span>
+<span class="cmt">// granted before M0 is granted twice in a row. Bind this in the interface.</span>
+property no_starve_m1;
+  @(<span class="kw">posedge</span> clk) <span class="kw">disable iff</span>(!rstn)
+    (req1 &amp;&amp; gnt0) |=> (req1 throughout (gnt1[->1] <span class="kw">within</span> gnt0[->1]));
+endproperty
+a_no_starve_m1: <span class="kw">assert property</span>(no_starve_m1)
+  <span class="kw">else</span> `uvm_error(<span class="str">"ARB"</span>, <span class="str">"M1 starved: M0 granted twice while M1 waiting"</span>)
+
+<span class="cmt">// Fairness coverage: collect grant counts and check ~50/50 at end of test.</span>
+<span class="kw">function</span> <span class="type">void</span> check_fairness();
+  real share0 = <span class="kw">real</span>'(g0_cnt) / (g0_cnt + g1_cnt);
+  <span class="kw">if</span> (share0 &lt; <span class="num">0.45</span> || share0 &gt; <span class="num">0.55</span>)   <span class="cmt">// tolerance band</span>
+    `uvm_error(<span class="str">"ARB"</span>, $sformatf(<span class="str">"Unfair RR: M0 share=%.2f"</span>, share0))
+<span class="kw">endfunction</span></code></pre>
+
+  <div class="callout warn">
+    <strong>You cannot test fairness with light traffic.</strong> If masters only occasionally request, the arbiter
+    almost never sees true contention, grants whoever asked, and a starvation bug stays hidden. Fairness tests
+    <em>must</em> create back-to-back simultaneous requests to the same slave — a dedicated "contention storm"
+    sequence, not the default random mix.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — predict the round-robin grants</h4>
+    <p>The arbiter comes out of reset with M0 favoured. The request pattern to slave S0, per cycle, is:
+    cycle1 = {M0,M1}, cycle2 = {M0,M1}, cycle3 = {M1 only}, cycle4 = {M0,M1}, cycle5 = {M0,M1}. Give the grant
+    each cycle (assume one grant per cycle).</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Track the "last granted" pointer. On contention, grant whoever did NOT go last, then flip the pointer. With only one requester, grant that requester and update the pointer to them.</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <ul>
+        <li><strong>Cycle 1</strong> {M0,M1}, M0 favoured → grant <strong>M0</strong>. last=M0.</li>
+        <li><strong>Cycle 2</strong> {M0,M1}, M0 went last → grant <strong>M1</strong>. last=M1.</li>
+        <li><strong>Cycle 3</strong> {M1 only} → grant <strong>M1</strong>. last=M1.</li>
+        <li><strong>Cycle 4</strong> {M0,M1}, M1 went last → grant <strong>M0</strong>. last=M0.</li>
+        <li><strong>Cycle 5</strong> {M0,M1}, M0 went last → grant <strong>M1</strong>. last=M1.</li>
+      </ul>
+      <p>Grant sequence: <strong>M0, M1, M1, M0, M1</strong>. Note cycle 3: M1 wins uncontested and that updates the
+      pointer, so M0 is correctly favoured at cycle 4. A subtle but common RTL bug is failing to update the pointer
+      on an <em>uncontested</em> grant — which would wrongly grant M1 again at cycle 4. Your stimulus must include
+      single-requester cycles interleaved with contention to catch exactly this.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="c">
+    <p class="quiz-question">What property of round-robin arbitration can <em>only</em> be verified under sustained contention?</p>
+    <div class="quiz-options">
+      <button data-opt="a">That a grant signal can go high</button>
+      <button data-opt="b">That the address decoder works</button>
+      <button data-opt="c">Fairness / no-starvation — the guarantee that neither master is locked out over time</button>
+      <button data-opt="d">That reset clears the registers</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Fairness is a property of behaviour <em>over time under contention</em>. With light traffic the arbiter rarely sees both masters requesting at once, so a starvation bug never manifests. You must force continuous simultaneous requests to the same slave to test it.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Write a dedicated "contention storm" sequence that drives both masters at one slave back-to-back, and measure grant share.</p><p class="practice-why"><em>Why: fairness and starvation bugs only appear under true contention; the default random mix rarely creates it densely enough.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Declaring arbitration "verified" because transactions complete in a mixed-traffic test.</p><p class="practice-why"><em>Why it hurts: completion proves nothing about fairness; one master could be quietly getting 90% of the slave and the test still passes.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Bind a no-starvation SVA assertion per arbiter and a fair-share statistical check at end of test.</p><p class="practice-why"><em>Why: the assertion catches an instantaneous lockout cycle-accurately; the statistical check catches a slow bias the assertion might miss.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Only testing contention with both masters always requesting (never single-requester cycles).</p><p class="practice-why"><em>Why it hurts: it misses pointer-update bugs that only show when an uncontested grant must still rotate priority — a classic RR RTL defect.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 4 ===== -->
+<section class="module" id="m4">
+  <div class="mod-num">MODULE 4</div>
+  <h2 class="mod-title">Arbitration — Priority + Round-Robin</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Understand the common real scheme: priority levels with round-robin as the tie-breaker.</li>
+      <li>See how AxQOS can drive dynamic priority.</li>
+      <li>Recognise the starvation risk of priority and how it's mitigated.</li>
+      <li>Build verification that proves priority is honoured <em>and</em> no master is starved.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a hospital triage queue.</strong> Patients are seen by urgency first (priority): a critical
+    case jumps ahead of routine ones. But among patients of <em>equal</em> urgency, it's first-come-first-served in
+    rotation (round-robin). And a good ER won't let routine patients wait forever while criticals keep arriving —
+    there's a safety valve against starvation. This is exactly priority-with-RR-tiebreak.
+  </div>
+
+  <h3>The common real scheme</h3>
+  <p>Pure round-robin is fair but ignores urgency; pure fixed priority honours urgency but can starve low-priority
+  masters. Real interconnects combine them: <strong>arbitrate by priority level first; within the same priority
+  level, use round-robin.</strong> Our NoC assigns each master a priority and falls back to the round-robin pointer
+  when priorities are equal.</p>
+
+  <div class="keybox">
+    <strong>The arbitration decision, in order:</strong><br>
+    1. If only one master requests → grant it.<br>
+    2. If both request with <em>different</em> priority → grant the higher-priority master.<br>
+    3. If both request with <em>equal</em> priority → use the round-robin pointer (Module 3).<br>
+    Priority may be static (configured per master) or dynamic (driven by each transaction's <code>AxQOS</code>).
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg" style="font-family:'JetBrains Mono',monospace;">
+      <text x="175" y="22" font-size="12" fill="#1a4fa0" font-weight="600" text-anchor="middle">Equal priority → round-robin</text>
+      <text x="525" y="22" font-size="12" fill="#c62828" font-weight="600" text-anchor="middle">M1 higher priority → M1 wins</text>
+      <!-- left: equal -->
+      <text x="20" y="60" font-size="11">M0 req</text><text x="20" y="100" font-size="11">M1 req</text><text x="20" y="145" font-size="11">grant</text>
+      <polyline points="80,65 80,48 330,48 330,65" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <polyline points="80,105 80,88 330,88 330,105" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <g font-size="9" text-anchor="middle">
+        <rect x="80" y="132" width="60" height="24" fill="#e8f0fe" stroke="#1a4fa0"/><text x="110" y="148" fill="#1a4fa0">M0</text>
+        <rect x="143" y="132" width="60" height="24" fill="#fdf3e8" stroke="#a86a00"/><text x="173" y="148" fill="#a86a00">M1</text>
+        <rect x="206" y="132" width="60" height="24" fill="#e8f0fe" stroke="#1a4fa0"/><text x="236" y="148" fill="#1a4fa0">M0</text>
+        <rect x="269" y="132" width="60" height="24" fill="#fdf3e8" stroke="#a86a00"/><text x="299" y="148" fill="#a86a00">M1</text>
+      </g>
+      <text x="205" y="180" font-size="9" fill="#5c5c66" text-anchor="middle">alternates fairly</text>
+      <!-- right: priority -->
+      <text x="380" y="60" font-size="11">M0 req</text><text x="380" y="100" font-size="11">M1 req</text><text x="380" y="145" font-size="11">grant</text>
+      <polyline points="440,65 440,48 680,48 680,65" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <polyline points="440,105 440,88 680,88 680,105" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <g font-size="9" text-anchor="middle">
+        <rect x="440" y="132" width="60" height="24" fill="#fdf3e8" stroke="#a86a00"/><text x="470" y="148" fill="#a86a00">M1</text>
+        <rect x="503" y="132" width="60" height="24" fill="#fdf3e8" stroke="#a86a00"/><text x="533" y="148" fill="#a86a00">M1</text>
+        <rect x="566" y="132" width="60" height="24" fill="#fdf3e8" stroke="#a86a00"/><text x="596" y="148" fill="#a86a00">M1</text>
+        <rect x="629" y="132" width="51" height="24" fill="#fdf3e8" stroke="#a86a00"/><text x="654" y="148" fill="#a86a00">M1</text>
+      </g>
+      <text x="560" y="180" font-size="9" fill="#c62828" text-anchor="middle">M0 waits while M1 keeps winning → starvation risk!</text>
+      <text x="350" y="215" font-size="9.5" fill="#5c5c66" text-anchor="middle">Equal priority is fair (left). Strict priority can starve the lower master (right) — which is why a</text>
+      <text x="350" y="232" font-size="9.5" fill="#5c5c66" text-anchor="middle">starvation safeguard (aging / weighted RR / bounded preemption) is usually added, and must be verified.</text>
+    </svg>
+    <figcaption>Equal priority falls back to round-robin (fair). Strict priority lets the high-priority master win indefinitely — the starvation hazard you must hunt.</figcaption>
+  </figure>
+
+  <h3>The combined arbiter</h3>
+  <pre><code class="language-sv"><span class="cmt">// Priority with round-robin tie-break. prio0/prio1 are this cycle's</span>
+<span class="cmt">// priorities (static config or derived from AxQOS). Higher value = higher priority.</span>
+<span class="kw">always_comb</span> <span class="kw">begin</span>
+  gnt0 = <span class="num">1'b0</span>; gnt1 = <span class="num">1'b0</span>;
+  <span class="kw">if</span> (req0 &amp;&amp; !req1)        gnt0 = <span class="num">1'b1</span>;     <span class="cmt">// only M0 asking</span>
+  <span class="kw">else if</span> (!req0 &amp;&amp; req1)   gnt1 = <span class="num">1'b1</span>;     <span class="cmt">// only M1 asking</span>
+  <span class="kw">else if</span> (req0 &amp;&amp; req1) <span class="kw">begin</span>              <span class="cmt">// both asking → resolve</span>
+    <span class="kw">if</span>      (prio0 &gt; prio1) gnt0 = <span class="num">1'b1</span>;     <span class="cmt">// strictly higher → wins</span>
+    <span class="kw">else if</span> (prio1 &gt; prio0) gnt1 = <span class="num">1'b1</span>;
+    <span class="kw">else</span> <span class="kw">begin</span>                              <span class="cmt">// EQUAL priority → round-robin</span>
+      <span class="kw">if</span> (last) gnt0 = <span class="num">1'b1</span>; <span class="kw">else</span> gnt1 = <span class="num">1'b1</span>;
+    <span class="kw">end</span>
+  <span class="kw">end</span>
+<span class="kw">end</span></code></pre>
+
+  <h3>Verifying priority — two properties that pull in opposite directions</h3>
+  <p>This is the crux. You must simultaneously prove two things that seem contradictory:</p>
+  <ol>
+    <li><strong>Priority is honoured:</strong> when a higher-priority master contends, it wins. (Correctness of the
+    priority order.)</li>
+    <li><strong>No master starves:</strong> a continuously-requesting low-priority master must eventually be served
+    — within whatever bound the spec promises (via aging, weighted RR, or bounded preemption). (Liveness.)</li>
+  </ol>
+  <p>A design can pass (1) and fail (2): it honours priority perfectly but never serves the low-priority master.
+  Or pass (2) and fail (1): it's fair but ignores priority. Your test plan must check both, with separate stimulus.</p>
+
+  <pre><code class="language-sv"><span class="cmt">// PROPERTY 1 — priority honoured: when both request and M1 has strictly</span>
+<span class="cmt">// higher priority, M1 must be the one granted this cycle.</span>
+property prio_honoured;
+  @(<span class="kw">posedge</span> clk) <span class="kw">disable iff</span>(!rstn)
+    (req0 &amp;&amp; req1 &amp;&amp; (prio1 &gt; prio0)) |-> gnt1;
+endproperty
+a_prio_honoured: <span class="kw">assert property</span>(prio_honoured)
+  <span class="kw">else</span> `uvm_error(<span class="str">"ARB"</span>, <span class="str">"Higher-priority master not granted"</span>)
+
+<span class="cmt">// PROPERTY 2 — bounded starvation: a continuously requesting master must</span>
+<span class="cmt">// be granted within MAX_WAIT cycles, whatever the priorities (liveness).</span>
+property bounded_wait_m0;
+  <span class="type">int</span> cnt;
+  @(<span class="kw">posedge</span> clk) <span class="kw">disable iff</span>(!rstn)
+    (req0, cnt=<span class="num">0</span>) |-> (req0, cnt++)[*<span class="num">0</span>:$] ##<span class="num">0</span> (gnt0 || cnt &lt; MAX_WAIT);
+endproperty
+a_bounded_wait_m0: <span class="kw">assert property</span>(bounded_wait_m0)
+  <span class="kw">else</span> `uvm_error(<span class="str">"ARB"</span>, $sformatf(<span class="str">"M0 waited &gt; %0d cycles — starvation"</span>, MAX_WAIT))</code></pre>
+
+  <h3>The QoS angle</h3>
+  <p>If priority is driven by <code>AxQOS</code>, the priority of a master can change <em>per transaction</em>. That
+  multiplies the test space: the same two masters can be high/high, high/low, low/high, or low/low on any given
+  pair of transactions. Your coverage must cross master-pair × QoS-relationship so you confirm every priority
+  relationship was actually arbitrated — not just that "QoS was set."</p>
+
+  <div class="callout warn">
+    <strong>The most dangerous arbitration bug is silent starvation.</strong> A NoC that honours priority but lets a
+    low-priority master wait forever produces no error, no mismatch — the low-priority transactions just complete
+    very late or, under constant high-priority load, never. It looks like a "performance issue" until it's a
+    deadlocked subsystem in silicon. The bounded-wait assertion is your only reliable catch.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — design the priority test plan</h4>
+    <p>Our NoC lets each master's priority be set high or low (static), and S0 is the contended slave. Design the
+    minimum set of arbitration scenarios you'd run against S0 to verify the combined scheme, and state what each
+    one proves.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Enumerate the priority relationships: equal-high, equal-low, M0&gt;M1, M1&gt;M0. For each, what must the arbiter do? Which scenario tests fairness (RR) and which tests priority? Don't forget the liveness/starvation case under constant high-priority load.</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>Scenario A — equal priority, both storm S0:</strong> expect strict round-robin alternation and
+      ~50/50 share. <em>Proves the RR tie-break works.</em></p>
+      <p><strong>Scenario B — M1 &gt; M0, both storm S0:</strong> expect M1 granted whenever both contend.
+      <em>Proves priority is honoured.</em></p>
+      <p><strong>Scenario C — M0 &gt; M1, both storm S0:</strong> mirror of B with roles swapped.
+      <em>Proves priority isn't hard-wired to one port.</em></p>
+      <p><strong>Scenario D — starvation/liveness:</strong> M1 high-priority requesting <em>continuously</em>, M0
+      low-priority also requesting continuously. Check M0 is still granted within the spec's bound (aging/weighted
+      RR). <em>Proves the low master doesn't starve.</em></p>
+      <p><strong>Scenario E (if QoS-driven):</strong> randomise per-transaction QoS so the priority relationship
+      varies, and cross-cover all four relationships. <em>Proves dynamic priority arbitration.</em></p>
+      <p>A and B/C pull in opposite directions (fairness vs priority); D is the liveness safety net. Skipping D is
+      the most common gap — and the most dangerous.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="d">
+    <p class="quiz-question">A NoC always grants the higher-priority master and a low-priority master that requests continuously is never served. Which property does this violate?</p>
+    <div class="quiz-options">
+      <button data-opt="a">Priority is honoured</button>
+      <button data-opt="b">Address decode correctness</button>
+      <button data-opt="c">Round-robin fairness between different-priority masters</button>
+      <button data-opt="d">Bounded-wait / no-starvation (liveness) for the low-priority master</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Honouring priority is correct (a). But a low-priority master that requests forever and is never served has been starved — the liveness property is violated. Real schemes add aging or weighting so even low-priority masters are served within a bound; the bounded-wait assertion catches a failure here.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Verify "priority honoured" and "no starvation" as two separate properties with separate stimulus.</p><p class="practice-why"><em>Why: they pull in opposite directions; a design can pass one and fail the other, so a single test can't cover both.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Only testing the high-priority master winning, never the low-priority liveness case.</p><p class="practice-why"><em>Why it hurts: silent starvation produces no error and looks like a perf issue — until a low-priority subsystem hangs in silicon under sustained high-priority load.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>When priority is QoS-driven, cross-cover master-pair × QoS relationship (hi/hi, hi/lo, lo/hi, lo/lo).</p><p class="practice-why"><em>Why: dynamic priority means every relationship must actually be arbitrated; "QoS was set" doesn't prove each relationship was exercised.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Assuming equal-priority behaviour without testing it because "they'll rarely be equal."</p><p class="practice-why"><em>Why it hurts: equal priority is the path into the round-robin tie-break logic; skip it and the RR fallback ships unverified.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 5 ===== -->
+<section class="module" id="m5">
+  <div class="mod-num">MODULE 5</div>
+  <h2 class="mod-title">The AXI→APB Bridge &amp; Protocol Conversion</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Understand why P0/P1 need an AXI→APB bridge and what it must convert.</li>
+      <li>Read an APB transfer and the AXI-burst-to-APB-singles mapping.</li>
+      <li>Know the conversion hazards: burst splitting, ordering, response mapping, attributes.</li>
+      <li>Build verification that checks the conversion end-to-end, both directions.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — an interpreter at a border.</strong> An AXI master speaks a fast, parallel, bursty language;
+    an APB peripheral speaks a slow, one-sentence-at-a-time language. The bridge is the interpreter: it breaks the
+    master's long burst into single sentences the peripheral understands, waits for each reply, and translates the
+    peripheral's "done" or "error" back into the master's language. A bad interpreter drops a sentence or mistranslates
+    an error — and that's a bug.
+  </div>
+
+  <h3>Why a bridge at all</h3>
+  <p>AXI and APB are very different. AXI has five independent channels, bursts, IDs, out-of-order completion, and a
+  VALID/READY handshake on every channel. APB has a single, simple, fully-ordered transfer with
+  <code>PSEL</code>/<code>PENABLE</code>/<code>PREADY</code> and no bursts or IDs. The bridge in our NoC sits
+  between the AXI fabric and P0/P1 and reconciles these two worlds.</p>
+
+  <h3>An APB transfer</h3>
+  <p>APB moves one word in a two-phase sequence: a <em>setup</em> phase (PSEL asserted, address/control valid) then
+  an <em>access</em> phase (PENABLE asserted, completing when PREADY is high). Read data or an error
+  (<code>PSLVERR</code>) comes back in the access phase.</p>
+
+  <figure>
+    <svg viewBox="0 0 700 270" xmlns="http://www.w3.org/2000/svg" style="font-family:'JetBrains Mono',monospace;">
+      <defs><marker id="m5a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker></defs>
+      <text x="350" y="18" font-size="11" fill="#5c5c66" text-anchor="middle">One AXI 2-beat write burst → two APB single writes</text>
+      <text x="10" y="48" font-size="11">PCLK</text><text x="10" y="92" font-size="11">PSEL</text>
+      <text x="10" y="132" font-size="11">PENABLE</text><text x="10" y="172" font-size="11">PADDR</text>
+      <text x="10" y="212" font-size="11">PREADY</text>
+      <!-- clock -->
+      <polyline points="70,52 70,32 100,32 100,52 130,52 130,32 160,32 160,52 190,52 190,32 220,32 220,52 250,52 250,32 280,32 280,52 310,52 310,32 340,32 340,52 370,52 370,32 400,32 400,52 430,52 430,32 460,32 460,52 490,52 490,32 520,32 520,52 550,52 550,32 580,32 580,52 610,52 610,32 640,32 640,52"
+                fill="none" stroke="#1a4fa0" stroke-width="2"/>
+      <!-- transfer 1: PSEL high cycles, PENABLE in access phase -->
+      <polyline points="100,96 100,76 340,76 340,96" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <polyline points="160,136 160,116 280,116 280,136 400,136" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <!-- transfer 2 PSEL -->
+      <polyline points="400,96 400,76 610,76 610,96" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <polyline points="460,136 460,116 580,116 580,136" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <!-- PADDR -->
+      <rect x="100" y="160" width="240" height="22" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="220" y="176" font-size="9" text-anchor="middle" fill="#1a4fa0">0x2000_0000</text>
+      <rect x="400" y="160" width="210" height="22" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="505" y="176" font-size="9" text-anchor="middle" fill="#1a4fa0">0x2000_0004</text>
+      <!-- PREADY -->
+      <polyline points="280,216 280,196 340,196 340,216" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <polyline points="520,216 520,196 580,196 580,216" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="220" y="245" font-size="9" fill="#5c5c66" text-anchor="middle">transfer 1 (setup→access→PREADY)</text>
+      <text x="505" y="245" font-size="9" fill="#5c5c66" text-anchor="middle">transfer 2</text>
+      <text x="350" y="262" font-size="9.5" fill="#a86a00" text-anchor="middle">The bridge serialises the AXI burst: one APB transfer per beat, each waiting for PREADY before the next.</text>
+    </svg>
+    <figcaption>An AXI 2-beat write burst converted into two sequential APB single-word writes. APB is strictly one-at-a-time.</figcaption>
+  </figure>
+
+  <h3>What the bridge must convert — and where it can go wrong</h3>
+  <table>
+    <tr><th>Conversion</th><th>Correct behaviour</th><th>Bug if mishandled</th></tr>
+    <tr><td><strong>Burst → singles</strong></td><td>Split an N-beat AXI burst into N APB transfers with correct incrementing addresses.</td><td>Wrong addresses, dropped last beat, wrong beat count.</td></tr>
+    <tr><td><strong>Out-of-order → in-order</strong></td><td>APB has no IDs; the bridge serialises and completes strictly in order.</td><td>Reordered or interleaved APB transfers (illegal on APB).</td></tr>
+    <tr><td><strong>Response mapping</strong></td><td><code>PSLVERR</code> → AXI <code>SLVERR</code>; success → <code>OKAY</code>; one B for the whole write burst.</td><td>Error swallowed (reports OKAY), or extra/missing B response.</td></tr>
+    <tr><td><strong>Write strobes / size</strong></td><td>Sub-word writes honoured via PSTRB (APB4) or correct narrow handling.</td><td>Neighbouring bytes corrupted on a sub-word write.</td></tr>
+    <tr><td><strong>Attributes</strong></td><td>Security/PROT enforced; unsupported AXI features rejected cleanly.</td><td>Secure data leaked to a non-secure access; illegal feature silently accepted.</td></tr>
+  </table>
+
+  <h3>Verifying the bridge — check both directions, end to end</h3>
+  <p>The bridge is verified at <em>two</em> observation points: the AXI side (what the master sees) and the APB side
+  (what the peripheral sees). A monitor on each, plus the scoreboard, lets you confirm the translation is faithful in
+  both directions.</p>
+  <ul>
+    <li><strong>Forward (AXI→APB):</strong> for each AXI burst to P0/P1, the APB monitor must observe exactly N
+    single transfers with the right addresses, write data, and direction.</li>
+    <li><strong>Backward (APB→AXI):</strong> the APB slave's PREADY/PSLVERR/read-data must map to the correct AXI B
+    or R response with the right RRESP/BRESP and a single B per write burst.</li>
+    <li><strong>Error path:</strong> drive the APB slave to assert PSLVERR and confirm the master receives SLVERR —
+    one of the most commonly broken paths.</li>
+  </ul>
+
+  <pre><code class="language-sv"><span class="cmt">// APB-side scoreboard check: every AXI beat to an APB target must appear</span>
+<span class="cmt">// as one APB transfer with matching address/data, in order.</span>
+<span class="kw">function</span> <span class="type">void</span> check_bridge(axi_seq_item axi_txn, apb_txn apb_seen[$]);
+  <span class="kw">if</span> (apb_seen.size() != axi_txn.beats) <span class="kw">begin</span>
+    `uvm_error(<span class="str">"BRIDGE"</span>, $sformatf(<span class="str">"AXI burst of %0d beats produced %0d APB transfers"</span>,
+               axi_txn.beats, apb_seen.size())) <span class="kw">return</span>;
+  <span class="kw">end</span>
+  <span class="kw">foreach</span> (apb_seen[i]) <span class="kw">begin</span>
+    <span class="kw">if</span> (apb_seen[i].addr !== axi_txn.beat_addr[i])
+      `uvm_error(<span class="str">"BRIDGE"</span>, $sformatf(<span class="str">"beat %0d addr exp %h got %h"</span>,
+                 i, axi_txn.beat_addr[i], apb_seen[i].addr))
+    <span class="kw">if</span> (axi_txn.is_write &amp;&amp; apb_seen[i].wdata !== axi_txn.wdata[i])
+      `uvm_error(<span class="str">"BRIDGE"</span>, <span class="str">"APB write data mismatch"</span>)
+  <span class="kw">end</span>
+  <span class="cmt">// PSLVERR on any transfer must surface as SLVERR on the AXI response.</span>
+  <span class="kw">if</span> (apb_seen.or() <span class="kw">with</span> (item.pslverr) &amp;&amp; axi_txn.resp !== SLVERR)
+    `uvm_error(<span class="str">"BRIDGE"</span>, <span class="str">"APB PSLVERR not mapped to AXI SLVERR"</span>)
+<span class="kw">endfunction</span></code></pre>
+
+  <div class="callout">
+    <strong>The bridge doubles your protocol-assertion needs.</strong> Bind APB protocol assertions (PENABLE follows
+    PSEL, PREADY eventually asserts, no PSEL glitches) on the APB side <em>and</em> AXI assertions on the AXI side.
+    A bridge bug often shows first as an APB protocol assertion firing — long before any data mismatch — which is
+    exactly why per-side assertions are so valuable here.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — predict the APB activity</h4>
+    <p>M1 issues an AXI write burst to P0: <code>AWADDR=0x2000_0010</code>, <code>AWLEN=2</code> (3 beats),
+    <code>AWSIZE=2</code> (4 bytes), INCR. The APB slave asserts PSLVERR on the second transfer only. Describe what
+    the APB monitor should see and what AXI response the master should ultimately get.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>3 beats → how many APB transfers, at what addresses (INCR, +4 each)? APB is in-order single transfers. A write burst gets ONE B response on AXI — if any beat errored, what should that single BRESP be?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>APB monitor sees three single write transfers</strong>, in order, at addresses
+      <code>0x2000_0010</code>, <code>0x2000_0014</code>, <code>0x2000_0018</code> (INCR, +4 each), each with its
+      beat's write data and strobes. The bridge waits for PREADY on each before starting the next.</p>
+      <p><strong>The second transfer returns PSLVERR.</strong> Per AXI, a write burst gets a <em>single</em> B
+      response, and if any part of it errored the response should reflect that — so the master ultimately receives
+      <strong>BRESP = SLVERR</strong> (one B for the whole burst). The bridge must still complete all three APB
+      transfers (the error doesn't abort the burst) and must not emit extra B responses. Common bugs to check:
+      swallowing the error and reporting OKAY, aborting after the errored beat, or emitting one B per beat.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="b">
+    <p class="quiz-question">An AXI 4-beat write burst targets APB slave P0, and the APB slave returns PSLVERR on one transfer. How many AXI B responses should the master receive, and with what status?</p>
+    <div class="quiz-options">
+      <button data-opt="a">4 B responses, one per beat</button>
+      <button data-opt="b">1 B response, with SLVERR</button>
+      <button data-opt="c">1 B response, with OKAY (the error is internal to APB)</button>
+      <button data-opt="d">0 — the burst is aborted</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">A write burst always gets exactly one B response on AXI. The PSLVERR on a transfer must be mapped to SLVERR on that single B — swallowing it (reporting OKAY) hides a real error, and emitting one B per beat is a protocol violation.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Monitor both the AXI and APB sides of the bridge and reconcile them in the scoreboard.</p><p class="practice-why"><em>Why: only by observing both can you prove the translation is faithful; an AXI-only view can't tell a correct burst-split from a broken one.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Only testing the happy path and never asserting PSLVERR from the APB slave.</p><p class="practice-why"><em>Why it hurts: error mapping (PSLVERR→SLVERR) is among the most frequently broken bridge features and ships unverified if you never inject an APB error.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Bind APB protocol assertions (PENABLE after PSEL, eventual PREADY) on the APB side.</p><p class="practice-why"><em>Why: a bridge bug usually violates APB protocol before it corrupts data; the assertion pinpoints it cycle-accurately with a clear message.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Sending AXI bursts that the bridge or APB can't represent (e.g. exotic sizes) and treating the resulting error as a DUT bug.</p><p class="practice-why"><em>Why it hurts: illegal stimulus produces false fails; constrain the generator to what the bridge legally supports, then test unsupported features separately and on purpose.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 6 ===== -->
+<section class="module" id="m6">
+  <div class="mod-num">MODULE 6</div>
+  <h2 class="mod-title">Concurrency, Outstanding &amp; Ordering Across the Fabric</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Reason about multiple masters with transactions in flight to multiple slaves at once.</li>
+      <li>Apply AXI ordering rules <em>through</em> the NoC, not just at one port.</li>
+      <li>Recognise head-of-line blocking and its performance impact.</li>
+      <li>Understand deadlock scenarios in this fabric and how they're avoided and verified.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a busy kitchen pass.</strong> Two waiters (masters) keep firing orders to four stations
+    (slaves). Orders for different stations cook in parallel; orders for the same station queue up. A slow station
+    can hold up a waiter who has other orders waiting behind it (head-of-line blocking). And if two waiters each
+    hold something the other needs to proceed, the whole pass jams (deadlock). The NoC must keep the pass flowing.
+  </div>
+
+  <h3>Many things in flight at once</h3>
+  <p>This is where the DUT gets genuinely hard. At any instant, M0 and M1 may each have several transactions
+  outstanding, spread across S0, S1, P0, and P1. Transactions to <em>different</em> slaves proceed in parallel;
+  transactions to the <em>same</em> slave are arbitrated and queued. The NoC must keep every flow's ordering correct
+  while maximising the parallelism.</p>
+
+  <figure>
+    <svg viewBox="0 0 700 270" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <defs><marker id="m6a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker></defs>
+      <rect x="40" y="60" width="110" height="44" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/><text x="95" y="87" text-anchor="middle" font-size="12" fill="#1a4fa0" font-weight="600">M0</text>
+      <rect x="40" y="160" width="110" height="44" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/><text x="95" y="187" text-anchor="middle" font-size="12" fill="#1a4fa0" font-weight="600">M1</text>
+      <rect x="300" y="100" width="120" height="64" rx="8" fill="#f3f0fa" stroke="#6a1b9a" stroke-width="2"/><text x="360" y="137" text-anchor="middle" font-size="12" fill="#6a1b9a" font-weight="600">NoC</text>
+      <rect x="560" y="30" width="100" height="36" rx="5" fill="#e8f4f1" stroke="#0e7d6e"/><text x="610" y="53" text-anchor="middle" font-size="11" fill="#0e7d6e">S0</text>
+      <rect x="560" y="80" width="100" height="36" rx="5" fill="#e8f4f1" stroke="#0e7d6e"/><text x="610" y="103" text-anchor="middle" font-size="11" fill="#0e7d6e">S1</text>
+      <rect x="560" y="150" width="100" height="36" rx="5" fill="#fdf3e8" stroke="#a86a00"/><text x="610" y="173" text-anchor="middle" font-size="11" fill="#a86a00">P0</text>
+      <rect x="560" y="200" width="100" height="36" rx="5" fill="#fdf3e8" stroke="#a86a00"/><text x="610" y="223" text-anchor="middle" font-size="11" fill="#a86a00">P1</text>
+      <!-- M0 flows -->
+      <line x1="150" y1="76" x2="300" y2="120" stroke="#1a4fa0" stroke-width="2" marker-end="url(#m6a)"/>
+      <!-- M1 flows -->
+      <line x1="150" y1="188" x2="300" y2="150" stroke="#1a4fa0" stroke-width="2" marker-end="url(#m6a)"/>
+      <!-- NoC to slaves: M0->S0, M0->P0, M1->S1, M1->S0(contend) -->
+      <line x1="420" y1="120" x2="558" y2="48" stroke="#0e7d6e" stroke-width="2" marker-end="url(#m6a)"/>
+      <text x="500" y="78" font-size="8" fill="#1a4fa0">M0→S0</text>
+      <line x1="420" y1="135" x2="558" y2="168" stroke="#a86a00" stroke-width="2" marker-end="url(#m6a)"/>
+      <text x="500" y="158" font-size="8" fill="#1a4fa0">M0→P0</text>
+      <line x1="420" y1="145" x2="558" y2="98" stroke="#0e7d6e" stroke-width="2" marker-end="url(#m6a)"/>
+      <text x="498" y="112" font-size="8" fill="#c62828">M1→S1</text>
+      <line x1="420" y1="150" x2="558" y2="55" stroke="#c62828" stroke-width="1.5" stroke-dasharray="3 2" marker-end="url(#m6a)"/>
+      <text x="470" y="40" font-size="8" fill="#c62828">M1→S0 (contends!)</text>
+      <text x="350" y="258" text-anchor="middle" font-size="9.5" fill="#5c5c66">Different-slave flows run in parallel. M0→S0 and M1→S0 contend at S0's arbiter. All ordering must still hold.</text>
+    </svg>
+    <figcaption>Concurrent multi-master flows. Parallel where targets differ, arbitrated where they collide — and ordering rules apply across every path.</figcaption>
+  </figure>
+
+  <h3>Ordering rules, applied through the NoC</h3>
+  <p>The AXI ordering rules (same ID → in order; different ID → any order; reads and writes independent) must hold
+  <em>across the fabric</em>, not merely at a single port. Two consequences specific to a NoC:</p>
+  <ul>
+    <li><strong>Same master, same ID, different slaves:</strong> if a master sends two same-ID transactions that
+    decode to different slaves, the NoC must still return their responses in order — even though the slaves are
+    independent and may respond at very different times. This forces real ordering logic in the fabric.</li>
+    <li><strong>Different masters:</strong> M0's and M1's transactions have no ordering relationship with each
+    other; the NoC must not impose one (which would needlessly serialise them) nor violate each master's internal
+    ordering.</li>
+  </ul>
+
+  <div class="callout warn">
+    <strong>The cross-slave same-ID case is a classic NoC bug.</strong> A master issues ID=4 to slow S1, then ID=4
+    to fast P0. P0 responds first. A correct NoC must hold P0's response until S1's completes, preserving same-ID
+    order — or, more commonly, the design <em>requires</em> the master not to reuse an ID across slaves. Know which
+    contract your DUT follows, and test exactly that boundary.
+  </div>
+
+  <h3>Head-of-line blocking</h3>
+  <p>If the NoC queues a master's transactions in a single FIFO, a transaction stuck waiting on a slow slave blocks
+  everything behind it — even transactions destined for idle slaves. This <strong>head-of-line (HOL)
+  blocking</strong> is a performance bug, not a functional one: data is still correct, but throughput collapses.
+  Designs mitigate it with per-target queues or multiple outstanding-ID tracking. Your verification must
+  <em>measure</em> it: drive a slow transaction followed by ones to idle slaves and confirm the later ones aren't
+  needlessly stalled.</p>
+
+  <h3>Deadlock in this fabric</h3>
+  <p>Deadlock is the most dangerous concurrency failure: a cyclic dependency where nothing can progress. In our NoC,
+  realistic deadlock seeds include:</p>
+  <table>
+    <tr><th>Scenario</th><th>How the cycle forms</th></tr>
+    <tr><td>Mutual cross-traffic with full buffers</td><td>M0→S0 and M1→S1 each hold the only buffer slot the other's response needs to drain.</td></tr>
+    <tr><td>Bridge back-pressure stalls the fabric</td><td>A slow APB slave holds the bridge; if the fabric can't accept other responses meanwhile, unrelated traffic jams behind it.</td></tr>
+    <tr><td>Write/read interdependence</td><td>A write whose B response is stuck behind a read that itself waits on the write's resource.</td></tr>
+  </table>
+  <p>Designs avoid deadlock with independent channels, sufficient buffering, and ordering rules that prevent cyclic
+  waits. Because deadlock corrupts no data — it just stops — it is invisible to a data scoreboard and must be hunted
+  with <strong>buffer-saturating stress plus simulation timeouts</strong> (and, ideally, formal deadlock checks).</p>
+
+  <div class="activity">
+    <h4>Activity — will this deadlock, stall, or flow?</h4>
+    <p>M0 issues a long burst to the slow APB slave P0 (many cycles to drain), then immediately a single read to the
+    idle AXI slave S0. M1 is silent. The NoC queues M0's transactions in one shared FIFO per master. What happens to
+    the S0 read, and what is the category of the problem (functional bug / performance bug / deadlock)?</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>The S0 read is behind the slow P0 burst in a single shared FIFO. Can it overtake the P0 transaction? Is the data wrong, or just late? Is there a cyclic dependency (deadlock) or just a queue stuck behind a slow head?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p>The S0 read is stuck behind the slow P0 burst in the shared FIFO, even though S0 is idle and ready. It
+      eventually completes once the P0 burst drains — so the <strong>data is correct, just late</strong>.</p>
+      <p><strong>Category: performance bug (head-of-line blocking)</strong>, not a deadlock and not a functional bug.
+      There is no cyclic dependency — the P0 burst <em>will</em> finish and release the queue — so it's not
+      deadlock. And nothing is corrupted, so it's not a functional error. The fix is architectural (per-target
+      queues so the S0 read can bypass the P0 burst). Crucially, a pure data scoreboard reports a clean pass here;
+      you only catch it by <em>measuring latency</em> — confirming the S0 read didn't wait far longer than S0's own
+      latency. This is why throughput/latency coverage matters alongside data checks.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="c">
+    <p class="quiz-question">A NoC returns correct data but a transaction to an idle slave is stalled behind a slow transaction in a shared queue. What is this, and how is it caught?</p>
+    <div class="quiz-options">
+      <button data-opt="a">A deadlock — caught by a data mismatch</button>
+      <button data-opt="b">A functional bug — caught by the scoreboard's data compare</button>
+      <button data-opt="c">Head-of-line blocking (a performance bug) — caught by measuring latency, not by data checks</button>
+      <button data-opt="d">A decode error — caught by the DECERR check</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Data is correct, so it's not a functional bug or decode error. There's no cyclic wait, so it's not deadlock. It's head-of-line blocking — a throughput problem — and only a latency/throughput measurement (not a data scoreboard) reveals it.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Run a virtual-sequencer scenario where both masters issue concurrent, mixed-target, multi-outstanding traffic.</p><p class="practice-why"><em>Why: the hard ordering, HOL, and deadlock bugs only appear when many flows are genuinely in flight across the fabric at once.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Relying on the data scoreboard to catch deadlock or head-of-line blocking.</p><p class="practice-why"><em>Why it hurts: both leave data correct — deadlock just stops, HOL just slows. You need timeouts (deadlock) and latency measurement (HOL), not data compares.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Know your DUT's cross-slave same-ID contract and test exactly that boundary.</p><p class="practice-why"><em>Why: same-ID-to-different-slaves is a notorious ordering corner; the design either reorders-and-restores or forbids it — verify the actual contract, not an assumption.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Testing each master in isolation and never both simultaneously at saturation.</p><p class="practice-why"><em>Why it hurts: a single active master never creates the cyclic buffer dependencies that cause deadlock — the most catastrophic failure goes entirely untested.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 7 ===== -->
+<section class="module" id="m7">
+  <div class="mod-num">MODULE 7</div>
+  <h2 class="mod-title">The UVM Verification Environment</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Lay out the full UVM environment for the 2×2×2 NoC.</li>
+      <li>Decide which agents are active (drive) and which are reactive (respond).</li>
+      <li>Wire monitors on every port into the scoreboard and coverage.</li>
+      <li>Use a virtual sequencer to coordinate multi-master traffic.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — staffing a film set.</strong> The masters are the actors who drive the scene (active agents).
+    The slaves are the responsive extras who react on cue (reactive agents). Camera operators record everything
+    without interfering (monitors). The script supervisor cross-checks that what was scripted matches what was
+    filmed (scoreboard). And the director coordinates everyone so the scene plays out as intended (virtual
+    sequencer). Build the crew, then you can shoot any scene.
+  </div>
+
+  <h3>Active vs reactive agents</h3>
+  <p>The single most important environment decision for a NoC: which side drives. The masters are stimulus sources,
+  so their agents are <strong>active</strong> — they have a sequencer and a driver that generate transactions. The
+  slaves receive transactions and must <em>respond</em>, so their agents are <strong>reactive responders</strong> —
+  they have a driver that answers requests (returns read data, drives PREADY, can inject errors) but takes no
+  initiative. Every port also has a passive <strong>monitor</strong>.</p>
+
+  <figure>
+    <svg viewBox="0 0 700 380" xmlns="http://www.w3.org/2000/svg" style="font-family:'IBM Plex Sans',sans-serif;">
+      <defs><marker id="m7a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5c5c66"/></marker></defs>
+      <rect x="15" y="15" width="670" height="350" rx="8" fill="none" stroke="#5c5c66" stroke-dasharray="4 3"/>
+      <text x="28" y="34" font-size="11" fill="#5c5c66">noc_env</text>
+      <!-- master agents -->
+      <rect x="35" y="50" width="150" height="56" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="110" y="72" text-anchor="middle" font-size="11" fill="#1a4fa0" font-weight="600">M0 agent (active)</text>
+      <text x="110" y="90" text-anchor="middle" font-size="9" fill="#5c5c66">seqr+driver+monitor</text>
+      <rect x="35" y="120" width="150" height="56" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="110" y="142" text-anchor="middle" font-size="11" fill="#1a4fa0" font-weight="600">M1 agent (active)</text>
+      <text x="110" y="160" text-anchor="middle" font-size="9" fill="#5c5c66">seqr+driver+monitor</text>
+      <!-- DUT -->
+      <rect x="280" y="80" width="140" height="120" rx="8" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+      <text x="350" y="135" text-anchor="middle" font-size="13" fill="#a86a00" font-weight="700">NoC DUT</text>
+      <text x="350" y="155" text-anchor="middle" font-size="9" fill="#5c5c66">2×2×2</text>
+      <!-- slave agents -->
+      <rect x="515" y="40" width="150" height="40" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="590" y="58" text-anchor="middle" font-size="10" fill="#0e7d6e" font-weight="600">S0 agent (reactive)</text>
+      <text x="590" y="72" text-anchor="middle" font-size="8" fill="#5c5c66">responder+monitor</text>
+      <rect x="515" y="90" width="150" height="40" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="590" y="108" text-anchor="middle" font-size="10" fill="#0e7d6e" font-weight="600">S1 agent (reactive)</text>
+      <rect x="515" y="140" width="150" height="40" rx="6" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+      <text x="590" y="158" text-anchor="middle" font-size="10" fill="#a86a00" font-weight="600">P0 agent (reactive)</text>
+      <text x="590" y="172" text-anchor="middle" font-size="8" fill="#5c5c66">APB responder+monitor</text>
+      <rect x="515" y="190" width="150" height="40" rx="6" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+      <text x="590" y="208" text-anchor="middle" font-size="10" fill="#a86a00" font-weight="600">P1 agent (reactive)</text>
+      <!-- scoreboard + cov + vseqr -->
+      <rect x="120" y="250" width="200" height="48" rx="6" fill="#f3f0fa" stroke="#6a1b9a" stroke-width="2"/>
+      <text x="220" y="271" text-anchor="middle" font-size="11" fill="#6a1b9a" font-weight="600">routing-aware scoreboard</text>
+      <text x="220" y="287" text-anchor="middle" font-size="9" fill="#5c5c66">per-slave models + checks</text>
+      <rect x="350" y="250" width="150" height="48" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+      <text x="425" y="271" text-anchor="middle" font-size="11" fill="#0e7d6e" font-weight="600">coverage</text>
+      <text x="425" y="287" text-anchor="middle" font-size="9" fill="#5c5c66">routing × arb × QoS</text>
+      <rect x="120" y="315" width="380" height="40" rx="6" fill="#eef3fb" stroke="#1a4fa0" stroke-width="2"/>
+      <text x="310" y="339" text-anchor="middle" font-size="11" fill="#1a4fa0" font-weight="600">virtual sequencer — coordinates M0 &amp; M1 sequences</text>
+      <!-- connections -->
+      <line x1="185" y1="80" x2="278" y2="120" stroke="#1a4fa0" stroke-width="1.5" marker-end="url(#m7a)"/>
+      <line x1="185" y1="148" x2="278" y2="150" stroke="#1a4fa0" stroke-width="1.5" marker-end="url(#m7a)"/>
+      <line x1="420" y1="110" x2="513" y2="60" stroke="#0e7d6e" stroke-width="1.5" marker-end="url(#m7a)"/>
+      <line x1="420" y1="130" x2="513" y2="160" stroke="#a86a00" stroke-width="1.5" marker-end="url(#m7a)"/>
+      <!-- monitors to sb (dashed) -->
+      <line x1="110" y1="106" x2="160" y2="250" stroke="#6a1b9a" stroke-width="1" stroke-dasharray="3 2"/>
+      <line x1="590" y1="230" x2="320" y2="280" stroke="#6a1b9a" stroke-width="1" stroke-dasharray="3 2"/>
+      <text x="350" y="372" text-anchor="middle" font-size="9" fill="#5c5c66">Monitors on every port (dashed) feed the scoreboard and coverage. The virtual sequencer drives both masters in concert.</text>
+    </svg>
+    <figcaption>The full environment: two active master agents, four reactive slave agents (2 AXI + 2 APB), monitors on every port, a routing-aware scoreboard, coverage, and a virtual sequencer.</figcaption>
+  </figure>
+
+  <h3>Building the environment</h3>
+  <pre><code class="language-sv"><span class="kw">class</span> noc_env <span class="kw">extends</span> uvm_env;
+  `uvm_component_utils(noc_env)
+  axi_master_agent  m0, m1;            <span class="cmt">// ACTIVE — drive stimulus</span>
+  axi_slave_agent   s0, s1;            <span class="cmt">// REACTIVE — respond to AXI</span>
+  apb_slave_agent   p0, p1;            <span class="cmt">// REACTIVE — respond to APB</span>
+  noc_scoreboard    sb;
+  noc_coverage      cov;
+  noc_vseqr         vseqr;             <span class="cmt">// virtual sequencer for multi-master coordination</span>
+
+  <span class="kw">function</span> <span class="type">void</span> build_phase(uvm_phase phase);
+    m0 = axi_master_agent::type_id::create(<span class="str">"m0"</span>, <span class="kw">this</span>);
+    m1 = axi_master_agent::type_id::create(<span class="str">"m1"</span>, <span class="kw">this</span>);
+    s0 = axi_slave_agent ::type_id::create(<span class="str">"s0"</span>, <span class="kw">this</span>);
+    s1 = axi_slave_agent ::type_id::create(<span class="str">"s1"</span>, <span class="kw">this</span>);
+    p0 = apb_slave_agent ::type_id::create(<span class="str">"p0"</span>, <span class="kw">this</span>);
+    p1 = apb_slave_agent ::type_id::create(<span class="str">"p1"</span>, <span class="kw">this</span>);
+    sb = noc_scoreboard ::type_id::create(<span class="str">"sb"</span>, <span class="kw">this</span>);
+    cov= noc_coverage   ::type_id::create(<span class="str">"cov"</span>, <span class="kw">this</span>);
+    vseqr = noc_vseqr   ::type_id::create(<span class="str">"vseqr"</span>, <span class="kw">this</span>);
+    <span class="cmt">// configure agents active/passive via config_db</span>
+    uvm_config_db#(uvm_active_passive_enum)::set(<span class="kw">this</span>,<span class="str">"m*"</span>,<span class="str">"is_active"</span>,UVM_ACTIVE);
+    uvm_config_db#(uvm_active_passive_enum)::set(<span class="kw">this</span>,<span class="str">"s*"</span>,<span class="str">"is_active"</span>,UVM_ACTIVE); <span class="cmt">// responder is "active" but reactive</span>
+  <span class="kw">endfunction</span>
+
+  <span class="kw">function</span> <span class="type">void</span> connect_phase(uvm_phase phase);
+    <span class="cmt">// Every monitor's analysis port → scoreboard (tagged by port) and coverage.</span>
+    m0.mon.ap.connect(sb.m0_imp);   m1.mon.ap.connect(sb.m1_imp);
+    s0.mon.ap.connect(sb.s0_imp);   s1.mon.ap.connect(sb.s1_imp);
+    p0.mon.ap.connect(sb.p0_imp);   p1.mon.ap.connect(sb.p1_imp);
+    m0.mon.ap.connect(cov.analysis_export);
+    m1.mon.ap.connect(cov.analysis_export);
+    <span class="cmt">// Virtual sequencer gets handles to both master sequencers.</span>
+    vseqr.m0_seqr = m0.seqr;
+    vseqr.m1_seqr = m1.seqr;
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></code></pre>
+
+  <h3>The virtual sequencer — coordinating two masters</h3>
+  <p>The whole point of a multi-master NoC is what happens when masters act <em>together</em>. A
+  <strong>virtual sequencer</strong> holds handles to both master sequencers so a single virtual sequence can
+  orchestrate them — e.g. "make both masters storm S0 simultaneously" (for arbitration) or "M0 floods P0 while M1
+  reads S1" (for head-of-line and independence). Without it, you can only run masters in uncoordinated parallel,
+  which rarely produces the precise contention you want to test.</p>
+
+  <pre><code class="language-sv"><span class="kw">class</span> both_storm_s0_vseq <span class="kw">extends</span> uvm_sequence;
+  `uvm_object_utils(both_storm_s0_vseq)
+  `uvm_declare_p_sequencer(noc_vseqr)   <span class="cmt">// gives p_sequencer.m0_seqr / m1_seqr</span>
+
+  <span class="kw">task</span> body();
+    storm_seq a = storm_seq::type_id::create(<span class="str">"a"</span>);
+    storm_seq b = storm_seq::type_id::create(<span class="str">"b"</span>);
+    a.target_base = <span class="num">32'h0000_0000</span>;   <span class="cmt">// both aim at S0 → forced contention</span>
+    b.target_base = <span class="num">32'h0000_0000</span>;
+    <span class="kw">fork</span>                                  <span class="cmt">// run on both masters at once</span>
+      a.start(p_sequencer.m0_seqr);
+      b.start(p_sequencer.m1_seqr);
+    <span class="kw">join</span>
+  <span class="kw">endtask</span>
+<span class="kw">endclass</span></code></pre>
+
+  <div class="callout">
+    <strong>Reactive slave agents are where you inject realism.</strong> The slave responders aren't just memories
+    — they apply random READY back-pressure, variable response latency, and (on command) error responses /
+    PSLVERR. That controlled misbehaviour is what stresses the NoC's buffering, ordering, and error paths. A slave
+    agent that always responds instantly with OKAY hides most fabric bugs.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — assign active/reactive and justify the vseqr</h4>
+    <p>For each agent (M0, M1, S0, S1, P0, P1) state whether it is active (drives stimulus) or reactive (responds),
+    and explain in one line why a virtual sequencer is necessary here rather than just starting two independent
+    master sequences.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Who initiates transactions vs who only answers them? For the vseqr: what kind of scenario (think arbitration) needs the two masters to do something at the same instant, and can independent uncoordinated sequences reliably create that?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <ul>
+        <li><strong>M0, M1 — active.</strong> They initiate AXI transactions; they need sequencer + driver to generate stimulus.</li>
+        <li><strong>S0, S1 — reactive (AXI responders).</strong> They answer AXI requests with data/responses and apply back-pressure; they never initiate.</li>
+        <li><strong>P0, P1 — reactive (APB responders).</strong> Same, on the APB side: drive PREADY/PSLVERR/read data.</li>
+      </ul>
+      <p><strong>Why the vseqr:</strong> arbitration and contention bugs require both masters to request the
+      <em>same slave in the same window</em>. Two independent sequences run in uncoordinated parallel and only
+      occasionally collide — you can't reliably create dense, simultaneous contention. The virtual sequencer lets
+      one virtual sequence start both master sequences with a shared target and a <code>fork</code>, guaranteeing
+      the precise concurrent contention the arbitration tests need.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="b">
+    <p class="quiz-question">In the NoC environment, what is the correct role for the S0, S1, P0, and P1 agents?</p>
+    <div class="quiz-options">
+      <button data-opt="a">Active — they generate the main stimulus</button>
+      <button data-opt="b">Reactive responders — they answer requests, apply back-pressure, and inject errors on command</button>
+      <button data-opt="c">Passive monitors only — they never drive any signals</button>
+      <button data-opt="d">They are not needed; the DUT contains the slaves</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">The slaves must respond to the masters' transactions, so their agents are reactive responders — driving read data, PREADY, response codes, back-pressure, and injected errors. They're not the stimulus source (the masters are) and not merely passive (they must drive the response side).</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Give every port (2 masters, 4 slaves) its own monitor and feed all of them into the scoreboard, tagged by port.</p><p class="practice-why"><em>Why: routing and bridge checks need to see what arrived at each slave, not just what left each master; per-port observation is what makes the routing-aware scoreboard possible.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Modelling slaves as instant always-OKAY memories.</p><p class="practice-why"><em>Why it hurts: no back-pressure, no latency variation, no errors means the NoC's buffering, ordering, and error paths are never stressed — most fabric bugs stay hidden.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Use a virtual sequencer for any scenario requiring coordinated multi-master timing.</p><p class="practice-why"><em>Why: arbitration/contention tests need both masters acting at the same instant; uncoordinated parallel sequences can't reliably produce that.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Hardcoding the address map and widths in the agents instead of via config_db.</p><p class="practice-why"><em>Why it hurts: the env can't be reused for a different map or bus width, and a map change silently breaks stimulus and checking.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 8 ===== -->
+<section class="module" id="m8">
+  <div class="mod-num">MODULE 8</div>
+  <h2 class="mod-title">The Routing-Aware Scoreboard &amp; Checkers</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Predict which slave each transaction lands on and check it actually arrives there.</li>
+      <li>Model each slave's memory and verify data end-to-end across the fabric.</li>
+      <li>Handle arbitration non-determinism — check legality, not exact order.</li>
+      <li>Layer protocol assertions per port alongside the scoreboard.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a parcel tracking office.</strong> When a parcel is posted, the office predicts its
+    destination depot from the address and logs it. When it arrives, the office confirms it reached the
+    <em>predicted</em> depot with its contents intact. It doesn't insist parcels arrive in the order posted — that
+    depends on trucks and traffic (arbitration) — only that each reaches the right place uncorrupted. The
+    routing-aware scoreboard is that office.
+  </div>
+
+  <h3>What "routing-aware" adds</h3>
+  <p>A plain data scoreboard asks "did the data match?". A <strong>routing-aware</strong> scoreboard asks two
+  questions: "did the transaction reach the <em>correct slave</em>?" <em>and</em> "was the data correct there?". The
+  first question is what catches mis-routing — a transaction that lands on a valid-but-wrong slave can otherwise
+  slip through if that address happens to exist on both. It does this by reusing the <code>decode()</code> function
+  from Module 2 to predict the target, then confirming the matching slave-side monitor actually saw it.</p>
+
+  <h3>Scoreboard structure</h3>
+  <pre><code class="language-sv">`uvm_analysis_imp_decl(_m0)  `uvm_analysis_imp_decl(_m1)   <span class="cmt">// from master monitors</span>
+`uvm_analysis_imp_decl(_s0)  `uvm_analysis_imp_decl(_s1)   <span class="cmt">// from AXI slave monitors</span>
+`uvm_analysis_imp_decl(_p0)  `uvm_analysis_imp_decl(_p1)   <span class="cmt">// from APB slave monitors</span>
+
+<span class="kw">class</span> noc_scoreboard <span class="kw">extends</span> uvm_scoreboard;
+  `uvm_component_utils(noc_scoreboard)
+  <span class="cmt">// imps for all six ports (created in build_phase) ...</span>
+
+  <span class="cmt">// One reference memory per slave — the golden model of each target.</span>
+  <span class="type">bit</span>[<span class="num">7</span>:<span class="num">0</span>] mem_s0[<span class="type">bit</span>[<span class="num">31</span>:<span class="num">0</span>]], mem_s1[<span class="type">bit</span>[<span class="num">31</span>:<span class="num">0</span>]];
+  <span class="type">bit</span>[<span class="num">7</span>:<span class="num">0</span>] mem_p0[<span class="type">bit</span>[<span class="num">31</span>:<span class="num">0</span>]], mem_p1[<span class="type">bit</span>[<span class="num">31</span>:<span class="num">0</span>]];
+
+  <span class="cmt">// Per-master, per-ID expected queues (out-of-order completion handling).</span>
+  axi_seq_item expected[<span class="type">string</span>][<span class="type">int</span>][$];   <span class="cmt">// [master][id] → FIFO</span>
+
+  <span class="cmt">// Track which slave each outstanding txn was predicted to hit, for routing check.</span>
+  target_e predicted_tgt[<span class="type">string</span>][<span class="type">int</span>][$];
+
+  <span class="cmt">// ---- From a master monitor: a transaction was issued ----</span>
+  <span class="kw">function</span> <span class="type">void</span> write_m0(axi_seq_item t); record_issue(<span class="str">"M0"</span>, t); <span class="kw">endfunction</span>
+  <span class="kw">function</span> <span class="type">void</span> write_m1(axi_seq_item t); record_issue(<span class="str">"M1"</span>, t); <span class="kw">endfunction</span>
+
+  <span class="kw">function</span> <span class="type">void</span> record_issue(<span class="type">string</span> mst, axi_seq_item t);
+    target_e tgt = decode(t.addr);          <span class="cmt">// REUSE the Module-2 decode model</span>
+    <span class="kw">if</span> (tgt == TGT_NONE) <span class="kw">begin</span>
+      t.expect_decerr = <span class="num">1</span>;                 <span class="cmt">// we expect a DECERR for this one</span>
+    <span class="kw">end</span>
+    axi_seq_item exp = predict_data(t, tgt); <span class="cmt">// apply write / gather read from the right mem</span>
+    expected[mst][t.id].push_back(exp);
+    predicted_tgt[mst][t.id].push_back(tgt);
+  <span class="kw">endfunction</span>
+
+  <span class="cmt">// ---- From a slave monitor: a transaction actually arrived at that slave ----</span>
+  <span class="kw">function</span> <span class="type">void</span> write_s0(axi_seq_item seen); check_arrival(TGT_S0, seen); <span class="kw">endfunction</span>
+  <span class="cmt">// ... write_s1 / write_p0 / write_p1 similar ...</span>
+
+  <span class="kw">function</span> <span class="type">void</span> check_arrival(target_e where, axi_seq_item seen);
+    <span class="cmt">// Confirm SOME outstanding txn predicted to hit 'where' matches this arrival.</span>
+    <span class="kw">if</span> (!any_predicted(where, seen))
+      `uvm_error(<span class="str">"SB_ROUTE"</span>, $sformatf(
+        <span class="str">"Transaction arrived at %s but none was routed there (mis-route)"</span>, where.name))
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></code></pre>
+
+  <h3>End-to-end data check across the fabric</h3>
+  <p>Each slave gets its own reference memory. On a write, <code>predict_data</code> applies the strobed bytes to
+  the predicted slave's memory; on a read, it gathers the expected bytes from that same memory. When the master's
+  response monitor reports completion, the scoreboard pops the matching per-ID expected item and compares — exactly
+  the per-ID out-of-order machinery, now one layer up, spanning the whole fabric.</p>
+
+  <h3>Handling arbitration non-determinism — the key insight</h3>
+  <div class="keybox">
+    <strong>You cannot predict the exact order of arbitration, only its legality.</strong> When M0 and M1 both
+    target S0, which one S0 sees first depends on the arbiter's state — the scoreboard must <em>not</em> hard-code
+    an expected order. Instead it checks: (1) both transactions eventually arrive at S0, (2) each carries correct
+    data, (3) per-master, per-ID ordering is preserved, and (4) the arbitration was <em>legal</em> (fairness /
+    priority), checked separately by assertions and statistics.
+  </div>
+  <p>This separation is the crux of NoC scoreboarding. <strong>Data correctness</strong> is deterministic and the
+  scoreboard checks it exactly. <strong>Arbitration order</strong> is non-deterministic and the scoreboard accepts
+  any legal interleaving, delegating the "was it fair / priority-correct?" question to the arbitration assertions
+  from Modules 3–4. Mixing these up — trying to make the scoreboard predict arbitration order — is the most common
+  way NoC scoreboards drown in false failures.</p>
+
+  <pre><code class="language-sv"><span class="cmt">// Correct: accept any legal arrival order at a contended slave.</span>
+<span class="cmt">// We match an arrival to ANY outstanding txn predicted for this slave with</span>
+<span class="cmt">// matching address/data — not to a pre-decided "next" one.</span>
+<span class="kw">function</span> <span class="type">bit</span> any_predicted(target_e where, axi_seq_item seen);
+  <span class="kw">foreach</span> (predicted_tgt[mst]) <span class="kw">foreach</span> (predicted_tgt[mst][id]) <span class="kw">begin</span>
+    <span class="kw">if</span> (predicted_tgt[mst][id].size() &gt; <span class="num">0</span> &amp;&amp;
+        predicted_tgt[mst][id][<span class="num">0</span>] == where &amp;&amp;
+        addr_data_match(expected[mst][id][<span class="num">0</span>], seen)) <span class="kw">begin</span>
+      <span class="kw">void</span>'(predicted_tgt[mst][id].pop_front());
+      <span class="kw">void</span>'(expected[mst][id].pop_front());     <span class="cmt">// retire within that master/ID stream</span>
+      <span class="kw">return</span> <span class="num">1</span>;
+    <span class="kw">end</span>
+  <span class="kw">end</span>
+  <span class="kw">return</span> <span class="num">0</span>;                                      <span class="cmt">// no legal match → mis-route or unexpected txn</span>
+<span class="kw">endfunction</span></code></pre>
+
+  <h3>Layered checking — assertions per port</h3>
+  <p>The scoreboard is one layer. Alongside it, <strong>bind protocol assertions on every port</strong>: AXI
+  handshake/ordering assertions on the two master ports and two AXI slave ports; APB protocol assertions on the two
+  APB ports; arbitration assertions (no-starvation, priority-honoured) inside the NoC. The scoreboard catches
+  data/routing bugs end-to-end; the assertions catch protocol and fairness violations cycle-accurately with precise
+  messages. Together they cover the whole DUT.</p>
+
+  <div class="callout warn">
+    <strong>The decode error check is easy to forget.</strong> For a transaction to an unmapped address, the
+    scoreboard must expect a DECERR on the master side <em>and</em> confirm <em>no</em> slave monitor saw it (it
+    should never reach a slave). Checking only "master got DECERR" misses a NoC that wrongly forwards the access to
+    a slave <em>and</em> returns DECERR — the slave-side silence is the other half of the check.
+  </div>
+
+  <div class="activity">
+    <h4>Activity — why not predict arbitration order?</h4>
+    <p>A teammate proposes making the scoreboard model the round-robin pointer so it can predict exactly which
+    master S0 serves first and check arrivals in that precise order. Give two concrete reasons this is a bad design,
+    and state what the scoreboard should check instead.</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>Think about how tightly the scoreboard would now be coupled to the DUT's internal arbiter state, and what happens the moment timing shifts or the arbiter is legally allowed more than one behaviour. What is actually a correctness requirement (data, routing, per-ID order) vs an implementation detail (which master happened to win first)?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>Reason 1 — fragile coupling.</strong> Modelling the exact arbiter pointer ties the scoreboard to
+      the DUT's internal micro-state and timing. Any legal timing variation (a cycle of back-pressure, a different
+      latency) changes which master wins first, and the scoreboard reports a false mismatch on perfectly correct
+      hardware. The scoreboard would break constantly.</p>
+      <p><strong>Reason 2 — over-specification.</strong> The <em>order</em> two different masters are served is not
+      a data-correctness requirement — it's an arbitration-policy property. Forcing one "expected" order rejects
+      other legal orders. Correctness is: both arrive, data is right, each master's own per-ID order holds.</p>
+      <p><strong>What to check instead:</strong> the scoreboard verifies data, routing, and per-master/per-ID
+      ordering (all deterministic), accepting <em>any</em> legal arrival interleaving. Whether arbitration was fair
+      / priority-correct is checked separately by the no-starvation and priority-honoured assertions plus the
+      fair-share statistic. Keep the deterministic checks in the scoreboard and the policy checks in assertions.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="a">
+    <p class="quiz-question">When two masters contend for one slave, what should the routing-aware scoreboard check about the order they arrive?</p>
+    <div class="quiz-options">
+      <button data-opt="a">Only that any legal interleaving occurred (both arrive, data correct, per-master/ID order held) — arbitration fairness is checked by assertions</button>
+      <button data-opt="b">That the lower-numbered master always arrives first</button>
+      <button data-opt="c">The exact order predicted by modelling the arbiter's internal pointer</button>
+      <button data-opt="d">Nothing about arrival at all</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">The relative order of two different masters is non-deterministic arbitration policy, not data correctness. The scoreboard accepts any legal interleaving and checks data/routing/per-ID order; fairness and priority are verified separately by assertions and statistics. Modelling the arbiter pointer would make the scoreboard fragile and over-specified.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Reuse the single <code>decode()</code> model to predict the target, and confirm arrival via the slave-side monitor.</p><p class="practice-why"><em>Why: it catches mis-routing that a data-only check would miss when the wrong slave happens to hold a valid address.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Modelling the arbiter's internal state to predict exact arrival order between masters.</p><p class="practice-why"><em>Why it hurts: it couples the scoreboard to DUT micro-timing and over-specifies a non-deterministic policy — endless false failures on correct hardware.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Separate deterministic checks (data, routing, per-ID order) in the scoreboard from policy checks (fairness, priority) in assertions.</p><p class="practice-why"><em>Why: each tool checks what it's good at; the scoreboard stays robust and the arbitration properties get cycle-accurate, well-named assertions.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>For an unmapped address, checking only that the master got DECERR.</p><p class="practice-why"><em>Why it hurts: a NoC that both forwards the bad access to a slave AND returns DECERR passes that check; you must also confirm no slave monitor saw the transaction.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="goNext()">Next →</button></div>
+</section>
+
+<!-- ===== MODULE 9 ===== -->
+<section class="module" id="m9">
+  <div class="mod-num">MODULE 9</div>
+  <h2 class="mod-title">Coverage, Corner Cases &amp; a Debug Walkthrough</h2>
+
+  <div class="objectives">
+    <h4>Learning objectives</h4>
+    <ul>
+      <li>Build a coverage model that proves the whole NoC verification surface was exercised.</li>
+      <li>Enumerate the "try to break it" corners specific to this fabric.</li>
+      <li>Work a realistic NoC debug from symptom to root cause.</li>
+      <li>Consolidate the entire course into a sign-off checklist.</li>
+    </ul>
+  </div>
+
+  <div class="analogy">
+    <strong>Analogy — a flight test program.</strong> You don't certify an aircraft because it flew once. You sign
+    off a matrix: every payload, every weather regime, every failure injected. NoC coverage is that matrix — every
+    route, every arbitration relationship, every contention level, every error — recorded so "done" means "we
+    deliberately exercised the whole envelope," not "nothing happened to break."
+  </div>
+
+  <h3>The coverage model</h3>
+  <p>The verification surface from Module 1 becomes concrete coverage. The single most important coverpoint is the
+  <strong>routing matrix</strong> (master × target), and the most important crosses combine routing with
+  arbitration and contention.</p>
+
+  <pre><code class="language-sv"><span class="kw">class</span> noc_coverage <span class="kw">extends</span> uvm_subscriber #(axi_seq_item);
+  `uvm_component_utils(noc_coverage)
+  axi_seq_item tr; <span class="type">string</span> master; target_e tgt;
+  <span class="type">bit</span> contended; <span class="type">int</span> arb_mode; <span class="type">bit</span>[<span class="num">3</span>:<span class="num">0</span>] qos;
+
+  covergroup noc_cg;
+    master_cp : coverpoint master { bins m0={<span class="str">"M0"</span>}; bins m1={<span class="str">"M1"</span>}; }
+    target_cp : coverpoint tgt { bins s0={TGT_S0}; bins s1={TGT_S1};
+                                 bins p0={TGT_P0}; bins p1={TGT_P1};
+                                 bins decerr={TGT_NONE}; }
+    dir_cp    : coverpoint tr.is_write { bins rd={<span class="num">0</span>}; bins wr={<span class="num">1</span>}; }
+    arb_cp    : coverpoint arb_mode { bins rr={<span class="num">0</span>}; bins prio={<span class="num">1</span>}; }
+    cont_cp   : coverpoint contended { bins solo={<span class="num">0</span>}; bins contended={<span class="num">1</span>}; }
+    qos_cp    : coverpoint qos { bins lo={[<span class="num">0</span>:<span class="num">7</span>]}; bins hi={[<span class="num">8</span>:<span class="num">15</span>]}; }
+
+    <span class="cmt">// THE routing matrix — every master must reach every target (and DECERR).</span>
+    route_x : <span class="kw">cross</span> master_cp, target_cp, dir_cp;
+    <span class="cmt">// Was each target actually exercised UNDER contention, in each arb mode?</span>
+    stress_x : <span class="kw">cross</span> target_cp, cont_cp, arb_cp;
+    <span class="cmt">// Priority relationships actually arbitrated (when QoS-driven).</span>
+    qos_x : <span class="kw">cross</span> master_cp, qos_cp, cont_cp;
+  endgroup
+
+  <span class="kw">function</span> <span class="type">void</span> write(axi_seq_item t);
+    <span class="cmt">// populate fields from t and the env state, then:</span>
+    noc_cg.sample();
+  <span class="kw">endfunction</span>
+<span class="kw">endclass</span></code></pre>
+
+  <div class="callout">
+    <strong>The crosses are the whole point.</strong> <code>route_x</code> closing means every master reached every
+    target with reads and writes — true connectivity coverage. <code>stress_x</code> closing means each slave was
+    hit <em>under contention</em> in <em>both</em> arbitration modes — the regime where arbitration bugs live.
+    Covering master, target, and contention <em>independently</em> can read 100% while "S0 under contention in
+    priority mode" was never actually exercised.
+  </div>
+
+  <h3>The "try to break it" corners for this NoC</h3>
+  <table>
+    <tr><th>Corner</th><th>What it stresses</th></tr>
+    <tr><td>Both masters storm one AXI slave (RR mode)</td><td>Round-robin fairness, no starvation, ~50/50 share.</td></tr>
+    <tr><td>High-priority master floods while low-priority master requests continuously</td><td>Priority honoured + bounded-wait liveness (the starvation safety valve).</td></tr>
+    <tr><td>Both masters target the same APB slave through the bridge</td><td>Arbitration <em>and</em> burst→single conversion under contention; bridge back-pressure into the fabric.</td></tr>
+    <tr><td>Unmapped-address access from each master</td><td>DECERR generated, no slave reached, no hang.</td></tr>
+    <tr><td>Same-ID transactions from one master split across two slaves</td><td>Cross-slave ordering contract (the notorious corner from Module 6).</td></tr>
+    <tr><td>Max outstanding on both masters to overlapping targets</td><td>Buffer capacity, head-of-line blocking, deadlock avoidance.</td></tr>
+    <tr><td>Reset asserted with many transactions in flight to all four slaves</td><td>Clean re-initialisation; no stuck arbiter pointer or leaked buffer slot.</td></tr>
+    <tr><td>APB slave asserts PSLVERR mid-burst while the other master contends</td><td>Error mapping under arbitration — two hard features interacting.</td></tr>
+  </table>
+
+  <h3>Debug walkthrough — "M1 transactions to S0 occasionally time out"</h3>
+  <div class="callout">
+    <strong>Symptom.</strong> Under a heavy dual-master regression, ~1 run in 30 reports <code>SB_TIMEOUT</code> on
+    M1 transactions to S0. M0 traffic is fine. No data mismatches, no <code>SB_ROUTE</code> errors. AXI and APB
+    protocol assertions are silent. The fairness statistic shows M0 getting ~85% of S0.
+  </div>
+  <p><strong>Step 1 — read the clues together.</strong> A timeout (not a mismatch) means M1's transactions are
+  <em>accepted but never completing</em> — or never being granted. The 85/15 fair-share skew on S0 is the loud
+  signal: M1 is being starved at S0's arbiter. Silent protocol assertions confirm the bus behaviour is otherwise
+  legal, so this is an arbitration-policy problem, not a handshake or data bug.</p>
+  <p><strong>Step 2 — localise: RR or priority?</strong> Check the arbitration mode in the failing seed. If it's
+  priority mode and M0 is configured higher priority, an 85/15 skew with M1 timing out is exactly the
+  <em>starvation</em> failure from Module 4 — the bounded-wait safeguard isn't working. If it's round-robin mode,
+  an 85/15 skew is a fairness bug (the pointer isn't rotating correctly, e.g. not updating on uncontested grants —
+  the Module 3 corner).</p>
+  <p><strong>Step 3 — confirm with the right assertion.</strong> Enable the <code>a_bounded_wait_m1</code>
+  assertion. If it fires, you've pinpointed starvation at a specific cycle and master — far more actionable than a
+  downstream timeout. If instead <code>a_no_starve</code> (RR) fires, it's the round-robin rotation bug.</p>
+  <p><strong>Step 4 — minimal repro.</strong> Recreate with a tiny virtual sequence: M0 high-priority storms S0
+  continuously, M1 low-priority issues one transaction to S0, watch whether M1 is ever granted within the spec
+  bound. A 30-line repro replaces the 30-run flaky regression and tells the designer precisely which safeguard
+  (aging / weighted RR) is missing or misconfigured.</p>
+  <p><strong>Step 5 — rule out the innocent.</strong> Confirm it's truly arbitration and not the scoreboard: the
+  fair-share statistic and the bounded-wait assertion are independent of the data-matching path, so a clean
+  data scoreboard plus a firing fairness assertion together point squarely at the DUT arbiter — not the testbench.</p>
+
+  <div class="callout warn">
+    <strong>The discipline:</strong> timeout + fair-share skew + silent protocol assertions → arbitration
+    starvation, not data/handshake. Check the arbitration mode to pick the right hypothesis (priority liveness vs RR
+    rotation). Confirm with the matching named assertion, then reduce to a minimal repro before handing off. This
+    resolves the large majority of NoC arbitration failures.
+  </div>
+
+  <h3>The whole course, as a sign-off checklist</h3>
+  <table>
+    <tr><th>Area</th><th>The one thing to prove</th></tr>
+    <tr><td>Connectivity</td><td>All 2×4 master→target paths work (route_x cross closed), reads and writes.</td></tr>
+    <tr><td>Decode</td><td>Right slave in-range; DECERR out-of-range with no slave reached and no hang.</td></tr>
+    <tr><td>Round-robin</td><td>Fair ~50/50 share and no starvation under sustained contention.</td></tr>
+    <tr><td>Priority</td><td>Higher priority wins AND low-priority master served within the bound (liveness).</td></tr>
+    <tr><td>Bridge</td><td>AXI bursts → correct APB singles; PSLVERR → SLVERR; one B per write burst.</td></tr>
+    <tr><td>Concurrency</td><td>Ordering preserved across the fabric; no deadlock; HOL blocking measured.</td></tr>
+    <tr><td>Scoreboard</td><td>Routing-aware, per-slave memory, accepts legal arbitration interleavings.</td></tr>
+    <tr><td>Assertions</td><td>AXI + APB protocol per port; fairness + priority + bounded-wait in the fabric.</td></tr>
+    <tr><td>Coverage</td><td>route_x and stress_x crosses closed — every path, under contention, in both arb modes.</td></tr>
+    <tr><td>Robustness</td><td>Reset-under-load, error injection, saturation all clean.</td></tr>
+  </table>
+
+  <div class="activity">
+    <h4>Activity — full root-cause reasoning</h4>
+    <p>Using the debug method: a regression fails with <code>SB_ROUTE</code> ("arrived at S1 but none routed
+    there") only when M0 writes to S0 at <code>0x0FFF_FFC0</code> with a long INCR burst. No timeouts, no fairness
+    issues. What is your leading hypothesis and your next concrete step?</p>
+    <button class="hint-btn">Show hint</button>
+    <div class="hint-box" hidden>SB_ROUTE means a transaction reached the wrong slave. The address 0x0FFF_FFC0 is near the very top of S0's range (ends 0x0FFFFFFF). A long INCR burst increments the address each beat. What boundary is just above S0's range, and what AXI rule is supposed to prevent a burst from crossing it?</div>
+    <button class="solution-btn" hidden>Show solution</button>
+    <div class="solution-box" hidden>
+      <p><strong>Leading hypothesis:</strong> a burst crossing the S0/S1 boundary. 0x0FFF_FFC0 is 64 bytes below
+      the end of S0 (0x0FFF_FFFF). A long INCR burst increments past 0x0FFF_FFFF into 0x1000_0000+, which decodes to
+      <em>S1</em> — so later beats land on S1 while the scoreboard predicted S0 for the whole burst, producing
+      SB_ROUTE. The 4 KB rule should prevent crossing a 4 KB boundary, and 0x1000_0000 is 4 KB-aligned — so either
+      the stimulus generated an illegal boundary-crossing burst (testbench bug) or the NoC mishandles a burst that
+      approaches the slave boundary (DUT bug).</p>
+      <p><strong>Next concrete step:</strong> inspect the failing burst's address and length — compute its last
+      byte and check whether it crosses 0x1000_0000. If it does and the burst is otherwise 4 KB-legal, the NoC is
+      mis-handling a near-boundary burst (real DUT bug — escalate with a minimal repro). If the burst illegally
+      crosses a 4 KB boundary, fix the stimulus constraint so generated bursts can't straddle a slave boundary, and
+      add an assertion to flag any boundary-crossing burst so this can never silently recur. Either way, the
+      <code>SB_ROUTE</code> check did its job — a data-only scoreboard would have missed it entirely.</p>
+    </div>
+  </div>
+
+  <div class="quiz-block" data-correct="b">
+    <p class="quiz-question">A regression shows a timeout on one master's traffic to a slave, an 85/15 fair-share skew, and silent protocol assertions. What is the most likely root cause?</p>
+    <div class="quiz-options">
+      <button data-opt="a">A data corruption bug in the slave memory</button>
+      <button data-opt="b">Arbitration starvation — the skew + timeout + legal handshakes point to the low-share master being locked out</button>
+      <button data-opt="c">An address decode error</button>
+      <button data-opt="d">A clock domain crossing bug</button>
+    </div>
+    <div class="quiz-feedback" hidden>
+      <p class="feedback-text"></p>
+      <p class="feedback-explain">Silent protocol assertions mean handshakes are legal; no mismatch means data isn't corrupted; the 85/15 skew plus a timeout on the low-share master is the signature of arbitration starvation. The next step is to check the arb mode and enable the bounded-wait/fairness assertion to pinpoint it.</p>
+    </div>
+  </div>
+
+  <div class="practices-section">
+  <h3>Good &amp; Bad Practices</h3>
+  <div class="practices-grid">
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>Make the routing matrix (master × target × direction) and "target × contention × arb-mode" explicit coverage crosses.</p><p class="practice-why"><em>Why: these crosses are the definition of "we tested every path under the conditions that matter"; independent coverpoints can read full while the dangerous combinations were never hit.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Declaring sign-off when tests pass but stress_x (contention × arb-mode) bins are still open.</p><p class="practice-why"><em>Why it hurts: passing tests with open contention bins means arbitration was never actually stressed — the highest-risk logic ships unverified.</em></p></div>
+    <div class="practice-card good"><h4>✓ Good practice</h4><p>When debugging, combine the signals (timeout vs mismatch vs fairness skew vs which assertion fired) before forming a hypothesis.</p><p class="practice-why"><em>Why: each symptom alone is ambiguous; together they pinpoint whether it's arbitration, routing, conversion, or a testbench issue — saving days of mis-directed debug.</em></p></div>
+    <div class="practice-card bad"><h4>✗ Common mistake</h4><p>Never testing reset while transactions are in flight to all four slaves.</p><p class="practice-why"><em>Why it hurts: reset-under-load leaves stuck arbiter pointers and leaked buffer slots — a top source of silicon bugs that steady-state tests never reach.</em></p></div>
+  </div>
+  </div>
+
+  <div class="navbtns"><button onclick="goPrev()">← Previous</button><button onclick="alert('That completes the NoC Verification deep-course. You now have the DUT, routing, both arbitration schemes, the bridge, concurrency, the full UVM env, the routing-aware scoreboard, coverage, and a debug method.');">Finish ✓</button></div>
+</section>
+
+</main>
+</div>
+
+<script>
+const modules = ['m1','m2','m3','m4','m5','m6','m7','m8','m9'];
+let visited = new Set();
+function showModule(id){
+  document.querySelectorAll('section.module').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.sidebar a').forEach(a=>a.classList.toggle('active', a.dataset.target===id));
+  visited.add(id); updateProgress();
+  window.scrollTo({top:0,behavior:'smooth'});
+  document.querySelector('.sidebar').classList.remove('open');
+}
+function currentIndex(){return modules.indexOf(document.querySelector('section.module.active').id);}
+function goNext(){const i=currentIndex();if(i<modules.length-1)showModule(modules[i+1]);}
+function goPrev(){const i=currentIndex();if(i>0)showModule(modules[i-1]);}
+function updateProgress(){
+  const pct=Math.round(visited.size/modules.length*100);
+  document.getElementById('pfill').style.width=pct+'%';
+  document.getElementById('plabel').textContent=pct+'%';
+  document.querySelectorAll('.sidebar a').forEach(a=>{
+    if(visited.has(a.dataset.target)&&!a.querySelector('.vbadge')){
+      const b=document.createElement('span');b.className='vbadge';b.textContent='✓';a.appendChild(b);
+    }
+  });
+}
+document.querySelectorAll('.sidebar a').forEach(a=>a.addEventListener('click',()=>showModule(a.dataset.target)));
+document.querySelectorAll('.quiz-block').forEach(block=>{
+  const correct=block.dataset.correct;const fb=block.querySelector('.quiz-feedback');
+  block.querySelectorAll('.quiz-options button').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const chosen=btn.dataset.opt;
+      block.querySelectorAll('.quiz-options button').forEach(b=>{b.disabled=true;if(b.dataset.opt===correct)b.classList.add('correct');});
+      if(chosen!==correct)btn.classList.add('wrong');
+      fb.hidden=false;
+      fb.querySelector('.feedback-text').textContent=(chosen===correct)?'✓ Correct':'✗ Not quite';
+    });
+  });
+});
+document.querySelectorAll('.activity').forEach(act=>{
+  const hintBtn=act.querySelector('.hint-btn');const hintBox=act.querySelector('.hint-box');
+  const solBtn=act.querySelector('.solution-btn');const solBox=act.querySelector('.solution-box');
+  if(hintBtn)hintBtn.addEventListener('click',()=>{hintBox.hidden=false;hintBtn.style.display='none';if(solBtn)solBtn.hidden=false;});
+  if(solBtn)solBtn.addEventListener('click',()=>{solBox.hidden=false;solBtn.style.display='none';});
+});
+updateProgress();
+</script>
+</body>
+</html>
