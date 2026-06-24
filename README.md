@@ -841,4 +841,5 @@ make clean                        # remove all build artefacts and run folders
 
 *This environment is designed as a living training platform.
 Each phase adds a new test, a new feature, and a new skill.
-The goal is not to finish quickly — it is to understand deeply.*
+The goal is not to finish quickly — it is to understand deeply.
+We are learning github*
