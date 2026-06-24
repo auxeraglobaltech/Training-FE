@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2×2×2 NoC — Design Specification</title>
+<style>
+  :root{
+    --bg:#ffffff;--ink:#1c2024;--muted:#5b6570;--line:#e2e6ea;--soft:#f6f8fa;
+    --blue:#1a4fa0;--teal:#0e7d6e;--purple:#6a1b9a;--amber:#a86a00;--red:#c62828;
+    --code:#f4f3ef;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:16px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:960px;margin:0 auto;padding:44px 28px 120px;}
+  header.doc{border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:8px;}
+  header.doc h1{font-size:30px;margin:0 0 4px;letter-spacing:-.01em;}
+  header.doc .sub{color:var(--muted);font-size:15px;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:var(--muted);margin-top:12px;}
+  .meta b{color:var(--ink);font-weight:600;}
+  h2{font-size:22px;margin:42px 0 10px;padding-top:10px;border-top:1px solid var(--line);}
+  h3{font-size:17px;margin:26px 0 8px;color:#222;}
+  h4{font-size:15px;margin:18px 0 6px;color:#333;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0 10px 22px;}li{margin:4px 0;}
+  code{font-family:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;font-size:13px;}
+  p code,li code,td code{background:var(--code);padding:1px 5px;border-radius:4px;color:#7a2c8f;}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;}
+  pre code{font-size:12.5px;color:#1c2024;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.5px;}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--soft);font-weight:600;}
+  tr:nth-child(even) td{background:#fcfdfe;}
+  figure{margin:22px 0;text-align:center;}
+  figure svg{max-width:100%;height:auto;}
+  figcaption{font-size:12.5px;color:var(--muted);margin-top:8px;}
+  .note{border-left:3px solid var(--teal);background:#f0f8f6;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .warn{border-left:3px solid var(--amber);background:#fff8ec;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .toc{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:14px 20px;margin:22px 0;}
+  .toc h4{margin:0 0 8px;}.toc ol{margin:0 0 0 18px;columns:2;font-size:14px;}
+  .tag{display:inline-block;font-family:ui-monospace,monospace;font-size:11px;background:#eef3fb;color:var(--blue);
+       border:1px solid #d3e0f2;border-radius:4px;padding:1px 6px;}
+  .mono{font-family:ui-monospace,monospace;}
+  .kv{font-size:13px;color:var(--muted);}
+  svg text{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>2×2×2 Network-on-Chip — Design Specification</h1>
+  <div class="sub">A compact AXI4 interconnect with an AXI→APB bridge, strict priority + round-robin arbitration, and out-of-order multi-ID reads.</div>
+  <div class="meta">
+    <span><b>DUT:</b> <code>noc_top</code></span>
+    <span><b>Bus:</b> AXI4 / APB4</span>
+    <span><b>Data/Addr:</b> 32-bit</span>
+    <span><b>Masters:</b> 2</span>
+    <span><b>Targets:</b> 2 AXI + 2 APB</span>
+    <span><b>Status:</b> Verified (golden RTL)</span>
+  </div>
+</header>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#intro">Introduction &amp; Scope</a></li>
+    <li><a href="#arch">Top-Level Architecture</a></li>
+    <li><a href="#map">Address Map</a></li>
+    <li><a href="#params">Parameters &amp; Interfaces</a></li>
+    <li><a href="#decode">Address Decode &amp; Routing</a></li>
+    <li><a href="#arb">Arbitration</a></li>
+    <li><a href="#slaveport">AXI Slave Port</a></li>
+    <li><a href="#bridge">AXI→APB Bridge</a></li>
+    <li><a href="#decerr">DECERR Responder</a></li>
+    <li><a href="#ooo">Outstanding, Ordering &amp; ID Remap</a></li>
+    <li><a href="#contracts">Transaction Contracts</a></li>
+    <li><a href="#bugs">Bug-Injection Hooks</a></li>
+    <li><a href="#files">File Manifest</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================= -->
+<h2 id="intro">1 · Introduction &amp; Scope</h2>
+<p>The <b>2×2×2 NoC</b> is a small but complete on-chip interconnect that connects two AXI4
+initiators (masters <b>M0</b>, <b>M1</b>) to four targets: two native AXI4 slaves (<b>S0</b>, <b>S1</b>)
+and two APB4 peripherals (<b>P0</b>, <b>P1</b>) reached through an integrated AXI→APB bridge. It performs
+the four classic interconnect jobs on every transaction:</p>
+<table>
+  <tr><th>Job</th><th>Meaning in this DUT</th><th>Block</th></tr>
+  <tr><td><b>Route</b></td><td>Decode the address to S0/S1/P0/P1, or raise a decode error.</td><td><code>noc_axi_decoder</code> (inlined in <code>noc_top</code>)</td></tr>
+  <tr><td><b>Arbitrate</b></td><td>When both masters target one slave, choose order by priority then round-robin.</td><td><code>noc_arbiter</code></td></tr>
+  <tr><td><b>Convert</b></td><td>Translate AXI bursts into APB single transfers and map responses back.</td><td><code>axi2apb_bridge</code></td></tr>
+  <tr><td><b>Order</b></td><td>Honour AXI ordering and outstanding limits across the fabric; never hang.</td><td><code>noc_top</code> read tracker / response path</td></tr>
+</table>
+<p>The DUT is intentionally self-contained: the RTL depends only on the package <code>noc_pkg</code>
+and never on the testbench. It is the subject of a companion
+<a href="noc_verification_plan.html">Verification Plan</a>.</p>
+
+<!-- ============================================================= -->
+<h2 id="arch">2 · Top-Level Architecture</h2>
+<p>Two AXI master ports feed the fabric. The fabric decodes each request to one of five
+<em>target servers</em> (S0, S1, P0-bridge, P1-bridge, and a DECERR responder), arbitrates the two
+masters per server, and muxes responses back to the originating master.</p>
+
+<figure>
+<svg viewBox="0 0 900 470" xmlns="http://www.w3.org/2000/svg" font-size="12">
+  <defs>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5b6570"/></marker>
+  </defs>
+  <!-- masters -->
+  <rect x="20" y="70" width="130" height="56" rx="8" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+  <text x="85" y="94" text-anchor="middle" fill="#1a4fa0" font-weight="700">AXI Master M0</text>
+  <text x="85" y="112" text-anchor="middle" fill="#5b6570" font-size="10">initiator · ID[3:0]</text>
+  <rect x="20" y="320" width="130" height="56" rx="8" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+  <text x="85" y="344" text-anchor="middle" fill="#1a4fa0" font-weight="700">AXI Master M1</text>
+  <text x="85" y="362" text-anchor="middle" fill="#5b6570" font-size="10">initiator · ID[3:0]</text>
+
+  <!-- fabric box -->
+  <rect x="225" y="40" width="330" height="390" rx="10" fill="#faf7fd" stroke="#6a1b9a" stroke-width="2.5"/>
+  <text x="390" y="62" text-anchor="middle" fill="#6a1b9a" font-weight="700">noc_top  (fabric)</text>
+
+  <!-- ingress: decode + gate + read tracker -->
+  <rect x="245" y="80" width="130" height="70" rx="6" fill="#fff" stroke="#6a1b9a"/>
+  <text x="310" y="103" text-anchor="middle" font-size="11" font-weight="600">decode + gate</text>
+  <text x="310" y="120" text-anchor="middle" font-size="9.5" fill="#5b6570">per-master route,</text>
+  <text x="310" y="133" text-anchor="middle" font-size="9.5" fill="#5b6570">read id-tracker, cap</text>
+
+  <!-- target servers -->
+  <rect x="405" y="74" width="130" height="34" rx="5" fill="#e8f4f1" stroke="#0e7d6e"/><text x="470" y="96" text-anchor="middle" font-size="11" fill="#0e7d6e" font-weight="600">S0 slave-port</text>
+  <rect x="405" y="116" width="130" height="34" rx="5" fill="#e8f4f1" stroke="#0e7d6e"/><text x="470" y="138" text-anchor="middle" font-size="11" fill="#0e7d6e" font-weight="600">S1 slave-port</text>
+  <rect x="405" y="158" width="130" height="34" rx="5" fill="#fdf3e8" stroke="#a86a00"/><text x="470" y="180" text-anchor="middle" font-size="11" fill="#a86a00" font-weight="600">P0 bridge</text>
+  <rect x="405" y="200" width="130" height="34" rx="5" fill="#fdf3e8" stroke="#a86a00"/><text x="470" y="222" text-anchor="middle" font-size="11" fill="#a86a00" font-weight="600">P1 bridge</text>
+  <rect x="405" y="242" width="130" height="34" rx="5" fill="#fdecea" stroke="#c62828"/><text x="470" y="264" text-anchor="middle" font-size="11" fill="#c62828" font-weight="600">DECERR responder</text>
+
+  <!-- each server has arbiters -->
+  <text x="310" y="200" text-anchor="middle" font-size="9.5" fill="#5b6570">each server:</text>
+  <text x="310" y="214" text-anchor="middle" font-size="9.5" fill="#5b6570">write arbiter +</text>
+  <text x="310" y="228" text-anchor="middle" font-size="9.5" fill="#5b6570">read arbiter</text>
+  <rect x="255" y="240" width="110" height="40" rx="5" fill="#eef3fb" stroke="#1a4fa0"/>
+  <text x="310" y="257" text-anchor="middle" font-size="10" fill="#1a4fa0" font-weight="600">noc_arbiter ×N</text>
+  <text x="310" y="271" text-anchor="middle" font-size="9" fill="#5b6570">prio + RR, grant-lock</text>
+
+  <!-- response path -->
+  <rect x="245" y="330" width="290" height="80" rx="6" fill="#fff" stroke="#6a1b9a"/>
+  <text x="390" y="352" text-anchor="middle" font-size="11" font-weight="600">response path (per master)</text>
+  <text x="390" y="369" text-anchor="middle" font-size="9.5" fill="#5b6570">B mux · R-burst-lock mux · route by remapped-ID top bit</text>
+  <text x="390" y="386" text-anchor="middle" font-size="9.5" fill="#5b6570">write 1-outstanding · reads multi-outstanding / OOO</text>
+
+  <!-- targets -->
+  <rect x="620" y="64" width="120" height="46" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/><text x="680" y="84" text-anchor="middle" fill="#0e7d6e" font-weight="700">AXI Slave S0</text><text x="680" y="100" text-anchor="middle" font-size="9" fill="#5b6570">memory · ID[4:0]</text>
+  <rect x="620" y="118" width="120" height="46" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/><text x="680" y="138" text-anchor="middle" fill="#0e7d6e" font-weight="700">AXI Slave S1</text>
+  <rect x="620" y="172" width="120" height="46" rx="6" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/><text x="680" y="192" text-anchor="middle" fill="#a86a00" font-weight="700">APB Slave P0</text><text x="680" y="208" text-anchor="middle" font-size="9" fill="#5b6570">peripheral</text>
+  <rect x="620" y="226" width="120" height="46" rx="6" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/><text x="680" y="246" text-anchor="middle" fill="#a86a00" font-weight="700">APB Slave P1</text>
+
+  <!-- arrows masters->fabric -->
+  <line x1="150" y1="98"  x2="243" y2="110" stroke="#1a4fa0" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="150" y1="348" x2="243" y2="360" stroke="#1a4fa0" stroke-width="2" marker-end="url(#a)"/>
+  <!-- fabric->targets -->
+  <line x1="535" y1="91"  x2="618" y2="87"  stroke="#0e7d6e" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="535" y1="133" x2="618" y2="141" stroke="#0e7d6e" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="535" y1="175" x2="618" y2="195" stroke="#a86a00" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="535" y1="217" x2="618" y2="249" stroke="#a86a00" stroke-width="2" marker-end="url(#a)"/>
+  <text x="578" y="160" font-size="8.5" fill="#a86a00">AXI→APB</text>
+
+  <text x="450" y="455" text-anchor="middle" font-size="10" fill="#5b6570">Blue = AXI masters · Teal = AXI slaves · Orange = APB peripherals (behind a bridge) · Purple = the NoC fabric under test</text>
+</svg>
+<figcaption>Figure 1 — Top-level block diagram. Each request is decoded, gated, arbitrated per target, and converted/forwarded; responses are muxed back to the originating master.</figcaption>
+</figure>
+
+<!-- ============================================================= -->
+<h2 id="map">3 · Address Map</h2>
+<p>The address map is the single source of truth, defined once in <code>noc_pkg</code> and reused by the
+decoder and (a mirror of) the scoreboard. Ranges are non-overlapping and power-of-two aligned.</p>
+<table>
+  <tr><th>Target</th><th>Type</th><th>Base</th><th>End (inclusive)</th><th>Size</th><th>Decode result</th></tr>
+  <tr><td><b>S0</b></td><td>AXI</td><td class="mono">0x0000_0000</td><td class="mono">0x0FFF_FFFF</td><td>256 MB</td><td><code>TGT_S0</code></td></tr>
+  <tr><td><b>S1</b></td><td>AXI</td><td class="mono">0x1000_0000</td><td class="mono">0x1FFF_FFFF</td><td>256 MB</td><td><code>TGT_S1</code></td></tr>
+  <tr><td><b>P0</b></td><td>APB</td><td class="mono">0x2000_0000</td><td class="mono">0x2000_FFFF</td><td>64 KB</td><td><code>TGT_P0</code></td></tr>
+  <tr><td><b>P1</b></td><td>APB</td><td class="mono">0x2001_0000</td><td class="mono">0x2001_FFFF</td><td>64 KB</td><td><code>TGT_P1</code></td></tr>
+  <tr><td colspan="6"><em>Any other address (e.g. <code>0x3000_0000</code>) is unmapped → <code>TGT_NONE</code> → the fabric returns DECERR.</em></td></tr>
+</table>
+<pre><code>// noc_pkg.sv — the decode reference function (reused by RTL and DV)
+function automatic target_e decode(input logic [31:0] addr);
+  if      (addr inside {[S0_BASE:S0_END]}) decode = TGT_S0;
+  else if (addr inside {[S1_BASE:S1_END]}) decode = TGT_S1;
+  else if (addr inside {[P0_BASE:P0_END]}) decode = TGT_P0;
+  else if (addr inside {[P1_BASE:P1_END]}) decode = TGT_P1;
+  else                                     decode = TGT_NONE; // unmapped → DECERR
+endfunction</code></pre>
+
+<!-- ============================================================= -->
+<h2 id="params">4 · Parameters &amp; Interfaces</h2>
+<h3>4.1 Parameters (<code>noc_pkg</code>)</h3>
+<table>
+  <tr><th>Parameter</th><th>Value</th><th>Meaning</th></tr>
+  <tr><td><code>ADDR_WIDTH</code></td><td>32</td><td>Address bus width</td></tr>
+  <tr><td><code>DATA_WIDTH</code></td><td>32</td><td>Data bus width (STRB = 4)</td></tr>
+  <tr><td><code>ID_WIDTH</code></td><td>4</td><td>Master-side AXI ID width</td></tr>
+  <tr><td><code>NUM_MASTERS</code></td><td>2</td><td>M0, M1</td></tr>
+  <tr><td><code>MST_IDX_WIDTH</code></td><td>1</td><td>Bits to encode the master index</td></tr>
+  <tr><td><code>SLV_ID_WIDTH</code></td><td>5</td><td>Slave-side remapped ID = {master_idx, orig_id}</td></tr>
+  <tr><td><code>MAX_OUTSTANDING</code></td><td>8</td><td>Per-master outstanding read cap</td></tr>
+</table>
+
+<h3>4.2 Ports of <code>noc_top</code></h3>
+<p>All ports are flattened (no interface dependency in RTL). There are six port groups:</p>
+<table>
+  <tr><th>Group</th><th>Direction (NoC view)</th><th>ID width</th><th>Channels</th></tr>
+  <tr><td><code>m0_*</code>, <code>m1_*</code></td><td>AXI <b>slave</b> (receives requests)</td><td>4</td><td>AW, W, B, AR, R</td></tr>
+  <tr><td><code>s0_*</code>, <code>s1_*</code></td><td>AXI <b>master</b> (drives requests)</td><td>5 (remapped)</td><td>AW, W, B, AR, R</td></tr>
+  <tr><td><code>p0_*</code>, <code>p1_*</code></td><td>APB <b>requester</b></td><td>—</td><td>PSEL/PENABLE/PREADY/PSLVERR…</td></tr>
+</table>
+<p>Clock <code>aclk</code> and active-low reset <code>aresetn</code> are common to all ports (single clock domain).</p>
+
+<!-- ============================================================= -->
+<h2 id="decode">5 · Address Decode &amp; Routing</h2>
+<p>Each master's AW and AR addresses are decoded independently and combinationally by the
+<code>decode()</code> function. The decoded target gates the request so that <em>only</em> the matching
+target server sees a valid request:</p>
+<pre><code>arv_s0[i] = m_arvalid[i] &amp; (dec_ar[i]==TGT_S0) &amp; ar_allow[i];  // i = master 0/1
+arv_p0[i] = m_arvalid[i] &amp; (dec_ar[i]==TGT_P0) &amp; ar_allow[i];
+... (one gated valid per target, including the DECERR responder)</code></pre>
+<p>Routing is per-port: M0 may route to S1 in the same cycle M1 routes to P0 (no interaction). If both
+decode to the same target, the conflict passes to that target's arbiter (§6). An unmapped address routes
+to the DECERR responder, never to a slave.</p>
+<div class="warn"><b>4 KB boundary.</b> An AXI INCR burst must not cross a 4 KB boundary, which guarantees
+a single burst maps to a single target. Burst-boundary legality is the stimulus generator's responsibility;
+<code>noc_pkg::crosses_4k()</code> is provided for checkers.</div>
+
+<!-- ============================================================= -->
+<h2 id="arb">6 · Arbitration (<code>noc_arbiter</code>)</h2>
+<p>Every shared resource (each target's write channel and read channel) is fronted by a two-requester
+arbiter. The scheme is <b>strict priority with a round-robin tie-break</b>:</p>
+<table>
+  <tr><th>Condition</th><th>Grant</th></tr>
+  <tr><td>Only one requester</td><td>Grant it</td></tr>
+  <tr><td>Both, different priority (<code>AxQOS</code>)</td><td>Grant the strictly higher priority — <b>strict, may starve the lower</b></td></tr>
+  <tr><td>Both, equal priority</td><td>Round-robin: grant whoever was <em>not</em> served last</td></tr>
+</table>
+
+<h4>6.1 Grant-lock (protocol stability)</h4>
+<p>A purely combinational grant could change while a downstream <code>AWVALID</code>/<code>ARVALID</code>
+is asserted but not yet accepted — e.g. a higher-priority master arriving mid-handshake — which violates
+AXI payload stability. The arbiter therefore <b>locks a presented grant until it is accepted</b>
+(<code>update</code> pulse). Once locked, the same grantee/payload is held, then released on accept.</p>
+<pre><code>always_ff @(posedge clk or negedge rstn)
+  if (!rstn)                       {locked,last} &lt;= {1'b0,1'b1};
+  else begin
+    if (update)                    locked &lt;= 1'b0;             // released on accept
+    else if (gnt_valid &amp;&amp; !locked) {locked,lock_idx} &lt;= {1'b1, gnt_idx};
+    if (update &amp;&amp; gnt_valid)        last   &lt;= gnt_idx;          // RR pointer advances
+  end</code></pre>
+
+<figure>
+<svg viewBox="0 0 720 180" xmlns="http://www.w3.org/2000/svg" font-size="11" font-family="ui-monospace,monospace">
+  <text x="8" y="34">M0 req</text><text x="8" y="74">M1 req</text><text x="8" y="120">grant</text>
+  <polyline points="70,40 70,22 690,22 690,40" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+  <polyline points="70,80 70,62 690,62 690,80" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+  <g font-size="10" text-anchor="middle">
+    <rect x="70"  y="104" width="100" height="26" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="120" y="121" fill="#1a4fa0">M0</text>
+    <rect x="174" y="104" width="100" height="26" rx="3" fill="#fdf3e8" stroke="#a86a00"/><text x="224" y="121" fill="#a86a00">M1</text>
+    <rect x="278" y="104" width="100" height="26" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="328" y="121" fill="#1a4fa0">M0</text>
+    <rect x="382" y="104" width="100" height="26" rx="3" fill="#fdf3e8" stroke="#a86a00"/><text x="432" y="121" fill="#a86a00">M1</text>
+    <rect x="486" y="104" width="100" height="26" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="536" y="121" fill="#1a4fa0">M0</text>
+    <rect x="590" y="104" width="100" height="26" rx="3" fill="#fdf3e8" stroke="#a86a00"/><text x="640" y="121" fill="#a86a00">M1</text>
+  </g>
+  <text x="380" y="158" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#5b6570">Equal priority, both continuously requesting → round-robin alternation (50/50). Higher priority would win every contended grant instead.</text>
+</svg>
+<figcaption>Figure 2 — Round-robin grant alternation under sustained equal-priority contention.</figcaption>
+</figure>
+
+<!-- ============================================================= -->
+<h2 id="slaveport">7 · AXI Slave Port (<code>noc_axi_slave_port</code>)</h2>
+<p>Drives one native AXI slave (S0 or S1). It is a thin, mostly-combinational forwarder around two arbiters.</p>
+<h4>Write path</h4>
+<ul>
+  <li>A write arbiter grants M0/M1; a small FSM forwards the burst <code>AW → W… → B</code> to the slave
+  (one write in flight per port — see §11).</li>
+  <li>The slave-side ID is remapped to <code>{master_idx, orig_id}</code>; the original ID is returned to the
+  master on <code>B</code>.</li>
+</ul>
+<h4>Read path (multi-outstanding, out-of-order)</h4>
+<ul>
+  <li>The read arbiter forwards <code>AR</code>s to the slave back-to-back — many reads can be in flight.</li>
+  <li>The slave returns <code>R</code> bursts tagged with the remapped ID; each beat is demuxed back to its
+  master purely by the ID's top bit. The slave guarantees per-ID ordering and contiguous bursts, so at any
+  beat exactly one master is addressed.</li>
+</ul>
+
+<!-- ============================================================= -->
+<h2 id="bridge">8 · AXI→APB Bridge (<code>axi2apb_bridge</code>)</h2>
+<p>Reconciles AXI (5 channels, bursts, IDs) with APB (single, fully-ordered transfer). One transaction at a
+time is serialised onto APB; writes are chosen before reads when both are pending.</p>
+<table>
+  <tr><th>Conversion</th><th>Behaviour</th></tr>
+  <tr><td>Burst → singles</td><td>An N-beat INCR burst becomes N APB transfers with incrementing addresses (step = 2<sup>AxSIZE</sup>).</td></tr>
+  <tr><td>Write response</td><td>Exactly <b>one</b> <code>B</code> per write burst; any <code>PSLVERR</code> on a beat aggregates to <code>BRESP = SLVERR</code>.</td></tr>
+  <tr><td>Read response</td><td>Each <code>R</code> beat carries its transfer's <code>RRESP</code> (<code>PSLVERR → SLVERR</code>).</td></tr>
+  <tr><td>Write strobes</td><td><code>WSTRB</code> forwarded as <code>PSTRB</code> (APB4).</td></tr>
+</table>
+
+<figure>
+<svg viewBox="0 0 720 230" xmlns="http://www.w3.org/2000/svg" font-size="11" font-family="ui-monospace,monospace">
+  <text x="6" y="40">PCLK</text><text x="6" y="80">PSEL</text><text x="6" y="118">PENABLE</text><text x="6" y="156">PADDR</text><text x="6" y="194">PREADY</text>
+  <!-- clk -->
+  <polyline points="70,44 70,26 100,26 100,44 130,44 130,26 160,26 160,44 190,44 190,26 220,26 220,44 250,44 250,26 280,26 280,44 310,44 310,26 340,26 340,44 370,44 370,26 400,26 400,44 430,44 430,26 460,26 460,44 490,44 490,26 520,26 520,44 550,44 550,26 580,26 580,44 610,44 610,26 640,26 640,44"
+            fill="none" stroke="#1a4fa0" stroke-width="1.6"/>
+  <!-- transfer1 psel -->
+  <polyline points="100,84 100,66 340,66 340,84" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+  <polyline points="160,122 160,104 280,104 280,122 400,122" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+  <polyline points="400,84 400,66 610,66 610,84" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+  <polyline points="460,122 460,104 580,104 580,122" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+  <rect x="100" y="144" width="240" height="22" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="220" y="160" text-anchor="middle" font-size="9" fill="#1a4fa0">0x2000_0000</text>
+  <rect x="400" y="144" width="210" height="22" rx="3" fill="#e8f0fe" stroke="#1a4fa0"/><text x="505" y="160" text-anchor="middle" font-size="9" fill="#1a4fa0">0x2000_0004</text>
+  <polyline points="280,198 280,180 340,180 340,198" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+  <polyline points="520,198 520,180 580,180 580,198" fill="none" stroke="#0e7d6e" stroke-width="2"/>
+  <text x="350" y="222" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#a86a00">One AXI 2-beat write burst → two sequential APB single writes (setup → access → PREADY each).</text>
+</svg>
+<figcaption>Figure 3 — Bridge serialises an AXI burst into APB single transfers, one per beat.</figcaption>
+</figure>
+
+<!-- ============================================================= -->
+<h2 id="decerr">9 · DECERR Responder (<code>noc_decerr_port</code>)</h2>
+<p>Unmapped accesses are routed here. It behaves like a target with no slave behind it: it accepts the
+request (swallowing all write beats), then returns a clean error so the master always recovers and the fabric
+never hangs.</p>
+<ul>
+  <li><b>Write:</b> consume <code>AW</code> and all <code>W</code> beats → single <code>B = DECERR</code>.</li>
+  <li><b>Read:</b> <code>AR</code> → <code>(ARLEN+1)</code> <code>R</code> beats, each <code>RDATA = 0</code>,
+  <code>RRESP = DECERR</code>, <code>RLAST</code> on the final beat.</li>
+</ul>
+<div class="note">A global testbench watchdog turns any hang (e.g. the <code>DECERR_OMIT</code> bug) into a
+<code>UVM_ERROR</code> rather than a frozen simulation.</div>
+
+<!-- ============================================================= -->
+<h2 id="ooo">10 · Outstanding, Ordering &amp; ID Remap</h2>
+<h3>10.1 ID remap</h3>
+<p>When the fabric issues to an AXI slave it prepends the master index to the AXI ID, forming a 5-bit
+slave-side ID. Responses (which may return out of order across IDs) carry that tag, so the response path
+routes each one back to the correct master by the top bit, then strips it to restore the original ID.</p>
+<figure>
+<svg viewBox="0 0 640 120" xmlns="http://www.w3.org/2000/svg" font-size="11">
+  <rect x="20" y="40" width="150" height="40" rx="5" fill="#e8f0fe" stroke="#1a4fa0"/>
+  <text x="95" y="58" text-anchor="middle" font-size="10">M0 AWID/ARID</text><text x="95" y="73" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11">id[3:0]</text>
+  <line x1="170" y1="60" x2="250" y2="60" stroke="#5b6570" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="250" y="40" width="170" height="40" rx="5" fill="#faf7fd" stroke="#6a1b9a"/>
+  <text x="335" y="58" text-anchor="middle" font-size="10">slave-side ID</text><text x="335" y="73" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11">{midx, id[3:0]} = id[4:0]</text>
+  <line x1="420" y1="60" x2="500" y2="60" stroke="#5b6570" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="500" y="40" width="120" height="40" rx="5" fill="#e8f4f1" stroke="#0e7d6e"/>
+  <text x="560" y="58" text-anchor="middle" font-size="10">S0/S1</text><text x="560" y="73" text-anchor="middle" font-size="9" fill="#5b6570">OOO by id</text>
+  <text x="320" y="22" text-anchor="middle" font-size="10" fill="#5b6570">Response path reverses this: route by id[4] → master, return id[3:0].</text>
+</svg>
+<figcaption>Figure 4 — ID remap disambiguates the two masters' IDs and supports out-of-order slave responses.</figcaption>
+</figure>
+
+<h3>10.2 Read outstanding tracker</h3>
+<p>Per master, the fabric tracks per-ID outstanding read counts and a total (capped at
+<code>MAX_OUTSTANDING</code>). A new read is gated (<code>ar_allow</code>) when:</p>
+<pre><code>ar_allow[i] = (rtotal[i] &lt; MAX_OUTSTANDING)                              // capacity
+            &amp; ~( out_cnt[i][arid] != 0 &amp; out_tgt[i][arid] != dec_ar[i] ); // same-ID, different target</code></pre>
+<p>The second term enforces the cross-slave same-ID ordering contract (§11) by serialising a same-ID read
+that targets a different slave than an already-outstanding same-ID read.</p>
+
+<h3>10.3 R-burst-lock mux</h3>
+<p>Because reads are multi-outstanding, several servers may have <code>R</code> data for one master at once.
+A per-master mux locks onto the selected server for the whole burst (until <code>RLAST</code>) and gates
+<code>RREADY</code> to only that server, so read bursts never interleave at the master port.</p>
+
+<!-- ============================================================= -->
+<h2 id="contracts">11 · Transaction Contracts</h2>
+<table>
+  <tr><th>Property</th><th>Contract</th></tr>
+  <tr><td>Reads</td><td>Multiple outstanding, out-of-order across IDs; capped at <code>MAX_OUTSTANDING</code> per master.</td></tr>
+  <tr><td>Same-ID reads, same target</td><td>In order (guaranteed by the slave's per-ID ordering).</td></tr>
+  <tr><td>Same-ID reads, different targets</td><td>Serialised at ingress so same-ID order is preserved across the fabric.</td></tr>
+  <tr><td>Writes</td><td><b>One outstanding per master</b> (fabric-wide) — a deliberate simplification that avoids W-data interleaving; same-ID write order is therefore automatic.</td></tr>
+  <tr><td>Write response</td><td>Exactly one <code>B</code> per write burst.</td></tr>
+  <tr><td>Decode error</td><td>Unmapped → prompt DECERR on <code>B</code>/every <code>R</code> beat; never reaches a slave, never hangs.</td></tr>
+  <tr><td>Protocol stability</td><td>Once asserted, <code>VALID</code>/payload are held until the matching <code>READY</code> (enforced by the arbiter grant-lock and the channel FSMs).</td></tr>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="bugs">12 · Bug-Injection Hooks</h2>
+<p>Six classic defects are guarded by compile-time defines (default OFF → clean RTL). They turn the DUT into
+a training target whose bugs the testbench must catch. Enable with e.g. <code>+define+NOC_BUG_PSLVERR_SWALLOW</code>.</p>
+<table>
+  <tr><th>Define</th><th>Module</th><th>Injected defect</th></tr>
+  <tr><td><code>NOC_BUG_RR_FREEZE</code></td><td><code>noc_arbiter</code></td><td>RR pointer not updated on an uncontested grant</td></tr>
+  <tr><td><code>NOC_BUG_DECERR_OMIT</code></td><td><code>noc_decerr_port</code></td><td>Unmapped access gets no response (fabric hangs)</td></tr>
+  <tr><td><code>NOC_BUG_PSLVERR_SWALLOW</code></td><td><code>axi2apb_bridge</code></td><td>APB PSLVERR reported back as OKAY</td></tr>
+  <tr><td><code>NOC_BUG_BRIDGE_ADDR</code></td><td><code>axi2apb_bridge</code></td><td>Wrong INCR step for APB burst beats</td></tr>
+  <tr><td><code>NOC_BUG_BRESP_PERBEAT</code></td><td><code>axi2apb_bridge</code></td><td>One B per beat instead of one per burst</td></tr>
+  <tr><td><code>NOC_BUG_SAMEID_REORDER</code></td><td><code>noc_top</code></td><td>Same-ID cross-target ordering interlock disabled</td></tr>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="files">13 · File Manifest</h2>
+<table>
+  <tr><th>File</th><th>Role</th></tr>
+  <tr><td><code>RTL/noc_pkg.sv</code></td><td>Parameters, address map, <code>target_e</code>, <code>decode()</code>, bug-hook docs</td></tr>
+  <tr><td><code>RTL/noc_arbiter.sv</code></td><td>2-requester strict-priority + RR arbiter with grant-lock</td></tr>
+  <tr><td><code>RTL/noc_axi_slave_port.sv</code></td><td>Write/read server for S0/S1; multi-outstanding OOO reads; ID remap</td></tr>
+  <tr><td><code>RTL/axi2apb_bridge.sv</code></td><td>AXI→APB burst-split + response mapping</td></tr>
+  <tr><td><code>RTL/noc_decerr_port.sv</code></td><td>DECERR responder for unmapped addresses</td></tr>
+  <tr><td><code>RTL/noc_top.sv</code></td><td>Fabric: decode/gate/route, read tracker, response muxes — the DUT</td></tr>
+</table>
+
+<p class="kv" style="margin-top:40px;border-top:1px solid var(--line);padding-top:14px;">
+2×2×2 NoC Design Specification · companion to the <a href="noc_verification_plan.html">Verification Plan</a>.
+Tooling: Cadence Xcelium 2503, single clock domain, synthesizable-style RTL.</p>
+
+</div>
+</body>
+</html>

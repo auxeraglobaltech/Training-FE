@@ -1,0 +1,12 @@
+# Simulation build artifacts
+sim/runs/
+sim/*.log
+xcelium.d/
+INCA_libs/
+.simvision/
+waves.shm/
+*.log
+*.history
+*.shm
+.bpad/
+xrun.key

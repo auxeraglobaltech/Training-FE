@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2×2×2 NoC — Verification Plan</title>
+<style>
+  :root{
+    --bg:#ffffff;--ink:#1c2024;--muted:#5b6570;--line:#e2e6ea;--soft:#f6f8fa;
+    --blue:#1a4fa0;--teal:#0e7d6e;--purple:#6a1b9a;--amber:#a86a00;--red:#c62828;--green:#2e7d32;
+    --code:#f4f3ef;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:16px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:960px;margin:0 auto;padding:44px 28px 120px;}
+  header.doc{border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:8px;}
+  header.doc h1{font-size:30px;margin:0 0 4px;letter-spacing:-.01em;}
+  header.doc .sub{color:var(--muted);font-size:15px;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:var(--muted);margin-top:12px;}
+  .meta b{color:var(--ink);font-weight:600;}
+  h2{font-size:22px;margin:42px 0 10px;padding-top:10px;border-top:1px solid var(--line);}
+  h3{font-size:17px;margin:26px 0 8px;color:#222;}
+  h4{font-size:15px;margin:18px 0 6px;color:#333;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0 10px 22px;}li{margin:4px 0;}
+  code{font-family:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;font-size:13px;}
+  p code,li code,td code{background:var(--code);padding:1px 5px;border-radius:4px;color:#7a2c8f;}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;}
+  pre code{font-size:12.5px;color:#1c2024;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13px;}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--soft);font-weight:600;}
+  tr:nth-child(even) td{background:#fcfdfe;}
+  figure{margin:22px 0;text-align:center;}
+  figure svg{max-width:100%;height:auto;}
+  figcaption{font-size:12.5px;color:var(--muted);margin-top:8px;}
+  .note{border-left:3px solid var(--teal);background:#f0f8f6;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .warn{border-left:3px solid var(--amber);background:#fff8ec;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .ok{border-left:3px solid var(--green);background:#eef7ef;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .toc{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:14px 20px;margin:22px 0;}
+  .toc h4{margin:0 0 8px;}.toc ol{margin:0 0 0 18px;columns:2;font-size:14px;}
+  .pass{color:var(--green);font-weight:600;}
+  .mono{font-family:ui-monospace,monospace;}
+  .kv{font-size:13px;color:var(--muted);}
+  svg text{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>2×2×2 NoC — Verification Plan</h1>
+  <div class="sub">UVM environment, test plan, test cases, assertions, coverage, fault campaign, and run instructions.</div>
+  <div class="meta">
+    <span><b>DUT:</b> <code>noc_top</code></span>
+    <span><b>Methodology:</b> UVM (CDNS-1.2)</span>
+    <span><b>Simulator:</b> Cadence Xcelium 2503</span>
+    <span><b>Top:</b> <code>tb_top</code></span>
+    <span><b>Status:</b> <span class="pass">all tests passing on golden RTL</span></span>
+  </div>
+</header>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#goals">Verification Goals &amp; Surface</a></li>
+    <li><a href="#strategy">Strategy</a></li>
+    <li><a href="#arch">UVM TB Architecture</a></li>
+    <li><a href="#comp">Components</a></li>
+    <li><a href="#sb">Routing-Aware Scoreboard</a></li>
+    <li><a href="#sva">Assertions (SVA)</a></li>
+    <li><a href="#cov">Coverage Model</a></li>
+    <li><a href="#plan">Test Plan</a></li>
+    <li><a href="#cases">Test Cases (intent &amp; checks)</a></li>
+    <li><a href="#fault">Fault-Injection Campaign</a></li>
+    <li><a href="#run">How to Run</a></li>
+    <li><a href="#results">Results &amp; Limitations</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================= -->
+<h2 id="goals">1 · Verification Goals &amp; Surface</h2>
+<p>To sign off the NoC (see the <a href="noc_design_spec.html">Design Specification</a>) the environment must prove:</p>
+<table>
+  <tr><th>Area</th><th>The one thing to prove</th></tr>
+  <tr><td>Connectivity</td><td>All 2×4 master→target paths work, reads and writes.</td></tr>
+  <tr><td>Decode</td><td>In-range routes to the right target; out-of-range returns DECERR, reaches no slave, never hangs.</td></tr>
+  <tr><td>Arbitration</td><td>Strict priority honoured; round-robin tie-break on equal priority; legal grants only.</td></tr>
+  <tr><td>Conversion</td><td>AXI bursts → correct APB singles; <code>PSLVERR → SLVERR</code>; one <code>B</code> per write burst.</td></tr>
+  <tr><td>Concurrency</td><td>Ordering preserved under simultaneous two-master load; no deadlock.</td></tr>
+  <tr><td>Robustness</td><td>Error injection handled cleanly; protocol legal on every port.</td></tr>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="strategy">2 · Strategy</h2>
+<p>The environment separates <b>deterministic correctness</b> from <b>non-deterministic policy</b>:</p>
+<ul>
+  <li><b>Scoreboard (deterministic):</b> data correctness, routing (which target was reached), response codes,
+  and DECERR — checked exactly against a golden memory and the reused <code>decode()</code> model. It accepts
+  <em>any legal arbitration interleaving</em>; it never tries to predict which master wins first.</li>
+  <li><b>Assertions (policy &amp; protocol):</b> AXI/APB handshake legality and arbitration policy
+  (priority-honoured, mutual exclusion) — checked cycle-accurately by SVA.</li>
+  <li><b>Coverage:</b> records that the routing matrix and priority relationships were actually exercised.</li>
+</ul>
+<div class="note">Mixing these up — e.g. making the scoreboard model the arbiter pointer to predict arrival
+order — is the classic way NoC scoreboards drown in false failures. Keeping arbitration order out of the
+scoreboard and in the assertions is the central design choice here.</div>
+
+<!-- ============================================================= -->
+<h2 id="arch">3 · UVM Testbench Architecture</h2>
+<figure>
+<svg viewBox="0 0 900 470" xmlns="http://www.w3.org/2000/svg" font-size="11">
+  <defs><marker id="b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5b6570"/></marker>
+        <marker id="bd" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#6a1b9a"/></marker></defs>
+  <rect x="14" y="14" width="872" height="442" rx="10" fill="none" stroke="#5b6570" stroke-dasharray="4 3"/>
+  <text x="28" y="33" fill="#5b6570" font-size="11">noc_env</text>
+
+  <!-- master agents -->
+  <rect x="30" y="48" width="160" height="60" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+  <text x="110" y="70" text-anchor="middle" fill="#1a4fa0" font-weight="600">M0 agent (active)</text>
+  <text x="110" y="88" text-anchor="middle" font-size="9" fill="#5b6570">seqr + driver + monitor</text>
+  <rect x="30" y="122" width="160" height="60" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+  <text x="110" y="144" text-anchor="middle" fill="#1a4fa0" font-weight="600">M1 agent (active)</text>
+  <text x="110" y="162" text-anchor="middle" font-size="9" fill="#5b6570">seqr + driver + monitor</text>
+
+  <!-- DUT -->
+  <rect x="360" y="80" width="150" height="150" rx="8" fill="#faf7fd" stroke="#6a1b9a" stroke-width="2.5"/>
+  <text x="435" y="150" text-anchor="middle" fill="#6a1b9a" font-weight="700">noc_top</text>
+  <text x="435" y="168" text-anchor="middle" font-size="9" fill="#5b6570">DUT (2×2×2)</text>
+  <text x="435" y="200" text-anchor="middle" font-size="8.5" fill="#5b6570">+ embedded AXI/APB SVA</text>
+  <text x="435" y="213" text-anchor="middle" font-size="8.5" fill="#5b6570">+ bound arb_sva</text>
+
+  <!-- slave responders -->
+  <rect x="690" y="48" width="180" height="40" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+  <text x="780" y="64" text-anchor="middle" font-size="10" fill="#0e7d6e" font-weight="600">S0 responder (reactive)</text>
+  <text x="780" y="78" text-anchor="middle" font-size="8" fill="#5b6570">mem + backpressure + monitor</text>
+  <rect x="690" y="96" width="180" height="40" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+  <text x="780" y="112" text-anchor="middle" font-size="10" fill="#0e7d6e" font-weight="600">S1 responder (reactive)</text>
+  <rect x="690" y="150" width="180" height="40" rx="6" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+  <text x="780" y="166" text-anchor="middle" font-size="10" fill="#a86a00" font-weight="600">P0 responder (reactive)</text>
+  <text x="780" y="180" text-anchor="middle" font-size="8" fill="#5b6570">APB mem + PSLVERR + monitor</text>
+  <rect x="690" y="198" width="180" height="40" rx="6" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+  <text x="780" y="214" text-anchor="middle" font-size="10" fill="#a86a00" font-weight="600">P1 responder (reactive)</text>
+
+  <!-- scoreboard / coverage / vseqr -->
+  <rect x="120" y="270" width="230" height="56" rx="6" fill="#faf7fd" stroke="#6a1b9a" stroke-width="2"/>
+  <text x="235" y="292" text-anchor="middle" fill="#6a1b9a" font-weight="600">routing-aware scoreboard</text>
+  <text x="235" y="310" text-anchor="middle" font-size="9" fill="#5b6570">golden mem/slave · decode() · DECERR</text>
+  <rect x="380" y="270" width="170" height="56" rx="6" fill="#e8f4f1" stroke="#0e7d6e" stroke-width="2"/>
+  <text x="465" y="292" text-anchor="middle" fill="#0e7d6e" font-weight="600">coverage</text>
+  <text x="465" y="310" text-anchor="middle" font-size="9" fill="#5b6570">route_x · qos_x</text>
+  <rect x="120" y="346" width="430" height="40" rx="6" fill="#eef3fb" stroke="#1a4fa0" stroke-width="2"/>
+  <text x="335" y="370" text-anchor="middle" fill="#1a4fa0" font-weight="600">virtual sequencer — coordinates M0 &amp; M1 (contention storms)</text>
+
+  <!-- connections request/response -->
+  <line x1="190" y1="92"  x2="358" y2="130" stroke="#1a4fa0" stroke-width="1.6" marker-end="url(#b)"/>
+  <line x1="190" y1="152" x2="358" y2="170" stroke="#1a4fa0" stroke-width="1.6" marker-end="url(#b)"/>
+  <line x1="510" y1="120" x2="688" y2="70"  stroke="#0e7d6e" stroke-width="1.6" marker-end="url(#b)"/>
+  <line x1="510" y1="150" x2="688" y2="170" stroke="#a86a00" stroke-width="1.6" marker-end="url(#b)"/>
+  <!-- monitor analysis (dashed, purple) into scoreboard/coverage -->
+  <line x1="110" y1="108" x2="160" y2="268" stroke="#6a1b9a" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#bd)"/>
+  <line x1="780" y1="238" x2="350" y2="300" stroke="#6a1b9a" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#bd)"/>
+  <line x1="150" y1="182" x2="400" y2="268" stroke="#6a1b9a" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#bd)"/>
+  <text x="450" y="405" text-anchor="middle" font-size="9" fill="#5b6570">Solid = bus traffic · Dashed = analysis ports (monitors → scoreboard &amp; coverage). Six vifs are published by tb_top and distributed by noc_env.</text>
+</svg>
+<figcaption>Figure 1 — UVM environment: two active master agents, four reactive responders (2 AXI + 2 APB) with arrival monitors, routing-aware scoreboard, coverage, and a virtual sequencer. Protocol/arbitration assertions are embedded in the interfaces and bound to every arbiter.</figcaption>
+</figure>
+
+<!-- ============================================================= -->
+<h2 id="comp">4 · Components</h2>
+<table>
+  <tr><th>Component</th><th>Role</th></tr>
+  <tr><td><code>axi_master_agent</code></td><td>Active: sequencer + driver (one txn at a time, full AXI handshake) + monitor.</td></tr>
+  <tr><td><code>axi_slave_responder</code></td><td>Reactive S0/S1: memory-backed, random READY back-pressure &amp; latency, optional SLVERR. ID echoed for routing.</td></tr>
+  <tr><td><code>apb_slave_responder</code></td><td>Reactive P0/P1: memory-backed APB completer, optional PSLVERR, random wait states.</td></tr>
+  <tr><td><code>axi_monitor#(IDW)</code></td><td>Reconstructs completed transactions on master ports (full burst + response).</td></tr>
+  <tr><td><code>axi_req_monitor</code></td><td>Slave-side arrival monitor (publishes AW/AR address) for the routing check — robust to OOO.</td></tr>
+  <tr><td><code>apb_monitor</code></td><td>Publishes each completed APB transfer for bridge reconciliation.</td></tr>
+  <tr><td><code>noc_scoreboard</code></td><td>Routing-aware checker + golden memory (see §5).</td></tr>
+  <tr><td><code>noc_coverage</code></td><td>Functional coverage (route matrix, QoS).</td></tr>
+  <tr><td><code>noc_vseqr</code></td><td>Virtual sequencer holding both master sequencers for coordinated contention.</td></tr>
+  <tr><td><code>noc_env</code></td><td>Builds/wires all of the above; fetches the six DUT vifs and distributes them.</td></tr>
+</table>
+<div class="note"><b>Reactive responders are where realism is injected.</b> Random back-pressure, variable
+latency, and on-command errors are what stress the fabric's buffering, ordering, and error paths. A
+slave that always answers instantly with OKAY would hide most fabric bugs.</div>
+
+<!-- ============================================================= -->
+<h2 id="sb">5 · Routing-Aware Scoreboard</h2>
+<p>For every completed master transaction the scoreboard asks two questions: <em>did it reach the correct
+target?</em> and <em>was the data correct there?</em></p>
+<ol>
+  <li><b>Predict target</b> by reusing <code>noc_pkg::decode(addr)</code> — the same model the RTL uses.</li>
+  <li><b>Data</b>: writes update a golden memory per target (strobed); reads are predicted from that memory
+  and compared beat-by-beat.</li>
+  <li><b>Response</b>: expect <code>OKAY</code> for mapped targets, <code>DECERR</code> for unmapped, or
+  <code>SLVERR</code> for a target a test has marked as error-injecting.</li>
+  <li><b>Routing</b>: the slave-side arrival monitors confirm each arrival's address decodes to <em>that</em>
+  target — catching a mis-route that a data-only check would miss, and confirming an unmapped access reaches
+  <em>no</em> slave.</li>
+</ol>
+<p>Reported at end of test: <code>writes</code>, <code>reads</code>, <code>decerr</code>, per-target arrival
+counts, and total <code>errors</code>; a clean run prints <code>SCOREBOARD PASSED</code>.</p>
+
+<!-- ============================================================= -->
+<h2 id="sva">6 · Assertions (SVA)</h2>
+<p>Protocol assertions live <em>inside</em> the interfaces (Xcelium forbids binding a module into an
+interface); the arbiter checker is bound to every <code>noc_arbiter</code>.</p>
+<table>
+  <tr><th>Group</th><th>Location</th><th>Properties</th></tr>
+  <tr><td>AXI protocol</td><td><code>axi_if</code></td><td>VALID held until READY (all 5 channels); payload stable while a transfer is stalled (AW/AR/W/B/R).</td></tr>
+  <tr><td>APB protocol</td><td><code>apb_if</code></td><td>setup→access sequence; address/control stable during access; PENABLE only with PSEL; PENABLE drops after a completed transfer.</td></tr>
+  <tr><td>Arbitration</td><td><code>arb_sva</code> → <code>noc_arbiter</code></td><td>Mutual exclusion (<code>!(gnt0&amp;&amp;gnt1)</code>); grant-valid iff a request; <b>strict priority honoured</b> (higher QoS wins under contention).</td></tr>
+  <tr><td>Liveness (opt)</td><td><code>arb_sva</code> (<code>+define+ARB_CHECK_LIVENESS</code>)</td><td>Bounded-wait — <em>expected to fail</em> under strict priority, demonstrating the starvation hazard. OFF by default.</td></tr>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="cov">7 · Coverage Model</h2>
+<p>Sampled on every completed master transaction (<code>noc_coverage</code>):</p>
+<table>
+  <tr><th>Coverpoint / Cross</th><th>Bins</th><th>Intent</th></tr>
+  <tr><td><code>master_cp</code></td><td>M0, M1</td><td>Both masters active</td></tr>
+  <tr><td><code>target_cp</code></td><td>S0, S1, P0, P1, DECERR</td><td>Every target (incl. error) exercised</td></tr>
+  <tr><td><code>dir_cp</code></td><td>read, write</td><td>Both directions</td></tr>
+  <tr><td><code>qos_cp</code></td><td>lo [0:7], hi [8:15]</td><td>Both priority bands</td></tr>
+  <tr><td><b><code>route_x</code></b></td><td>master × target × dir</td><td><b>The routing matrix</b> — every master reaches every target, R &amp; W</td></tr>
+  <tr><td><code>qos_x</code></td><td>master × qos</td><td>Each master at each priority band (dynamic-priority arbitration)</td></tr>
+</table>
+<p>Enable collection with <code>COV=1</code> (adds <code>-coverage all</code> to the compile).</p>
+
+<!-- ============================================================= -->
+<h2 id="plan">8 · Test Plan</h2>
+<table>
+  <tr><th>Test</th><th>Intent</th><th>Stimulus</th><th>Primary checks</th></tr>
+  <tr><td><code>noc_sanity_test</code></td><td>Env bring-up; basic connectivity</td><td>One master: W+R to S0/S1/P0/P1 + one unmapped</td><td>Scoreboard data/route/DECERR</td></tr>
+  <tr><td><code>noc_decode_test</code></td><td>Decode correctness at range edges</td><td>Last in-range word of each region + just-out-of-range / unmapped</td><td>Correct target vs DECERR; no slave reached for unmapped</td></tr>
+  <tr><td><code>noc_random_test</code></td><td>Broad single-master coverage</td><td>60 randomised mixed W/R across all targets</td><td>Scoreboard + coverage</td></tr>
+  <tr><td><code>noc_concurrency_test</code></td><td>Two-master fabric stress</td><td>Both masters, 50 randomised txns each, concurrent</td><td>Scoreboard (any legal interleaving) + all SVA</td></tr>
+  <tr><td><code>noc_rr_arb_test</code></td><td>Round-robin tie-break</td><td>Both storm S0, equal QoS, disjoint windows</td><td>arb_sva mutex/legality; scoreboard</td></tr>
+  <tr><td><code>noc_priority_test</code></td><td>Strict priority honoured</td><td>Both storm S0, M1 higher QoS</td><td><code>ap_prio_m1</code>; scoreboard</td></tr>
+  <tr><td><code>noc_bridge_test</code></td><td>Bridge error mapping</td><td>Storm P0 with PSLVERR injected</td><td>Scoreboard expects SLVERR; APB SVA</td></tr>
+</table>
+<p>A non-UVM datapath smoke (<code>make smoke</code>) additionally proves single-master out-of-order
+multi-ID reads (a read to slow S1 issued first returns <em>after</em> a read to fast S0 issued second).</p>
+
+<!-- ============================================================= -->
+<h2 id="cases">9 · Test Cases — Intent &amp; Checks</h2>
+
+<h3>9.1 Sanity / Connectivity</h3>
+<p><b>Intent:</b> prove the environment and the 2×4 path set work end-to-end.
+<b>Stimulus:</b> <code>connectivity_seq</code> — W then R to each target (incl. a 4-beat burst) plus an
+unmapped W and R. <b>Pass:</b> all data matches the golden memory; mapped → OKAY, unmapped → DECERR;
+arrivals seen at the predicted targets only.</p>
+
+<h3>9.2 Decode boundaries</h3>
+<p><b>Intent:</b> off-by-one decode bugs live at range edges. <b>Stimulus:</b> <code>decode_boundary_seq</code>
+hits the last in-range word of S0/S1/P0/P1 and addresses just above P1, plus <code>0x3000_0000</code> and
+<code>0xFFFF_FFFC</code>. <b>Pass:</b> in-range route correctly; out-of-range return DECERR and reach no slave.</p>
+
+<h3>9.3 Concurrency</h3>
+<p><b>Intent:</b> the hard ordering/arbitration behaviour only appears with both masters in flight.
+<b>Stimulus:</b> <code>concurrent_mixed_vseq</code> forks independent random traffic on M0 and M1.
+<b>Pass:</b> scoreboard clean accepting <em>any</em> legal interleaving; no AXI/APB/arb assertion fires;
+no deadlock (watchdog silent). <span class="kv">(Observed: 100 writes + 100 reads, arrivals across all four targets, 0 errors.)</span></p>
+
+<h3>9.4 Round-robin arbitration</h3>
+<p><b>Intent:</b> equal-priority contention must produce legal, fair alternation. <b>Stimulus:</b>
+<code>both_storm_vseq</code> drives both masters at S0 with equal QoS, using <em>disjoint address windows</em>
+so there is no cross-master same-address data hazard (contention is at the slave port, not the address).
+<b>Pass:</b> <code>arb_sva</code> mutual-exclusion/legality hold; scoreboard clean.</p>
+
+<h3>9.5 Strict priority</h3>
+<p><b>Intent:</b> the higher-priority master must win every contended grant. <b>Stimulus:</b> both storm S0,
+M1 QoS high / M0 QoS low. <b>Pass:</b> <code>ap_prio_m1</code> never fires (M1 always granted when both
+request and M1 is higher), scoreboard clean. <b>Note:</b> strict priority may starve M0 by design — this is
+intended policy, demonstrable via the optional bounded-wait assertion.</p>
+
+<h3>9.6 Bridge / protocol conversion</h3>
+<p><b>Intent:</b> burst→single conversion and error mapping. <b>Stimulus:</b> <code>storm_seq</code> to P0
+with the P0 responder asserting PSLVERR on every transfer; the scoreboard is told to expect SLVERR for P0.
+<b>Pass:</b> every P0 write/read returns SLVERR (one <code>B</code> per write burst); APB protocol assertions
+hold. The clean (no-error) bridge path is covered by sanity/random/concurrency.</p>
+
+<!-- ============================================================= -->
+<h2 id="fault">10 · Fault-Injection Campaign</h2>
+<p>Each compile-time bug must be <em>caught</em> by the environment. Detection mechanism per bug:</p>
+<table>
+  <tr><th>Bug define</th><th>Demonstrating run</th><th>Caught by</th></tr>
+  <tr><td><code>PSLVERR_SWALLOW</code></td><td><code>noc_bridge_test</code></td><td>Scoreboard <code>SB_WRESP</code>/<code>SB_RRESP</code> (resp OKAY ≠ SLVERR) ✔ verified</td></tr>
+  <tr><td><code>DECERR_OMIT</code></td><td><code>noc_decode_test</code></td><td>Watchdog timeout → UVM_ERROR (fabric hangs on unmapped)</td></tr>
+  <tr><td><code>BRESP_PERBEAT</code></td><td><code>noc_bridge_test</code></td><td>Extra B responses → monitor/scoreboard mismatch</td></tr>
+  <tr><td><code>BRIDGE_ADDR</code></td><td><code>noc_random_test</code> (P0/P1 bursts)</td><td>Scoreboard <code>SB_DATA</code> (wrong APB beat addresses)</td></tr>
+  <tr><td><code>SAMEID_REORDER</code></td><td>same-ID cross-target reads</td><td>Same-ID ordering broken (response order check)</td></tr>
+  <tr><td><code>RR_FREEZE</code></td><td><code>noc_rr_arb_test</code> w/ single-requester cycles</td><td>Grant-share skew (see §12 limitation)</td></tr>
+</table>
+<div class="ok"><b>Verified live:</b> <code>make sim TESTNAME=noc_bridge_test BUG=PSLVERR_SWALLOW</code> →
+<code>** TEST FAILED **</code> with 40 scoreboard errors; the same bug also fails <code>make smoke BUG=PSLVERR_SWALLOW</code>.</div>
+
+<!-- ============================================================= -->
+<h2 id="run">11 · How to Run</h2>
+<p>Tooling is Cadence Xcelium; the interactive shell is <b>csh/tcsh</b>. Source the environment, then run from
+<code>RTL/noc/sim</code>:</p>
+<pre><code>source ~/cshrc                       # puts xrun (Xcelium 2503) + UVM CDNS-1.2 on PATH
+
+make elab                            # compile + elaborate only (fast check)
+make sim TESTNAME=noc_sanity_test    # run a UVM test
+make sim TESTNAME=noc_concurrency_test WAVES=1 SEED=42
+make sim TESTNAME=noc_rr_arb_test COV=1            # + functional/code coverage
+make smoke                           # non-UVM datapath + OOO smoke
+
+# fault injection (bug caught by the env):
+make sim TESTNAME=noc_bridge_test BUG=PSLVERR_SWALLOW
+
+# run the whole suite (csh):
+foreach t (noc_sanity_test noc_decode_test noc_random_test noc_concurrency_test \
+           noc_rr_arb_test noc_priority_test noc_bridge_test)
+  make sim TESTNAME=$t |&amp; grep -E "RESULT|UVM_ERROR :|SCOREBOARD"
+end</code></pre>
+<p>Each run lands in <code>RTL/noc/sim/runs/run_&lt;timestamp&gt;_seed&lt;N&gt;/xrun.log</code>. Pass/fail:</p>
+<pre><code>grep -E "TEST PASSED|TEST FAILED|UVM_ERROR :" runs/run_*/xrun.log | tail</code></pre>
+<table>
+  <tr><th>Make variable</th><th>Effect</th></tr>
+  <tr><td><code>TESTNAME</code></td><td>UVM test to run (default <code>noc_base_test</code>)</td></tr>
+  <tr><td><code>SEED</code></td><td>Random seed (default random)</td></tr>
+  <tr><td><code>WAVES=1</code></td><td>Dump <code>waves.shm</code></td></tr>
+  <tr><td><code>COV=1</code></td><td>Enable functional + code coverage collection</td></tr>
+  <tr><td><code>BUG=&lt;NAME&gt;</code></td><td>Inject <code>+define+NOC_BUG_&lt;NAME&gt;</code></td></tr>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="results">12 · Results &amp; Limitations</h2>
+<div class="ok"><b>Result:</b> all seven UVM tests and the datapath smoke pass on the golden RTL with
+<code>UVM_ERROR : 0</code> and no protocol/arbitration assertion failures. The concurrency test alone drives
+200 transactions across both masters and all four targets cleanly. The fault campaign confirms injected bugs
+are caught.</div>
+
+<h3>Notable finding during bring-up</h3>
+<p>The embedded AXI stability assertions surfaced a real RTL issue: a purely combinational arbiter could flip
+its grant mid-handshake under contention (an <code>AWVALID</code>/<code>ARVALID</code> stability violation).
+The fix — an arbiter <b>grant-lock</b> that holds a presented grant until accepted — was added and validated
+under the concurrency test.</p>
+
+<h3>Known limitations / future work</h3>
+<ul>
+  <li><b>UVM-side OOO depth.</b> The reactive responders are in-order, so the UVM suite exercises cross-master
+  contention, routing, bridge, and decode rather than single-master out-of-order depth. Single-master OOO is
+  proven by the smoke <code>[OOO]</code> check. <em>Future:</em> add out-of-order responders + a pipelined
+  multi-outstanding master driver.</li>
+  <li><b>Statistical fairness.</b> Completion-share is ~50/50 by construction with fixed-count sequences, so
+  arbitration is verified by the <code>arb_sva</code> assertions rather than a fairness statistic. <em>Future:</em>
+  windowed grant-count measurement to quantify fairness and tighten <code>RR_FREEZE</code> detection.</li>
+  <li><b>Coverage closure.</b> The model is in place; closure (driving <code>route_x</code>/<code>qos_x</code> to
+  100% and reviewing holes) is a follow-on activity with <code>COV=1</code> regressions.</li>
+  <li><b>Writes</b> are one-outstanding per master by design; write-pipelining (with W-data interleaving) is out
+  of scope for this build.</li>
+</ul>
+
+<p class="kv" style="margin-top:40px;border-top:1px solid var(--line);padding-top:14px;">
+2×2×2 NoC Verification Plan · companion to the <a href="noc_design_spec.html">Design Specification</a>.
+UVM (CDNS-1.2) on Cadence Xcelium 2503.</p>
+
+</div>
+</body>
+</html>
