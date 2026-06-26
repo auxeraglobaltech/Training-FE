@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UberDDR3 — Verification Plan</title>
+<style>
+  :root{--bg:#fff;--ink:#1c2024;--muted:#5b6570;--line:#e2e6ea;--soft:#f6f8fa;
+    --blue:#1a4fa0;--teal:#0e7d6e;--purple:#6a1b9a;--amber:#a86a00;--red:#c62828;--green:#2e7d32;--code:#f4f3ef;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:960px;margin:0 auto;padding:44px 28px 120px;}
+  header.doc{border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:8px;}
+  header.doc h1{font-size:29px;margin:0 0 4px;letter-spacing:-.01em;}
+  header.doc .sub{color:var(--muted);font-size:15px;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:var(--muted);margin-top:12px;}
+  .meta b{color:var(--ink);font-weight:600;}
+  h2{font-size:22px;margin:42px 0 10px;padding-top:10px;border-top:1px solid var(--line);}
+  h3{font-size:17px;margin:26px 0 8px;}h4{font-size:15px;margin:18px 0 6px;}
+  p{margin:10px 0;}ul,ol{margin:10px 0 10px 22px;}li{margin:4px 0;}
+  code{font-family:ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;font-size:13px;}
+  p code,li code,td code{background:var(--code);padding:1px 5px;border-radius:4px;color:#7a2c8f;}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;}
+  pre code{font-size:12.5px;color:#1c2024;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.5px;}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--soft);font-weight:600;}tr:nth-child(even) td{background:#fcfdfe;}
+  figure{margin:22px 0;text-align:center;}figure svg{max-width:100%;height:auto;}
+  figcaption{font-size:12.5px;color:var(--muted);margin-top:8px;}
+  .note{border-left:3px solid var(--teal);background:#f0f8f6;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .warn{border-left:3px solid var(--amber);background:#fff8ec;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .toc{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:14px 20px;margin:22px 0;}
+  .toc h4{margin:0 0 8px;}.toc ol{margin:0 0 0 18px;columns:2;font-size:14px;}
+  .mono{font-family:ui-monospace,monospace;}.kv{font-size:13px;color:var(--muted);}
+  .pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:10px;border:1px solid var(--line);background:var(--soft);color:var(--muted);}
+  .pass{color:var(--green);font-weight:600;}
+  svg text{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>UberDDR3 DDR3 Controller — Verification Plan</h1>
+  <div class="sub">UVM verification environment for the UberDDR3 controller over its native Wishbone interface in Cadence Xcelium: architecture, strategy, checking, coverage, and the directed/random test plan.</div>
+  <div class="meta">
+    <span><b>DUT:</b> <code>ddr3_top</code> (Wishbone)</span>
+    <span><b>Methodology:</b> UVM (CDNS-1.2)</span>
+    <span><b>Simulator:</b> Cadence Xcelium 2503</span>
+    <span><b>Checker:</b> golden-memory scoreboard</span>
+    <span><b>Status:</b> <span class="pass">All 5 tests pass</span></span>
+  </div>
+</header>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#intro">Introduction &amp; Objectives</a></li>
+    <li><a href="#strategy">Verification Strategy</a></li>
+    <li><a href="#arch">Testbench Architecture</a></li>
+    <li><a href="#components">UVM Components</a></li>
+    <li><a href="#checking">Checking &amp; Scoreboard</a></li>
+    <li><a href="#cov">Functional Coverage</a></li>
+    <li><a href="#plan">Test Plan</a></li>
+    <li><a href="#run">How to Build &amp; Run</a></li>
+    <li><a href="#axi">AXI Path — Known Limitation</a></li>
+    <li><a href="#exit">Exit Criteria</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================= -->
+<h2 id="intro">1 · Introduction &amp; Objectives</h2>
+<p>This plan describes the UVM environment built around the <a href="ddr_design_spec.html">UberDDR3 controller</a>.
+The DUT is <code>ddr3_top</code>, exercised through its native <b>pipelined Wishbone</b> user interface; the memory
+is the bundled Micron x16 DDR3 behavioral model and the 7-series PHY primitives are the repo's behavioral models
+(<code>+define+SIM_MODEL</code>), so no Xilinx libraries are required.</p>
+<p>Verification objectives:</p>
+<ul>
+  <li>Prove the controller calibrates and reaches <code>o_calib_complete</code> in Xcelium.</li>
+  <li>Verify <b>data integrity</b> of writes and reads across banks, rows, and columns.</li>
+  <li>Verify <b>byte-select (masked) writes</b> — only selected bytes update.</li>
+  <li>Verify the <b>{row,bank,col} address decode</b> by walking each field.</li>
+  <li>Verify <b>refresh transparency</b> — data survives auto-refresh over long runs.</li>
+  <li>Exercise randomized mixed traffic and collect functional coverage.</li>
+</ul>
+<div class="note">The vendored RTL under <code>RTL/uberddr3/rtl</code> is pristine. The entire environment lives under
+<code>RTL/uberddr3/dv/</code>; the only RTL touched is the Xcelium constant-function shim
+<code>dv/shim/ddr3_controller.sv</code> (see the Design Spec §9).</div>
+
+<!-- ============================================================= -->
+<h2 id="strategy">2 · Verification Strategy</h2>
+<p>The approach is <b>constrained-directed plus randomized</b>, dynamically checked against a reference model:</p>
+<ul>
+  <li><b>Reference model.</b> A golden associative memory (one 128-bit word per Wishbone address) mirrors every
+  accepted write, applying the byte-select mask exactly as the device does. Each read is compared to it.</li>
+  <li><b>Directed first.</b> Sanity, byte-select and address-walk sequences pin down specific behaviour with
+  deterministic stimulus, so a failure points straight at a cause.</li>
+  <li><b>Then randomized.</b> A random read/write sequence over a bounded address window stresses ordering and
+  scheduling; a <em>shadow</em> map ensures reads target previously-written addresses so every read is checkable.</li>
+  <li><b>Self-checking and self-terminating.</b> Every test raises an objection, waits for calibration, runs its
+  sequence, drains, and drops the objection; the scoreboard reports PASS/FAIL in <code>report_phase</code>.</li>
+  <li><b>Coverage-instrumented.</b> A subscriber covergroup records direction, bank, and select-pattern coverage
+  (and their cross) so the directed/random mix can be measured.</li>
+</ul>
+
+<!-- ============================================================= -->
+<h2 id="arch">3 · Testbench Architecture</h2>
+<p>The top module <code>tb_top_wb_uvm</code> generates the four behavioral clocks, instantiates <code>ddr3_top</code>
+and the Micron model, exposes the user side through the <code>wb_if</code> virtual interface, publishes the interface
+through the <code>uvm_config_db</code>, and calls <code>run_test()</code>. The UVM environment drives and observes
+that interface; the scoreboard and coverage subscribe to the monitor's analysis port.</p>
+<figure>
+<svg viewBox="0 0 900 430" xmlns="http://www.w3.org/2000/svg" font-size="11">
+  <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5b6570"/></marker></defs>
+
+  <!-- test -->
+  <rect x="30" y="20" width="180" height="52" rx="8" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+  <text x="120" y="42" text-anchor="middle" fill="#1a4fa0" font-weight="700">ddr_*_test</text>
+  <text x="120" y="60" text-anchor="middle" font-size="9" fill="#5b6570">wait_calib · start seq</text>
+
+  <!-- env box -->
+  <rect x="30" y="92" width="520" height="300" rx="10" fill="#faf7fd" stroke="#6a1b9a" stroke-width="2"/>
+  <text x="46" y="112" fill="#6a1b9a" font-weight="700">ddr_env</text>
+
+  <!-- agent -->
+  <rect x="50" y="124" width="250" height="250" rx="8" fill="#fff" stroke="#6a1b9a"/>
+  <text x="66" y="143" fill="#6a1b9a" font-weight="600" font-size="12">wb_master_agent</text>
+  <rect x="68" y="152" width="210" height="40" rx="6" fill="#eef4ff" stroke="#1a4fa0"/>
+  <text x="173" y="170" text-anchor="middle" font-size="10" font-weight="600">sequencer</text>
+  <text x="173" y="184" text-anchor="middle" font-size="8.5" fill="#5b6570">ddr_*_seq → wb_seq_item</text>
+  <rect x="68" y="200" width="210" height="40" rx="6" fill="#eef7ef" stroke="#2e7d32"/>
+  <text x="173" y="218" text-anchor="middle" font-size="10" font-weight="600">driver</text>
+  <text x="173" y="232" text-anchor="middle" font-size="8.5" fill="#5b6570">pipelined WB · stb/!stall/ack</text>
+  <rect x="68" y="248" width="210" height="40" rx="6" fill="#fdf3e8" stroke="#a86a00"/>
+  <text x="173" y="266" text-anchor="middle" font-size="10" font-weight="600">monitor</text>
+  <text x="173" y="280" text-anchor="middle" font-size="8.5" fill="#5b6570">pairs request↔ack → analysis</text>
+
+  <!-- scoreboard + coverage -->
+  <rect x="330" y="152" width="200" height="86" rx="8" fill="#fff" stroke="#c62828"/>
+  <text x="430" y="172" text-anchor="middle" font-size="11" font-weight="600" fill="#c62828">ddr_scoreboard</text>
+  <text x="430" y="190" text-anchor="middle" font-size="8.5" fill="#5b6570">golden mem gm[addr]</text>
+  <text x="430" y="204" text-anchor="middle" font-size="8.5" fill="#5b6570">masked write · read compare</text>
+  <text x="430" y="222" text-anchor="middle" font-size="8.5" fill="#5b6570">PASS/FAIL in report_phase</text>
+
+  <rect x="330" y="252" width="200" height="86" rx="8" fill="#fff" stroke="#0e7d6e"/>
+  <text x="430" y="272" text-anchor="middle" font-size="11" font-weight="600" fill="#0e7d6e">ddr_coverage</text>
+  <text x="430" y="290" text-anchor="middle" font-size="8.5" fill="#5b6570">dir · bank · sel-kind</text>
+  <text x="430" y="304" text-anchor="middle" font-size="8.5" fill="#5b6570">dir × bank cross</text>
+  <text x="430" y="322" text-anchor="middle" font-size="8.5" fill="#5b6570">COV=1</text>
+
+  <!-- vif + dut -->
+  <rect x="600" y="124" width="120" height="120" rx="8" fill="#f2f2f2" stroke="#5b6570" stroke-width="1.5"/>
+  <text x="660" y="180" text-anchor="middle" font-size="12" font-weight="600">wb_if</text>
+  <text x="660" y="198" text-anchor="middle" font-size="8.5" fill="#5b6570">virtual interface</text>
+
+  <rect x="600" y="270" width="270" height="120" rx="10" fill="#faf7fd" stroke="#6a1b9a" stroke-width="2.5"/>
+  <text x="735" y="292" text-anchor="middle" fill="#6a1b9a" font-weight="700">tb_top_wb_uvm</text>
+  <rect x="618" y="302" width="110" height="74" rx="6" fill="#fff" stroke="#6a1b9a"/>
+  <text x="673" y="334" text-anchor="middle" font-size="10" font-weight="600">ddr3_top</text>
+  <text x="673" y="350" text-anchor="middle" font-size="8" fill="#5b6570">DUT + PHY</text>
+  <rect x="742" y="302" width="110" height="74" rx="6" fill="#fdf3e8" stroke="#a86a00"/>
+  <text x="797" y="334" text-anchor="middle" font-size="10" font-weight="600">Micron x16</text>
+  <text x="797" y="350" text-anchor="middle" font-size="8" fill="#5b6570">DDR3 model</text>
+
+  <!-- arrows -->
+  <line x1="120" y1="72" x2="120" y2="122" stroke="#1a4fa0" stroke-width="1.6" marker-end="url(#a)"/>
+  <line x1="173" y1="192" x2="173" y2="200" stroke="#5b6570" stroke-width="1.4" marker-end="url(#a)"/>
+  <line x1="173" y1="240" x2="173" y2="248" stroke="#5b6570" stroke-width="1.4" marker-end="url(#a)"/>
+  <line x1="278" y1="268" x2="330" y2="195" stroke="#5b6570" stroke-width="1.4" marker-end="url(#a)"/>
+  <line x1="278" y1="272" x2="330" y2="290" stroke="#5b6570" stroke-width="1.4" marker-end="url(#a)"/>
+  <text x="300" y="250" font-size="8" fill="#5b6570">analysis port</text>
+  <line x1="278" y1="172" x2="598" y2="172" stroke="#1a4fa0" stroke-width="1.6" marker-end="url(#a)"/>
+  <line x1="660" y1="244" x2="660" y2="300" stroke="#5b6570" stroke-width="1.6" marker-end="url(#a)"/>
+  <line x1="278" y1="268" x2="598" y2="200" stroke="#a86a00" stroke-width="1.2" marker-end="url(#a)"/>
+</svg>
+<figcaption>Figure 1 — UVM testbench: a single Wishbone master agent drives <code>ddr3_top</code> through <code>wb_if</code>; the monitor feeds the golden-memory scoreboard and the coverage subscriber.</figcaption>
+</figure>
+
+<!-- ============================================================= -->
+<h2 id="components">4 · UVM Components</h2>
+<table>
+  <tr><th>Component</th><th>File</th><th>Responsibility</th></tr>
+  <tr><td><code>wb_seq_item</code></td><td><code>agents/wb_seq_item.sv</code></td><td>One transaction: <code>we, addr[23:0], data[127:0], sel[15:0], aux</code>; filled on completion with <code>rdata, err</code>.</td></tr>
+  <tr><td><code>wb_master_driver</code></td><td><code>agents/wb_master_driver.sv</code></td><td>Waits for <code>calib_complete</code>; drives single-outstanding pipelined Wishbone (assert until <code>stb &amp;&amp; !stall</code>, then collect <code>ack</code>); tags each request with <code>aux</code>.</td></tr>
+  <tr><td><code>wb_monitor</code></td><td><code>agents/wb_monitor.sv</code></td><td>Captures accepted requests (<code>cyc &amp;&amp; stb &amp;&amp; !stall</code>) into a queue, pairs them with <code>ack</code>, and publishes completed transactions on its analysis port.</td></tr>
+  <tr><td><code>wb_master_agent</code></td><td><code>agents/wb_master_agent.sv</code></td><td>Active agent: sequencer (<code>uvm_sequencer #(wb_seq_item)</code>) + driver + monitor.</td></tr>
+  <tr><td><code>ddr_env</code></td><td><code>env/ddr_env.sv</code></td><td>Instantiates the agent, scoreboard, and coverage; connects the monitor's analysis port to both.</td></tr>
+  <tr><td><code>ddr_scoreboard</code></td><td><code>env/ddr_scoreboard.sv</code></td><td>Golden-memory reference and comparator (§5).</td></tr>
+  <tr><td><code>ddr_coverage</code></td><td><code>env/ddr_coverage.sv</code></td><td>Functional coverage subscriber (§6).</td></tr>
+  <tr><td><code>ddr_base_test</code> + derived</td><td><code>tests/*.sv</code></td><td>Build env, get the vif, <code>wait_calib()</code>, run the relevant sequence, report PASS/FAIL.</td></tr>
+  <tr><td>sequences</td><td><code>seq/ddr_sequences.sv</code></td><td><code>ddr_base_seq</code> helpers (<code>do_write/do_read/wr_then_rd</code>) and the sanity/bytesel/walk/random sequences.</td></tr>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="checking">5 · Checking &amp; Scoreboard</h2>
+<p>The scoreboard (<code>env/ddr_scoreboard.sv</code>) holds a golden memory <code>bit[127:0] gm[bit[23:0]]</code>.
+It subscribes to the monitor's analysis port and on each completed transaction:</p>
+<ul>
+  <li><b>Write</b> — reads the current golden word (0 if never written), overwrites only the byte lanes whose
+  <code>sel[b]</code> bit is set, stores it back, and increments the write count. This exactly models the device's
+  byte-select (PSTRB) behaviour.</li>
+  <li><b>Read</b> — computes the expected word (golden value, or 0 for an unwritten location — the model reads 0
+  after calibration) and compares it against <code>rdata</code>. A mismatch raises <code>uvm_error("SB_DATA", …)</code>
+  with the address, expected, and observed data.</li>
+</ul>
+<p>In <code>report_phase</code> the scoreboard prints the write/read/error counts and emits
+<code>SCOREBOARD PASSED</code> when no mismatch occurred, or a <code>uvm_error</code> otherwise. The base test
+independently reports <code>** TEST PASSED **</code> only when the UVM error and fatal counts are both zero.</p>
+<div class="note">Because the driver is single-outstanding and the monitor pairs requests to acks in FIFO order,
+read/write ordering is unambiguous, so the simple per-address golden model is an exact reference.</div>
+
+<!-- ============================================================= -->
+<h2 id="cov">6 · Functional Coverage</h2>
+<p>The coverage subscriber (<code>env/ddr_coverage.sv</code>) samples one covergroup per completed transaction:</p>
+<table>
+  <tr><th>Coverpoint</th><th>Bins</th><th>Intent</th></tr>
+  <tr><td><code>dir_cp</code> (direction)</td><td><code>rd</code>, <code>wr</code></td><td>Both read and write paths exercised.</td></tr>
+  <tr><td><code>bank_cp</code> (bank)</td><td><code>b[0]</code> … <code>b[7]</code></td><td>All 8 DDR3 banks addressed (bank = word-addr[9:7]).</td></tr>
+  <tr><td><code>sel_cp</code> (select kind)</td><td><code>full</code>, <code>partial</code>, <code>single</code></td><td>Full-word, multi-byte-masked, and single-byte writes all seen.</td></tr>
+  <tr><td><code>dir_x_bank</code></td><td>cross</td><td>Reads and writes reach every bank.</td></tr>
+</table>
+<p>Coverage collection is enabled with <code>COV=1</code> on the <code>make sim</code> line, which adds
+<code>-coverage all -covoverwrite</code> to the xrun invocation. The <code>ddr_walk_test</code> drives all banks and
+the <code>ddr_bytesel_test</code> drives every select-kind, so the directed suite alone fills the covergroup; the
+random test adds cross fill.</p>
+
+<!-- ============================================================= -->
+<h2 id="plan">7 · Test Plan</h2>
+<p>Five UVM tests make up the suite; all pass (scoreboard clean, <code>UVM_ERROR : 0</code>). Each is detailed
+scenario-by-scenario in the companion <a href="ddr_testcases.html">Test-Case Catalog</a>.</p>
+<table>
+  <tr><th>Test</th><th>Sequence</th><th>What it verifies</th><th>Run command</th></tr>
+  <tr><td><code>ddr_sanity_test</code></td><td><code>ddr_sanity_seq</code></td><td>Write-then-read integrity at representative addresses across banks/rows.</td><td><code>make sim TESTNAME=ddr_sanity_test</code></td></tr>
+  <tr><td><code>ddr_bytesel_test</code></td><td><code>ddr_bytesel_seq</code></td><td>Masked writes — only selected bytes change (PSTRB), various patterns.</td><td><code>make sim TESTNAME=ddr_bytesel_test</code></td></tr>
+  <tr><td><code>ddr_walk_test</code></td><td><code>ddr_walk_seq</code></td><td>{row,bank,col} decode by walking all banks, several rows, columns.</td><td><code>make sim TESTNAME=ddr_walk_test</code></td></tr>
+  <tr><td><code>ddr_random_test</code></td><td><code>ddr_random_seq</code></td><td>Randomized mixed R/W over a bounded window (shadow-checked).</td><td><code>make sim TESTNAME=ddr_random_test</code></td></tr>
+  <tr><td><code>ddr_refresh_test</code></td><td><code>ddr_random_seq</code> (num=300)</td><td>Data integrity across many auto-refresh (tREFI) intervals.</td><td><code>make sim TESTNAME=ddr_refresh_test</code></td></tr>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="run">8 · How to Build &amp; Run</h2>
+<p>The user shell is csh/tcsh. From the simulation directory:</p>
+<pre><code>source ~/cshrc
+cd RTL/uberddr3/dv/sim
+
+# Phase-0 bring-up (no UVM): controller + PHY + Micron model, calibration check
+make wb
+
+# UVM tests (Wishbone env)
+make sim TESTNAME=ddr_sanity_test
+make sim TESTNAME=ddr_bytesel_test
+make sim TESTNAME=ddr_walk_test
+make sim TESTNAME=ddr_random_test
+make sim TESTNAME=ddr_refresh_test
+
+# with functional + code coverage, and/or a fixed seed
+make sim TESTNAME=ddr_random_test COV=1 SEED=7
+
+# run the whole suite (tcsh)
+foreach t (ddr_sanity_test ddr_bytesel_test ddr_walk_test ddr_random_test ddr_refresh_test)
+  make sim TESTNAME=$t
+end
+
+make clean</code></pre>
+<p>Each run is logged under <code>dv/sim/runs/sim_&lt;timestamp&gt;_&lt;test&gt;_seed&lt;n&gt;/xrun.log</code>; the Makefile
+greps the tail for <code>RESULT</code>, <code>SCOREBOARD</code>, <code>UVM_ERROR :</code>, and calibration lines.</p>
+<table>
+  <tr><th>Knob</th><th>Default</th><th>Effect</th></tr>
+  <tr><td><code>TESTNAME</code></td><td><code>ddr_sanity_test</code></td><td>UVM test to run (<code>+UVM_TESTNAME</code>).</td></tr>
+  <tr><td><code>SEED</code></td><td>random</td><td><code>+ntb_random_seed</code> for reproducibility.</td></tr>
+  <tr><td><code>COV</code></td><td><code>0</code></td><td><code>1</code> adds <code>-coverage all -covoverwrite</code>.</td></tr>
+  <tr><td><code>WAVES</code></td><td><code>0</code></td><td><code>1</code> enables waveform dump.</td></tr>
+</table>
+<p><b>Pass criteria:</b> calibration completes (<code>o_calib_complete</code> asserts), no Micron-model assertion
+errors, the scoreboard reports <code>SCOREBOARD PASSED</code>, and the test reports <code>** TEST PASSED **</code>
+with <code>UVM_ERROR : 0</code> / <code>UVM_FATAL : 0</code>.</p>
+
+<!-- ============================================================= -->
+<h2 id="axi">9 · AXI Path — Known Limitation</h2>
+<p>UberDDR3 also ships an AXI4 wrapper. We initially targeted it, but under Xcelium the third-party Wishbone-bridge
+FIFO-fill counter powers up to <code>X</code> (iverilog/Vivado effectively 2-state-initialise it), which blocks AXI
+writes; calibration and AXI reads work, writes do not complete. After several targeted fixes did not fully resolve
+it, the environment was built on the controller's <b>native Wishbone</b> interface, which is its real user interface
+and is fully working. The directed AXI smoke (<code>make axi_smoke</code>) and the X-immune bridge shims remain in
+the tree as documentation of the investigation. See Design Spec §10.</p>
+
+<!-- ============================================================= -->
+<h2 id="exit">10 · Exit Criteria</h2>
+<ul>
+  <li>All five tests report <code>** TEST PASSED **</code> with a clean scoreboard. <span class="pass">Met.</span></li>
+  <li>Calibration reaches <code>o_calib_complete</code> in Xcelium with the bundled behavioral models. <span class="pass">Met.</span></li>
+  <li>Functional coverage: direction, all 8 banks, all select-kinds, and the dir×bank cross hit. <span class="pass">Met</span> by the directed+random mix (collect with <code>COV=1</code>).</li>
+  <li>Vendored RTL unmodified except the documented Xcelium constant-function shim. <span class="pass">Met.</span></li>
+</ul>
+
+<p class="kv" style="margin-top:40px;border-top:1px solid var(--line);padding-top:14px;">
+UberDDR3 Verification Plan · companion to the <a href="ddr_design_spec.html">Design Specification</a> and the
+<a href="ddr_testcases.html">Test-Case Catalog</a>.</p>
+
+</div>
+</body>
+</html>

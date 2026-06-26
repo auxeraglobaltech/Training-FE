@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ibex Core — Verification Plan</title>
+<style>
+  :root{
+    --bg:#ffffff;--ink:#1c2024;--muted:#5b6570;--line:#e2e6ea;--soft:#f6f8fa;
+    --blue:#1a4fa0;--teal:#0e7d6e;--purple:#6a1b9a;--amber:#a86a00;--red:#c62828;--green:#2e7d32;
+    --code:#f4f3ef;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:16px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:960px;margin:0 auto;padding:44px 28px 120px;}
+  header.doc{border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:8px;}
+  header.doc h1{font-size:30px;margin:0 0 4px;letter-spacing:-.01em;}
+  header.doc .sub{color:var(--muted);font-size:15px;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:var(--muted);margin-top:12px;}
+  .meta b{color:var(--ink);font-weight:600;}
+  h2{font-size:22px;margin:42px 0 10px;padding-top:10px;border-top:1px solid var(--line);}
+  h3{font-size:17px;margin:26px 0 8px;color:#222;}
+  h4{font-size:15px;margin:18px 0 6px;color:#333;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0 10px 22px;}li{margin:4px 0;}
+  code{font-family:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;font-size:13px;}
+  p code,li code,td code{background:var(--code);padding:1px 5px;border-radius:4px;color:#7a2c8f;}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;}
+  pre code{font-size:12.5px;color:#1c2024;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13px;}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--soft);font-weight:600;}
+  tr:nth-child(even) td{background:#fcfdfe;}
+  figure{margin:22px 0;text-align:center;}
+  figure svg{max-width:100%;height:auto;}
+  figcaption{font-size:12.5px;color:var(--muted);margin-top:8px;}
+  .note{border-left:3px solid var(--teal);background:#f0f8f6;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .warn{border-left:3px solid var(--amber);background:#fff8ec;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .ok{border-left:3px solid var(--green);background:#eef7ef;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .toc{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:14px 20px;margin:22px 0;}
+  .toc h4{margin:0 0 8px;}.toc ol{margin:0 0 0 18px;columns:2;font-size:14px;}
+  .done{color:var(--green);font-weight:600;}
+  .plan{color:var(--amber);font-weight:600;}
+  .mono{font-family:ui-monospace,monospace;}
+  .kv{font-size:13px;color:var(--muted);}
+  svg text{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>Ibex RISC-V Core — Verification Plan</h1>
+  <div class="sub">UVM environment, test methodology, feature verification plan, coverage strategy, and run instructions.</div>
+  <div class="meta">
+    <span><b>DUT:</b> <code>ibex_top</code> (RV32IMC)</span>
+    <span><b>Methodology:</b> UVM (CDNS-1.2) + bare-metal C</span>
+    <span><b>Simulator:</b> Cadence Xcelium</span>
+    <span><b>Top:</b> <code>tb_top</code></span>
+  </div>
+</header>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#goals">Goals</a></li>
+    <li><a href="#arch">UVM TB Architecture</a></li>
+    <li><a href="#comp">Components</a></li>
+    <li><a href="#method">Test Methodology (C / UVM / Hybrid)</a></li>
+    <li><a href="#status">Implemented Today</a></li>
+    <li><a href="#plan">Feature Verification Plan</a></li>
+    <li><a href="#cov">Coverage Strategy</a></li>
+    <li><a href="#run">How to Run</a></li>
+    <li><a href="#add">Adding a New Test</a></li>
+    <li><a href="#road">Roadmap</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================= -->
+<h2 id="goals">1 · Goals</h2>
+<p>Verify that the configured Ibex core (see the <a href="ibex_design_spec.html">Design Specification</a>)
+executes real firmware correctly and obeys its bus, trap, and CSR contracts. The environment is a training
+platform: it starts from a minimal, working "run a C program and check the result" loop and grows feature by
+feature toward full CPU verification. This document states both <span class="done">what is implemented today</span>
+and the <span class="plan">planned</span> feature coverage.</p>
+
+<!-- ============================================================= -->
+<h2 id="arch">2 · UVM Testbench Architecture</h2>
+<p>A single Ibex agent observes the bus; a scoreboard checks the end-of-test signal; the memory model and
+tohost monitor live in <code>tb_top</code>. Stimulus is primarily the C program executing on the core; the
+UVM driver supplies reset and (later) interrupt/debug timing.</p>
+<figure>
+<svg viewBox="0 0 880 380" xmlns="http://www.w3.org/2000/svg" font-size="11">
+  <defs><marker id="b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5b6570"/></marker>
+        <marker id="bd" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#6a1b9a"/></marker></defs>
+  <rect x="14" y="14" width="852" height="352" rx="10" fill="none" stroke="#5b6570" stroke-dasharray="4 3"/>
+  <text x="28" y="33" fill="#5b6570">tb_top  +  ibex_env</text>
+
+  <!-- DUT + mem -->
+  <rect x="350" y="60" width="150" height="120" rx="8" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2.5"/>
+  <text x="425" y="112" text-anchor="middle" fill="#1a4fa0" font-weight="700">ibex_top</text>
+  <text x="425" y="130" text-anchor="middle" font-size="9" fill="#5b6570">runs the C image</text>
+  <rect x="560" y="60" width="180" height="56" rx="8" fill="#faf7fd" stroke="#6a1b9a" stroke-width="2"/>
+  <text x="650" y="82" text-anchor="middle" fill="#6a1b9a" font-weight="600">memory model</text>
+  <text x="650" y="99" text-anchor="middle" font-size="9" fill="#5b6570">256 KB · $readmemh(vmem)</text>
+  <rect x="560" y="128" width="180" height="52" rx="8" fill="#fff8ec" stroke="#a86a00" stroke-width="2"/>
+  <text x="650" y="150" text-anchor="middle" fill="#a86a00" font-weight="600">tohost monitor</text>
+  <text x="650" y="167" text-anchor="middle" font-size="9" fill="#5b6570">write to 0x10000 → end</text>
+
+  <!-- agent -->
+  <rect x="40" y="60" width="170" height="120" rx="6" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+  <text x="125" y="80" text-anchor="middle" fill="#1a4fa0" font-weight="600">ibex_agent</text>
+  <rect x="55" y="92" width="140" height="34" rx="5" fill="#fff" stroke="#1a4fa0"/>
+  <text x="125" y="113" text-anchor="middle" font-size="10">driver (reset + IRQs)</text>
+  <rect x="55" y="132" width="140" height="34" rx="5" fill="#fff" stroke="#0e7d6e"/>
+  <text x="125" y="153" text-anchor="middle" font-size="10">monitor (tohost tap)</text>
+
+  <!-- scoreboard -->
+  <rect x="40" y="250" width="220" height="56" rx="6" fill="#faf7fd" stroke="#6a1b9a" stroke-width="2"/>
+  <text x="150" y="272" text-anchor="middle" fill="#6a1b9a" font-weight="600">ibex_scoreboard</text>
+  <text x="150" y="290" text-anchor="middle" font-size="9" fill="#5b6570">tohost==1 → PASS, else FAIL</text>
+
+  <!-- connections -->
+  <line x1="210" y1="100" x2="348" y2="110" stroke="#1a4fa0" stroke-width="1.5" marker-end="url(#b)"/>
+  <text x="270" y="95" font-size="8" fill="#5b6570">reset/IRQ</text>
+  <line x1="500" y1="100" x2="558" y2="92" stroke="#5b6570" stroke-width="1.5" marker-end="url(#b)"/>
+  <line x1="500" y1="150" x2="558" y2="150" stroke="#a86a00" stroke-width="1.4" marker-end="url(#b)"/>
+  <line x1="650" y1="180" x2="200" y2="150" stroke="#0e7d6e" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#b)"/>
+  <text x="430" y="200" text-anchor="middle" font-size="8" fill="#5b6570">monitor taps the data bus for the tohost write</text>
+  <line x1="125" y1="166" x2="135" y2="248" stroke="#6a1b9a" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#bd)"/>
+  <text x="440" y="345" text-anchor="middle" font-size="9" fill="#5b6570">Solid = bus / control · Dashed = analysis port. The C program on the core is the primary stimulus source.</text>
+</svg>
+<figcaption>Figure 1 — UVM environment around the Ibex core. The firmware drives the scenario; UVM controls the environment and checks the outcome.</figcaption>
+</figure>
+
+<!-- ============================================================= -->
+<h2 id="comp">3 · Components</h2>
+<table>
+  <tr><th>Component</th><th>Role</th></tr>
+  <tr><td><code>ibex_if</code></td><td>Interface carrying every DUT signal (OBI ports, IRQs, debug).</td></tr>
+  <tr><td><code>ibex_driver</code></td><td>Active: releases reset after 10 cycles; holds interrupts/debug idle (the hook for future interrupt/debug timing).</td></tr>
+  <tr><td><code>ibex_monitor</code></td><td>Passive: taps the data bus and publishes the value written to <code>tohost</code> (0x10000).</td></tr>
+  <tr><td><code>ibex_scoreboard</code></td><td>Checks the tohost value: <code>1</code> = PASS, anything else = FAIL (<code>uvm_error</code>).</td></tr>
+  <tr><td><code>ibex_agent</code> / <code>ibex_env</code></td><td>Standard agent (driver+monitor) and env (agent+scoreboard) wiring.</td></tr>
+  <tr><td><code>ibex_base_test</code></td><td>Builds the env, fetches the vif, runs for a bounded time.</td></tr>
+  <tr><td>memory model + tohost monitor</td><td>In <code>tb_top</code>: serve both OBI ports and end the test on the tohost write.</td></tr>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="method">4 · Test Methodology — C, UVM, or Hybrid</h2>
+<p>Each method has a specific role; choosing the right one per feature is the core skill this platform teaches.</p>
+<table>
+  <tr><th>Method</th><th>What it is</th><th>Best for</th></tr>
+  <tr><td><b>Pure C</b></td><td>Bare-metal firmware the core executes like real software.</td><td>ISA correctness, CSR read/write, exception handlers, PMP config, cache performance.</td></tr>
+  <tr><td><b>Pure UVM</b></td><td>A sequence drives bus signals directly.</td><td>OBI protocol, wait-states/back-pressure, bus error injection — conditions software cannot create.</td></tr>
+  <tr><td><b>Hybrid (C + UVM)</b></td><td>C runs on the core while UVM controls the environment, synchronised via a memory flag.</td><td>Interrupt timing/latency, cache ECC injection, PMP fault + bus check, debug halt/resume, WFI wakeup.</td></tr>
+</table>
+<div class="note">Synchronisation pattern: C writes a flag to a known address → the UVM monitor sees it on the
+data bus → the sequence fires stimulus (e.g. asserts an interrupt) → the C handler runs and writes the result
+to tohost → the scoreboard checks value and timing.</div>
+
+<!-- ============================================================= -->
+<h2 id="status">5 · Implemented Today</h2>
+<div class="ok"><b>Working end-to-end smoke:</b> <code>hello_world.c</code> boots on the core, prints over the
+simple UART, writes <code>tohost=1</code>; the harness detects the write and the scoreboard reports PASS.
+This exercises reset, instruction fetch, the 2-stage pipeline, loads/stores over the data OBI port, and the
+end-of-test flow.</div>
+<table>
+  <tr><th>Capability</th><th>State</th></tr>
+  <tr><td>Boot + run a C image from ROM</td><td class="done">Implemented</td></tr>
+  <tr><td>Zero-wait-state instruction/data memory model</td><td class="done">Implemented</td></tr>
+  <tr><td>tohost PASS/FAIL scoreboard + UART trace</td><td class="done">Implemented</td></tr>
+  <tr><td>Reset sequencing via UVM driver</td><td class="done">Implemented</td></tr>
+  <tr><td>Waveform dump (<code>WAVES=1</code>) + per-run artefact folders</td><td class="done">Implemented</td></tr>
+  <tr><td>Everything in §6 below</td><td class="plan">Planned (roadmap)</td></tr>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="plan">6 · Feature Verification Plan</h2>
+<p>The full verification surface, with the intended test method per area. These are the targets the platform
+grows toward.</p>
+<table>
+  <tr><th>Area</th><th>What to prove</th><th>Method</th></tr>
+  <tr><td>ISA — RV32I/M/C</td><td>Every instruction executes correctly; div-by-zero, overflow, MULH variants, x0 discards.</td><td>C (+ directed ASM)</td></tr>
+  <tr><td>Pipeline</td><td>RAW / load-use hazards forwarded; branch flush; jump-and-link return.</td><td>Directed ASM + C</td></tr>
+  <tr><td>OBI bus protocol</td><td>req holds until gnt; wait-states; back-pressure; delayed rvalid; byte/halfword/word access.</td><td>UVM driver</td></tr>
+  <tr><td>Interrupts (19 lines)</td><td>Correct trap entry, mcause/mepc, MRET return, masking, NMI, latency, spurious rejection.</td><td>Hybrid</td></tr>
+  <tr><td>Exceptions / traps</td><td>Each cause → correct mcause/mepc/mtval (illegal instr, ecall, misaligned, access faults, ebreak).</td><td>C</td></tr>
+  <tr><td>CSRs</td><td>Every M-mode CSR reads/writes correctly; WARL fields reject illegal values.</td><td>C</td></tr>
+  <tr><td>PMP</td><td>Permission enforcement, TOR/NA4/NAPOT modes, boundaries, locked regions, execute protection.</td><td>C (+ hybrid for fault+bus)</td></tr>
+  <tr><td>ICache</td><td>Cold miss / hot hit, loop speedup, line-boundary fetch, ECC single/double-bit.</td><td>C + hybrid (force)</td></tr>
+  <tr><td>Debug</td><td>Halt request, single-step, register read, resume, hardware breakpoint.</td><td>Hybrid (debug agent)</td></tr>
+  <tr><td>Power</td><td>WFI sleep, wake-on-interrupt, wakeup latency.</td><td>Hybrid</td></tr>
+  <tr><td>Security (SecureIbex)</td><td>Lockstep mismatch alert, dummy instructions, regfile ECC, alert outputs.</td><td>Hybrid (force/inject)</td></tr>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="cov">7 · Coverage Strategy</h2>
+<p>As features land, define functional covergroups (e.g. interrupt source × MIE state cross, exception cause,
+CSR field bins) and target code-coverage goals.</p>
+<table>
+  <tr><th>Coverage type</th><th>Target</th></tr>
+  <tr><td>Line</td><td>95%+</td></tr>
+  <tr><td>Branch</td><td>90%+</td></tr>
+  <tr><td>Toggle</td><td>85%+</td></tr>
+  <tr><td>FSM state</td><td>100%</td></tr>
+  <tr><td>Assertion</td><td>Every Ibex RTL assertion exercised at least once</td></tr>
+</table>
+<p>Enable in Xcelium with <code>-coverage all</code> in the run options; the Ibex RTL ships with its own bus,
+pipeline, PMP, and cache assertions that should all fire in regression.</p>
+
+<!-- ============================================================= -->
+<h2 id="run">8 · How to Run</h2>
+<p>Prerequisites: Cadence Xcelium with UVM, the RISC-V GCC toolchain (<code>riscv32-unknown-elf-gcc</code>),
+and the Ibex submodule (<code>git submodule update --init --recursive</code>). From the <code>sim/</code> directory:</p>
+<pre><code>make sim                          # build SW + run hello_world, no waves
+make sim WAVES=1                  # + dump waveforms
+make sim SEED=12345 WAVES=1       # fixed seed for reproducibility
+make sim TEST=isa_arithmetic      # run a different C test
+make sim TEST=irq_test TEST_NAME=irq_test   # different C image + UVM test class
+make clean                        # remove build + run artefacts</code></pre>
+<p>Each run creates <code>runs/run_&lt;timestamp&gt;_seed&lt;N&gt;/</code> containing <code>xrun.log</code>, the
+<code>.vmem</code> image, the <code>.dis</code> disassembly, and (with <code>WAVES=1</code>) <code>waves.shm</code>.
+Check the result:</p>
+<pre><code>grep -E "PASSED|FAILED" runs/run_*/xrun.log | tail -3</code></pre>
+
+<!-- ============================================================= -->
+<h2 id="add">9 · Adding a New Test</h2>
+<ol>
+  <li><b>Write the C test</b> <code>sw/tests/&lt;name&gt;.c</code>: run logic, then write <code>tohost=1</code>
+  on pass (or a non-1 code on fail).</li>
+  <li><b>Build &amp; run:</b> <code>make sim TEST=&lt;name&gt;</code>.</li>
+  <li><b>(Optional) UVM test class</b> <code>tb/tests/&lt;name&gt;_test.sv</code> for environment control
+  (interrupt timing, error injection); include it in <code>ibex_pkg.sv</code> and run with
+  <code>TEST_NAME=&lt;name&gt;_test</code>.</li>
+  <li><b>Debug a failure:</b> grep the log for the failing PC, look it up in the <code>.dis</code>, and open
+  the waveform at that time.</li>
+</ol>
+<pre><code>// minimal C test skeleton
+int main(void) {
+  int pass = 1;
+  if (5 + 3 != 8) pass = 0;
+  *(volatile unsigned int *)0x00010000 = pass ? 1 : 2;   // tohost
+  return 0;
+}</code></pre>
+
+<!-- ============================================================= -->
+<h2 id="road">10 · Roadmap</h2>
+<p>The platform is designed to grow one feature per phase, each adding a test, a capability, and a skill:</p>
+<table>
+  <tr><th>Phase</th><th>Focus</th><th>Deliverable</th></tr>
+  <tr><td>1–2</td><td>Understand the DUT; run the existing TB</td><td>Architecture summary; annotated waveform</td></tr>
+  <tr><td>3</td><td>Write a second C test (ISA arithmetic)</td><td>New passing C test</td></tr>
+  <tr><td>4</td><td>OBI bus protocol (wait-states via UVM driver)</td><td>Configurable wait-state injection</td></tr>
+  <tr><td>5–6</td><td>Exceptions, then interrupts (hybrid)</td><td>Trap-cause tests; UVM+C interrupt test</td></tr>
+  <tr><td>7–8</td><td>PMP, then ICache + ECC</td><td>Permission tests; cache benchmark + fault inject</td></tr>
+  <tr><td>9</td><td>Coverage closure</td><td>&gt;90% functional coverage on interrupts</td></tr>
+  <tr><td>10</td><td>Security &amp; debug (advanced)</td><td>Lockstep fault inject; debug halt/resume</td></tr>
+</table>
+
+<p class="kv" style="margin-top:40px;border-top:1px solid var(--line);padding-top:14px;">
+Ibex Core Verification Plan · companion to the <a href="ibex_design_spec.html">Design Specification</a>.
+UVM (CDNS-1.2) on Cadence Xcelium; bare-metal C via RISC-V GCC.</p>
+
+</div>
+</body>
+</html>

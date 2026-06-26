@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UberDDR3 — Test-Case &amp; Scenario Catalog</title>
+<style>
+  :root{--bg:#fff;--ink:#1c2024;--muted:#5b6570;--line:#e2e6ea;--soft:#f6f8fa;
+    --blue:#1a4fa0;--teal:#0e7d6e;--purple:#6a1b9a;--amber:#a86a00;--red:#c62828;--green:#2e7d32;--code:#f4f3ef;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:980px;margin:0 auto;padding:44px 28px 120px;}
+  header.doc{border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:8px;}
+  header.doc h1{font-size:29px;margin:0 0 4px;letter-spacing:-.01em;}
+  header.doc .sub{color:var(--muted);font-size:15px;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:var(--muted);margin-top:12px;}
+  .meta b{color:var(--ink);font-weight:600;}
+  h2{font-size:22px;margin:46px 0 10px;padding-top:10px;border-top:1px solid var(--line);}
+  h3{font-size:18px;margin:30px 0 8px;}h4{font-size:15px;margin:18px 0 6px;}
+  p{margin:10px 0;}ul,ol{margin:10px 0 10px 22px;}li{margin:4px 0;}
+  code{font-family:ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;font-size:13px;}
+  p code,li code,td code{background:var(--code);padding:1px 5px;border-radius:4px;color:#7a2c8f;}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;}
+  pre code{font-size:12.5px;color:#1c2024;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.5px;}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--soft);font-weight:600;}tr:nth-child(even) td{background:#fcfdfe;}
+  figure{margin:22px 0;text-align:center;}figure svg{max-width:100%;height:auto;}
+  figcaption{font-size:12.5px;color:var(--muted);margin-top:8px;}
+  .note{border-left:3px solid var(--teal);background:#f0f8f6;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .warn{border-left:3px solid var(--amber);background:#fff8ec;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .toc{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:14px 20px;margin:22px 0;}
+  .toc h4{margin:0 0 8px;}.toc ol{margin:0 0 0 18px;columns:2;font-size:14px;}
+  .tc{border:1px solid var(--line);border-radius:10px;padding:4px 20px 16px;margin:22px 0;background:#fdfdfe;}
+  .tc h3{margin-top:16px;}
+  .idtag{display:inline-block;font-family:ui-monospace,monospace;font-size:12px;background:#eef4ff;color:#1a4fa0;border:1px solid #cfe0ff;border-radius:6px;padding:1px 8px;margin-right:8px;}
+  .tc table{margin:10px 0;}
+  .tc th{width:150px;white-space:nowrap;background:#f1f4f7;}
+  .scn{border-left:3px solid var(--purple);background:#faf7fd;padding:8px 14px;border-radius:0 6px 6px 0;margin:12px 0;}
+  .scn b{color:var(--purple);}
+  .cmd{background:#1c2024;color:#e8eaed;border-radius:8px;padding:10px 14px;font-family:ui-monospace,monospace;font-size:12.5px;overflow-x:auto;}
+  .pass{color:var(--green);font-weight:600;}
+  .kv{font-size:13px;color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>UberDDR3 — Test-Case &amp; Scenario Catalog</h1>
+  <div class="sub">Detailed, reproducible specification of every test and every scenario in the UberDDR3 Wishbone UVM suite: intent, preconditions, exact stimulus, expected behaviour, checks, pass/fail criteria, and the precise command to run each one.</div>
+  <div class="meta">
+    <span><b>Suite:</b> 5 tests · all <span class="pass">PASS</span></span>
+    <span><b>DUT:</b> <code>ddr3_top</code> (Wishbone)</span>
+    <span><b>Checker:</b> golden-memory scoreboard</span>
+    <span><b>Simulator:</b> Cadence Xcelium</span>
+  </div>
+</header>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#how">How to Read This Catalog</a></li>
+    <li><a href="#common">Common Preconditions &amp; Mechanics</a></li>
+    <li><a href="#tc-sanity">TC-01 · ddr_sanity_test</a></li>
+    <li><a href="#tc-bytesel">TC-02 · ddr_bytesel_test</a></li>
+    <li><a href="#tc-walk">TC-03 · ddr_walk_test</a></li>
+    <li><a href="#tc-random">TC-04 · ddr_random_test</a></li>
+    <li><a href="#tc-refresh">TC-05 · ddr_refresh_test</a></li>
+    <li><a href="#trace">Traceability Matrix</a></li>
+    <li><a href="#run">Running &amp; Triage Reference</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================= -->
+<h2 id="how">1 · How to Read This Catalog</h2>
+<p>Each test below is a structured entry, and within it each distinct <b>scenario</b> (a sub-case with its own
+stimulus and expected result) is broken out separately. The fields are:</p>
+<table>
+  <tr><th>Field</th><th>Meaning</th></tr>
+  <tr><td><b>ID</b></td><td>Stable identifier (TC-nn / scenario S-nn.k) for traceability.</td></tr>
+  <tr><td><b>Objective</b></td><td>The behaviour the case is designed to prove.</td></tr>
+  <tr><td><b>Precondition</b></td><td>State required before stimulus — always at least "calibration complete".</td></tr>
+  <tr><td><b>Stimulus</b></td><td>Exact addresses, data, and byte-select patterns driven.</td></tr>
+  <tr><td><b>Expected</b></td><td>The device/model response the scenario should produce.</td></tr>
+  <tr><td><b>Checks</b></td><td>Which checkers fire (scoreboard compare, coverage sample).</td></tr>
+  <tr><td><b>Pass/Fail</b></td><td>The concrete pass condition.</td></tr>
+  <tr><td><b>Command</b></td><td>The exact command line to run the case.</td></tr>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="common">2 · Common Preconditions &amp; Mechanics</h2>
+<p>These apply to every test; individual entries do not repeat them.</p>
+<ul>
+  <li><b>Environment.</b> <code>tb_top_wb_uvm</code> builds the clocks (controller 10&nbsp;ns, DDR3 2.5&nbsp;ns),
+  <code>ddr3_top</code> (BIST_MODE=0, AUX_WIDTH=16, ODELAY=0, MICRON_SIM=1), and the Micron x16 model, and publishes
+  <code>wb_if</code> via the config DB.</li>
+  <li><b>Calibration gate.</b> Every test calls <code>wait_calib()</code> — it blocks on
+  <code>vif.calib_complete === 1'b1</code> (≈8.93&nbsp;µs with MICRON_SIM) before any traffic. The driver also
+  refuses to issue until calibration is high.</li>
+  <li><b>Transaction model.</b> One Wishbone transfer = one 128-bit word at a 24-bit word address
+  <code>{row[23:10], bank[9:7], col[6:0]}</code>. The driver is single-outstanding and pipelined: assert the request
+  until <code>stb &amp;&amp; !stall</code>, then collect <code>ack</code> (read data with it).</li>
+  <li><b>Reference model.</b> The scoreboard mirrors every accepted write into <code>gm[addr]</code> applying the
+  <code>sel</code> mask byte-by-byte, and compares every read to it (unwritten = 0). Unwritten addresses read 0.</li>
+  <li><b>Result.</b> A test passes when the scoreboard reports <code>SCOREBOARD PASSED</code> and the test reports
+  <code>** TEST PASSED **</code> with <code>UVM_ERROR : 0</code> and <code>UVM_FATAL : 0</code>.</li>
+  <li><b>Where to run.</b> All commands run from <code>RTL/uberddr3/dv/sim</code> after <code>source ~/cshrc</code>.</li>
+</ul>
+
+<!-- ===================== TC-01 SANITY ===================== -->
+<h2 id="tc-sanity">3 · TC-01 · <code>ddr_sanity_test</code></h2>
+<div class="tc">
+  <h3><span class="idtag">TC-01</span>Basic write/read data integrity</h3>
+  <table>
+    <tr><th>Objective</th><td>Prove a written 128-bit word is returned unchanged by a subsequent read, at addresses that span different banks and rows.</td></tr>
+    <tr><th>Sequence</th><td><code>ddr_sanity_seq</code> (5 × <code>wr_then_rd</code>).</td></tr>
+    <tr><th>Precondition</th><td>Calibration complete; golden memory empty.</td></tr>
+    <tr><th>Checks</th><td>Scoreboard read-compare on each read; coverage samples direction/bank/sel on every transfer.</td></tr>
+    <tr><th>Pass/Fail</th><td>All 5 reads match the values just written; <code>SCOREBOARD PASSED</code>.</td></tr>
+  </table>
+  <p>The sequence performs five write-then-read pairs. Each pair is a scenario; the data are fixed constants so a
+  mismatch is unambiguous.</p>
+
+  <div class="scn"><b>S-01.1 — base address, bank 0.</b><br>
+  <b>Stimulus:</b> write <code>addr=0x00_0000</code>, <code>data=DEADBEEF_00112233_44556677_8899AABB</code>, full sel; then read <code>0x00_0000</code>.<br>
+  <b>Expected:</b> read returns the same 128-bit value. <b>Check:</b> scoreboard equality.</div>
+
+  <div class="scn"><b>S-01.2 — adjacent column.</b><br>
+  <b>Stimulus:</b> write <code>addr=0x00_0001</code>, <code>data=01234567_89ABCDEF_FEDCBA98_76543210</code>; read back.<br>
+  <b>Expected:</b> value preserved; proves the neighbouring column is independent of S-01.1.</div>
+
+  <div class="scn"><b>S-01.3 — different bank.</b><br>
+  <b>Stimulus:</b> write <code>addr=0x00_0080</code> (bank field bit set), <code>data=A5A5A5A5_5A5A5A5A_F0F0F0F0_0F0F0F0F</code>; read back.<br>
+  <b>Expected:</b> value preserved across an activate to another bank.</div>
+
+  <div class="scn"><b>S-01.4 — different row.</b><br>
+  <b>Stimulus:</b> write <code>addr=0x00_8000</code> (higher row bits), <code>data=11111111_22222222_33333333_44444444</code>; read back.<br>
+  <b>Expected:</b> value preserved across a row activate/precharge.</div>
+
+  <div class="scn"><b>S-01.5 — high row region.</b><br>
+  <b>Stimulus:</b> write <code>addr=0x10_0000</code>, <code>data=CAFEBABE_DEADC0DE_8BADF00D_FEEDFACE</code>; read back.<br>
+  <b>Expected:</b> value preserved in a distant row region.</div>
+
+  <div class="cmd">make sim TESTNAME=ddr_sanity_test</div>
+</div>
+
+<!-- ===================== TC-02 BYTESEL ===================== -->
+<h2 id="tc-bytesel">4 · TC-02 · <code>ddr_bytesel_test</code></h2>
+<div class="tc">
+  <h3><span class="idtag">TC-02</span>Byte-select (masked) writes</h3>
+  <table>
+    <tr><th>Objective</th><td>Prove that a masked write updates <em>only</em> the byte lanes whose <code>sel</code> bit is set, leaving all other bytes of the 128-bit word intact (PSTRB semantics).</td></tr>
+    <tr><th>Sequence</th><td><code>ddr_bytesel_seq</code>: one full baseline write to <code>addr=0x00_0040</code>, then 6 partial writes (each followed by a read) using different select patterns.</td></tr>
+    <tr><th>Precondition</th><td>Calibration complete; the baseline establishes a known all-ones word at the target.</td></tr>
+    <tr><th>Checks</th><td>Scoreboard applies the same mask to its golden word and compares each read; coverage records <code>sel_cp</code> bins (full/partial/single).</td></tr>
+    <tr><th>Pass/Fail</th><td>Every read equals the masked merge of baseline + partial writes; <code>SCOREBOARD PASSED</code>.</td></tr>
+  </table>
+  <p>All scenarios target the same address <code>0x00_0040</code> so each partial write merges over the previous
+  content. The merge rule is: for byte <code>b</code>, if <code>sel[b]=1</code> take the new data byte, else keep the
+  stored byte.</p>
+
+  <div class="scn"><b>S-02.0 — baseline.</b> Write <code>0x00_0040 = FFFF…FFFF</code> (sel=<code>0xFFFF</code>, all 16 bytes). Establishes a known starting word.</div>
+
+  <div class="scn"><b>S-02.1 — single low byte.</b> sel=<code>0x0001</code> (byte 0 only): only the least-significant byte changes; bytes 1–15 stay <code>0xFF</code>. Read merges accordingly. <span class="kv">(coverage: single)</span></div>
+
+  <div class="scn"><b>S-02.2 — single high byte.</b> sel=<code>0x8000</code> (byte 15 only): only the most-significant byte changes. <span class="kv">(coverage: single)</span></div>
+
+  <div class="scn"><b>S-02.3 — low half.</b> sel=<code>0x00FF</code> (bytes 0–7): the low 64 bits update, the high 64 bits are unchanged. <span class="kv">(coverage: partial)</span></div>
+
+  <div class="scn"><b>S-02.4 — high half.</b> sel=<code>0xFF00</code> (bytes 8–15): the high 64 bits update, low 64 bits unchanged. <span class="kv">(coverage: partial)</span></div>
+
+  <div class="scn"><b>S-02.5 — alternating bytes.</b> sel=<code>0xA5A5</code>: a scattered byte pattern updates; the complementary bytes are retained. <span class="kv">(coverage: partial)</span></div>
+
+  <div class="scn"><b>S-02.6 — interleaved nib's bytes.</b> sel=<code>0x0F0F</code>: another scattered pattern. Each partial write uses fresh random data, so the check depends entirely on correct masking. <span class="kv">(coverage: partial)</span></div>
+
+  <div class="note">Historical note: an earlier <code>c_sel</code> constraint forced <code>sel=0xFFFF</code> on writes
+  and made the partial-write scenarios impossible; it was removed and sequences now set <code>sel</code> directly. The
+  test passes only because the device and the golden model apply the identical mask.</div>
+
+  <div class="cmd">make sim TESTNAME=ddr_bytesel_test</div>
+</div>
+
+<!-- ===================== TC-03 WALK ===================== -->
+<h2 id="tc-walk">5 · TC-03 · <code>ddr_walk_test</code></h2>
+<div class="tc">
+  <h3><span class="idtag">TC-03</span>Address decode walk — banks, rows, columns</h3>
+  <table>
+    <tr><th>Objective</th><td>Prove the <code>{row,bank,col}</code> word-address decode is correct and aliasing-free by walking each field independently; each location holds a value that encodes its index.</td></tr>
+    <tr><th>Sequence</th><td><code>ddr_walk_seq</code>: a bank walk, a row walk, and a column walk, each <code>wr_then_rd</code>.</td></tr>
+    <tr><th>Precondition</th><td>Calibration complete.</td></tr>
+    <tr><th>Checks</th><td>Scoreboard compare per location; coverage fills <code>bank_cp</code> b[0..7] and the <code>dir × bank</code> cross.</td></tr>
+    <tr><th>Pass/Fail</th><td>Every walked location reads back its encoded value with no cross-contamination; <code>SCOREBOARD PASSED</code>.</td></tr>
+  </table>
+
+  <div class="scn"><b>S-03.1 — bank walk (8 scenarios).</b><br>
+  For <code>bk = 0…7</code>: <code>addr = (bk&lt;&lt;7) | 0x5</code>, data <code>= 0xBA0000_00 | (bk&lt;&lt;24) | bk</code>.
+  Each of the 8 banks is activated and written with a bank-tagged value, then read. <b>Expected:</b> each bank returns
+  its own value — proves bank bits <code>[9:7]</code> select distinct banks and the column offset (<code>0x5</code>) is
+  consistent. Fills all 8 <code>bank_cp</code> bins.</div>
+
+  <div class="scn"><b>S-03.2 — row walk (8 scenarios).</b><br>
+  For <code>r = 0…7</code>: <code>addr = (r&lt;&lt;13)</code>, data <code>= 0xF0F0_0000 | r</code>. Steps the address by
+  whole rows. <b>Expected:</b> each row location returns its own value — proves the high address bits map to row
+  activates and that an activate/precharge of one row does not disturb another.</div>
+
+  <div class="scn"><b>S-03.3 — column walk (16 scenarios).</b><br>
+  For <code>c = 0…15</code>: <code>addr = 0x01_0000 | c</code>, data <code>= 0xC01_00000 | c</code>. Walks columns within
+  a single row. <b>Expected:</b> each column returns its own value — proves the low address bits index columns within
+  an open row without aliasing.</div>
+
+  <div class="cmd">make sim TESTNAME=ddr_walk_test</div>
+</div>
+
+<!-- ===================== TC-04 RANDOM ===================== -->
+<h2 id="tc-random">6 · TC-04 · <code>ddr_random_test</code></h2>
+<div class="tc">
+  <h3><span class="idtag">TC-04</span>Randomized mixed read/write traffic</h3>
+  <table>
+    <tr><th>Objective</th><td>Stress the controller's scheduling and read-after-write paths with randomized, mixed-direction traffic over a bounded address window, while keeping every read checkable.</td></tr>
+    <tr><th>Sequence</th><td><code>ddr_random_seq</code> with default <code>num=50</code> transactions.</td></tr>
+    <tr><th>Precondition</th><td>Calibration complete; seed set by <code>SEED</code> (random unless given).</td></tr>
+    <tr><th>Stimulus</th><td>For each iteration: pick <code>addr = $urandom_range(0, 0xFFFF)</code>. With ~50% probability — or whenever the address has never been written — issue a write of fresh random 128-bit data and record it in a local <em>shadow</em> map; otherwise issue a read of a previously-written address. This guarantees reads always target written locations.</td></tr>
+    <tr><th>Expected</th><td>Each read returns the last value written to that address; the device's reordering/refresh is transparent.</td></tr>
+    <tr><th>Checks</th><td>Scoreboard golden-memory compare on every read; coverage fills the <code>dir × bank</code> cross and the partial/full select bins over the random window.</td></tr>
+    <tr><th>Pass/Fail</th><td>Zero scoreboard mismatches across all reads; <code>SCOREBOARD PASSED</code>.</td></tr>
+  </table>
+  <p><b>Scenario S-04.1 — mixed random stream.</b> The single randomized scenario is reproducible by seed. The shadow
+  map inside the sequence is only a stimulus aid (it decides which addresses are safe to read); the <em>checking</em>
+  reference is the independent scoreboard golden memory.</p>
+  <div class="cmd">make sim TESTNAME=ddr_random_test            # random seed
+make sim TESTNAME=ddr_random_test SEED=7     # reproducible
+make sim TESTNAME=ddr_random_test COV=1      # with coverage</div>
+</div>
+
+<!-- ===================== TC-05 REFRESH ===================== -->
+<h2 id="tc-refresh">7 · TC-05 · <code>ddr_refresh_test</code></h2>
+<div class="tc">
+  <h3><span class="idtag">TC-05</span>Data integrity across auto-refresh</h3>
+  <table>
+    <tr><th>Objective</th><td>Prove that periodic auto-refresh is transparent to the user: data written before a refresh is still correct when read long afterwards, across many tREFI (7.8&nbsp;µs) intervals.</td></tr>
+    <tr><th>Sequence</th><td><code>ddr_random_seq</code> randomized with <code>num == 300</code> — a long run that necessarily spans multiple refresh cycles — plus a <code>#2000ns</code> drain before dropping the objection.</td></tr>
+    <tr><th>Precondition</th><td>Calibration complete.</td></tr>
+    <tr><th>Stimulus</th><td>Same mixed random read/write generator as TC-04 but 300 transactions, so simulated time crosses several auto-refresh boundaries while traffic is in flight.</td></tr>
+    <tr><th>Expected</th><td>Every read still returns its written value despite intervening refresh commands; no data loss, no stall hang.</td></tr>
+    <tr><th>Checks</th><td>Scoreboard compare on all reads; the long duration is the refresh exposure. Coverage continues to accumulate.</td></tr>
+    <tr><th>Pass/Fail</th><td>Zero mismatches over the full 300-transaction run; <code>SCOREBOARD PASSED</code>, <code>** TEST PASSED **</code>.</td></tr>
+  </table>
+  <p><b>Scenario S-05.1 — long traffic crossing refresh.</b> Identical generation to TC-04, the distinguishing factor
+  is duration: 300 transactions guarantee multiple tREFI windows elapse, so a refresh that corrupted or dropped data
+  would surface as a read mismatch.</p>
+  <div class="cmd">make sim TESTNAME=ddr_refresh_test</div>
+</div>
+
+<!-- ============================================================= -->
+<h2 id="trace">8 · Traceability Matrix</h2>
+<p>Each verification goal (from the <a href="ddr_verification_plan.html">Verification Plan</a> §1) maps to the
+scenarios that cover it.</p>
+<table>
+  <tr><th>Verification goal</th><th>Covered by</th></tr>
+  <tr><td>Calibration completes (<code>o_calib_complete</code>)</td><td>All tests (common precondition <code>wait_calib</code>); bring-up <code>make wb</code></td></tr>
+  <tr><td>Write/read data integrity</td><td>S-01.1–S-01.5, S-04.1, S-05.1</td></tr>
+  <tr><td>Byte-select / masked writes (PSTRB)</td><td>S-02.0–S-02.6</td></tr>
+  <tr><td>Bank decode (8 banks)</td><td>S-03.1, S-04.1 (cross)</td></tr>
+  <tr><td>Row decode</td><td>S-01.4, S-03.2</td></tr>
+  <tr><td>Column decode</td><td>S-01.2, S-03.3</td></tr>
+  <tr><td>Randomized scheduling / read-after-write</td><td>S-04.1</td></tr>
+  <tr><td>Refresh transparency</td><td>S-05.1</td></tr>
+  <tr><td>Coverage: direction × bank, select-kind</td><td>S-03.1 (banks), S-02.* (sel-kind), S-04.1 (cross fill)</td></tr>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="run">9 · Running &amp; Triage Reference</h2>
+<h4>Run the whole suite (tcsh)</h4>
+<pre><code>source ~/cshrc
+cd RTL/uberddr3/dv/sim
+foreach t (ddr_sanity_test ddr_bytesel_test ddr_walk_test ddr_random_test ddr_refresh_test)
+  make sim TESTNAME=$t
+end</code></pre>
+<h4>Per-run knobs</h4>
+<table>
+  <tr><th>Knob</th><th>Example</th><th>Effect</th></tr>
+  <tr><td><code>TESTNAME</code></td><td><code>TESTNAME=ddr_walk_test</code></td><td>Selects the UVM test.</td></tr>
+  <tr><td><code>SEED</code></td><td><code>SEED=7</code></td><td>Fixes <code>+ntb_random_seed</code> for reproducibility.</td></tr>
+  <tr><td><code>COV</code></td><td><code>COV=1</code></td><td>Enables functional + code coverage.</td></tr>
+  <tr><td><code>WAVES</code></td><td><code>WAVES=1</code></td><td>Dumps waveforms for debug.</td></tr>
+</table>
+<h4>What a pass looks like</h4>
+<p>The Makefile greps the run log tail. A passing run shows the calibration message, then:</p>
+<pre><code>SCOREBOARD PASSED
+** TEST PASSED **
+UVM_ERROR :    0
+UVM_FATAL :    0</code></pre>
+<h4>Triage if it fails</h4>
+<ul>
+  <li><b>No calibration / timeout</b> — check the clock periods in <code>tb_top_wb_uvm</code> and that
+  <code>MICRON_SIM=1</code>; the watchdog fires if <code>calib_complete</code> never asserts.</li>
+  <li><b><code>SB_DATA</code> mismatch</b> — the log line prints <code>addr</code>, expected, and observed; cross-check
+  against the scenario's stimulus above. For byte-select cases verify the mask merge.</li>
+  <li><b>Stale module / shim shadowed</b> — Xcelium incremental compile can cache; run <code>make clean</code> then
+  re-run.</li>
+  <li><b>Compile error in a constant function</b> — ensure the build uses <code>dv/shim/ddr3_controller.sv</code>
+  (via <code>filelist_uvm.f</code>), not the raw upstream <code>rtl/ddr3_controller.v</code>.</li>
+</ul>
+
+<p class="kv" style="margin-top:40px;border-top:1px solid var(--line);padding-top:14px;">
+UberDDR3 Test-Case &amp; Scenario Catalog · companion to the
+<a href="ddr_design_spec.html">Design Specification</a> and the
+<a href="ddr_verification_plan.html">Verification Plan</a>.</p>
+
+</div>
+</body>
+</html>
