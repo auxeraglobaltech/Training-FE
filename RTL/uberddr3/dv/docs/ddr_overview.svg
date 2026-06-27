@@ -1,0 +1,276 @@
+<svg viewBox="0 0 1640 1180" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ar" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5b6570"/></marker>
+    <marker id="arb" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#1a4fa0"/></marker>
+    <marker id="aro" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#a86a00"/></marker>
+    <marker id="arg" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#2e7d32"/></marker>
+    <linearGradient id="hdr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c2730"/><stop offset="1" stop-color="#2b3a47"/></linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1640" height="1180" fill="#ffffff"/>
+
+  <!-- ===== Title bar ===== -->
+  <rect x="0" y="0" width="1640" height="74" fill="url(#hdr)"/>
+  <text x="36" y="38" fill="#ffffff" font-size="27" font-weight="700">UberDDR3 — DDR3 Controller Verification Environment</text>
+  <text x="36" y="62" fill="#aebfcc" font-size="15">Native Wishbone UVM testbench · Micron x16 DDR3 model · Cadence Xcelium · vendor-free (bundled behavioral PHY models)</text>
+  <text x="1604" y="38" text-anchor="end" fill="#7fd6a0" font-size="15" font-weight="700">STATUS: 5/5 TESTS PASS</text>
+  <text x="1604" y="60" text-anchor="end" fill="#aebfcc" font-size="13">DUT: ddr3_top · UVM CDNS-1.2</text>
+
+  <!-- ============================ UVM TESTBENCH (left) ============================ -->
+  <rect x="28" y="98" width="560" height="700" rx="12" fill="#faf7fd" stroke="#6a1b9a" stroke-width="2.5"/>
+  <text x="48" y="126" fill="#6a1b9a" font-size="18" font-weight="700">UVM Testbench  (dv/tb)</text>
+  <text x="48" y="146" fill="#7a6a85" font-size="12.5">tb_top_wb_uvm · run_test()</text>
+
+  <!-- test -->
+  <rect x="52" y="160" width="512" height="58" rx="8" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+  <text x="70" y="184" fill="#1a4fa0" font-size="15" font-weight="700">ddr_*_test  (uvm_test)</text>
+  <text x="70" y="206" fill="#5b6570" font-size="12">build env · get vif · wait_calib() · start sequence · report PASS/FAIL</text>
+
+  <!-- env -->
+  <rect x="52" y="232" width="512" height="546" rx="10" fill="#ffffff" stroke="#6a1b9a" stroke-width="1.6"/>
+  <text x="70" y="256" fill="#6a1b9a" font-size="15" font-weight="700">ddr_env</text>
+
+  <!-- sequences -->
+  <rect x="72" y="270" width="226" height="120" rx="8" fill="#eef4ff" stroke="#1a4fa0"/>
+  <text x="86" y="292" fill="#1a4fa0" font-size="13.5" font-weight="700">Sequence library</text>
+  <text x="86" y="312" fill="#33414d" font-size="11.5">ddr_base_seq: do_write/do_read</text>
+  <text x="86" y="330" fill="#33414d" font-size="11.5">ddr_sanity_seq · ddr_bytesel_seq</text>
+  <text x="86" y="348" fill="#33414d" font-size="11.5">ddr_walk_seq · ddr_random_seq</text>
+  <text x="86" y="366" fill="#33414d" font-size="11.5">→ wb_seq_item (we,addr,data,sel,aux)</text>
+  <text x="86" y="382" fill="#7a8088" font-size="11">drives the sequencer</text>
+
+  <!-- agent -->
+  <rect x="72" y="404" width="226" height="356" rx="8" fill="#fcf9ff" stroke="#6a1b9a"/>
+  <text x="86" y="426" fill="#6a1b9a" font-size="13.5" font-weight="700">wb_master_agent</text>
+
+  <rect x="88" y="436" width="194" height="58" rx="6" fill="#eef4ff" stroke="#1a4fa0"/>
+  <text x="185" y="459" text-anchor="middle" fill="#1a4fa0" font-size="12.5" font-weight="700">sequencer</text>
+  <text x="185" y="478" text-anchor="middle" fill="#5b6570" font-size="11">arbitrate seq_items</text>
+
+  <rect x="88" y="502" width="194" height="120" rx="6" fill="#eef7ef" stroke="#2e7d32"/>
+  <text x="185" y="524" text-anchor="middle" fill="#2e7d32" font-size="12.5" font-weight="700">driver</text>
+  <text x="185" y="544" text-anchor="middle" fill="#33414d" font-size="11">wait calib_complete</text>
+  <text x="185" y="562" text-anchor="middle" fill="#33414d" font-size="11">single-outstanding pipeline</text>
+  <text x="185" y="580" text-anchor="middle" fill="#33414d" font-size="11">hold req until stb &amp; !stall</text>
+  <text x="185" y="598" text-anchor="middle" fill="#33414d" font-size="11">collect ack (+ rdata)</text>
+  <text x="185" y="615" text-anchor="middle" fill="#7a8088" font-size="10.5">tags request with aux</text>
+
+  <rect x="88" y="630" width="194" height="118" rx="6" fill="#fdf3e8" stroke="#a86a00"/>
+  <text x="185" y="652" text-anchor="middle" fill="#a86a00" font-size="12.5" font-weight="700">monitor</text>
+  <text x="185" y="672" text-anchor="middle" fill="#33414d" font-size="11">snoop accepted requests</text>
+  <text x="185" y="690" text-anchor="middle" fill="#33414d" font-size="11">(cyc &amp; stb &amp; !stall) → queue</text>
+  <text x="185" y="708" text-anchor="middle" fill="#33414d" font-size="11">pair with ack (FIFO order)</text>
+  <text x="185" y="726" text-anchor="middle" fill="#33414d" font-size="11">publish → analysis port</text>
+
+  <!-- scoreboard + coverage -->
+  <rect x="312" y="404" width="234" height="166" rx="8" fill="#fff5f5" stroke="#c62828"/>
+  <text x="326" y="426" fill="#c62828" font-size="13.5" font-weight="700">ddr_scoreboard</text>
+  <text x="326" y="446" fill="#33414d" font-size="11.5">golden mem  gm[addr] : 128-bit</text>
+  <text x="326" y="464" fill="#33414d" font-size="11.5">write: apply byte-select mask</text>
+  <text x="326" y="482" fill="#33414d" font-size="11.5">read: compare vs golden</text>
+  <text x="326" y="500" fill="#33414d" font-size="11.5">unwritten reads 0</text>
+  <text x="326" y="522" fill="#33414d" font-size="11.5">counts writes/reads/errors</text>
+  <text x="326" y="544" fill="#2e7d32" font-size="11.5" font-weight="700">report: SCOREBOARD PASSED</text>
+  <text x="326" y="562" fill="#7a8088" font-size="10.5">exact reference model</text>
+
+  <rect x="312" y="582" width="234" height="178" rx="8" fill="#f0f8f6" stroke="#0e7d6e"/>
+  <text x="326" y="604" fill="#0e7d6e" font-size="13.5" font-weight="700">ddr_coverage</text>
+  <text x="326" y="624" fill="#33414d" font-size="11.5">uvm_subscriber covergroup</text>
+  <text x="326" y="642" fill="#33414d" font-size="11.5">dir_cp : read / write</text>
+  <text x="326" y="660" fill="#33414d" font-size="11.5">bank_cp : b0 … b7</text>
+  <text x="326" y="678" fill="#33414d" font-size="11.5">sel_cp : full / partial / single</text>
+  <text x="326" y="696" fill="#33414d" font-size="11.5">cross : dir × bank</text>
+  <text x="326" y="718" fill="#33414d" font-size="11.5">sampled per transaction</text>
+  <text x="326" y="740" fill="#7a8088" font-size="10.5">enable with COV=1</text>
+
+  <!-- internal arrows -->
+  <line x1="185" y1="390" x2="185" y2="434" stroke="#5b6570" stroke-width="1.6" marker-end="url(#ar)"/>
+  <line x1="185" y1="494" x2="185" y2="500" stroke="#5b6570" stroke-width="1.6" marker-end="url(#ar)"/>
+  <line x1="185" y1="622" x2="185" y2="628" stroke="#5b6570" stroke-width="1.6" marker-end="url(#ar)"/>
+  <line x1="282" y1="688" x2="312" y2="500" stroke="#c62828" stroke-width="1.5" marker-end="url(#ar)"/>
+  <line x1="282" y1="700" x2="312" y2="650" stroke="#0e7d6e" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="300" y="612" fill="#7a8088" font-size="10" transform="rotate(-30 300 612)">analysis</text>
+
+  <!-- ============================ Wishbone interface (middle) ============================ -->
+  <rect x="620" y="232" width="190" height="546" rx="10" fill="#f2f4f7" stroke="#33414d" stroke-width="2"/>
+  <text x="715" y="258" text-anchor="middle" fill="#33414d" font-size="15" font-weight="700">wb_if</text>
+  <text x="715" y="277" text-anchor="middle" fill="#5b6570" font-size="11.5">virtual interface (config_db)</text>
+  <line x1="636" y1="288" x2="794" y2="288" stroke="#cdd4db"/>
+  <text x="636" y="312" fill="#1a4fa0" font-size="12" font-weight="700">request →</text>
+  <text x="636" y="333" fill="#33414d" font-size="11.5">i_wb_cyc / i_wb_stb</text>
+  <text x="636" y="351" fill="#33414d" font-size="11.5">i_wb_we</text>
+  <text x="636" y="369" fill="#33414d" font-size="11.5">i_wb_addr[23:0]</text>
+  <text x="636" y="387" fill="#33414d" font-size="11.5">i_wb_data[127:0]</text>
+  <text x="636" y="405" fill="#33414d" font-size="11.5">i_wb_sel[15:0]</text>
+  <text x="636" y="423" fill="#33414d" font-size="11.5">i_aux[15:0]</text>
+  <line x1="636" y1="438" x2="794" y2="438" stroke="#cdd4db"/>
+  <text x="636" y="462" fill="#a86a00" font-size="12" font-weight="700">← response</text>
+  <text x="636" y="483" fill="#33414d" font-size="11.5">o_wb_stall</text>
+  <text x="636" y="501" fill="#33414d" font-size="11.5">o_wb_ack</text>
+  <text x="636" y="519" fill="#33414d" font-size="11.5">o_wb_data[127:0]</text>
+  <text x="636" y="537" fill="#33414d" font-size="11.5">o_wb_err</text>
+  <text x="636" y="555" fill="#2e7d32" font-size="11.5" font-weight="700">o_calib_complete</text>
+  <line x1="636" y1="570" x2="794" y2="570" stroke="#cdd4db"/>
+  <text x="636" y="594" fill="#5b6570" font-size="11">1 transfer = 1 burst</text>
+  <text x="636" y="612" fill="#5b6570" font-size="11">= 128-bit word</text>
+  <text x="636" y="630" fill="#5b6570" font-size="11">accept: stb &amp; !stall</text>
+  <text x="636" y="648" fill="#5b6570" font-size="11">complete: ack</text>
+  <text x="636" y="684" fill="#33414d" font-size="11.5" font-weight="700">Address map (24b word)</text>
+  <text x="636" y="704" fill="#33414d" font-size="11">{ row[23:10],</text>
+  <text x="636" y="722" fill="#33414d" font-size="11">&#160;&#160;bank[9:7],</text>
+  <text x="636" y="740" fill="#33414d" font-size="11">&#160;&#160;col[6:0] }</text>
+
+  <!-- connect agent <-> wb_if -->
+  <line x1="546" y1="470" x2="618" y2="380" stroke="#1a4fa0" stroke-width="2.2" marker-end="url(#arb)"/>
+  <line x1="618" y1="500" x2="300" y2="690" stroke="#a86a00" stroke-width="1.6" marker-end="url(#aro)"/>
+
+  <!-- ============================ DUT (right) ============================ -->
+  <rect x="842" y="232" width="500" height="546" rx="12" fill="#f9f5fd" stroke="#6a1b9a" stroke-width="2.5"/>
+  <text x="862" y="258" fill="#6a1b9a" font-size="18" font-weight="700">ddr3_top   (DUT)</text>
+  <text x="862" y="278" fill="#7a6a85" font-size="12">vendored RTL — pristine · rtl/ddr3_top.v</text>
+
+  <!-- controller -->
+  <rect x="864" y="294" width="456" height="208" rx="8" fill="#ffffff" stroke="#6a1b9a" stroke-width="1.6"/>
+  <text x="882" y="318" fill="#6a1b9a" font-size="14" font-weight="700">ddr3_controller</text>
+  <text x="882" y="338" fill="#7a8088" font-size="11">compiled via dv/shim (Xcelium const-fn fix)</text>
+  <rect x="882" y="350" width="200" height="50" rx="6" fill="#eef4ff" stroke="#1a4fa0"/>
+  <text x="982" y="372" text-anchor="middle" fill="#1a4fa0" font-size="12" font-weight="700">command scheduler</text>
+  <text x="982" y="390" text-anchor="middle" fill="#5b6570" font-size="10.5">ACT/RD/WR/PRE</text>
+  <rect x="1100" y="350" width="200" height="50" rx="6" fill="#fdf3e8" stroke="#a86a00"/>
+  <text x="1200" y="372" text-anchor="middle" fill="#a86a00" font-size="12" font-weight="700">refresh engine</text>
+  <text x="1200" y="390" text-anchor="middle" fill="#5b6570" font-size="10.5">tREFI 7.8 µs (auto)</text>
+  <rect x="882" y="410" width="200" height="50" rx="6" fill="#eef7ef" stroke="#2e7d32"/>
+  <text x="982" y="432" text-anchor="middle" fill="#2e7d32" font-size="12" font-weight="700">bank state mgmt</text>
+  <text x="982" y="450" text-anchor="middle" fill="#5b6570" font-size="10.5">8 banks · open-row</text>
+  <rect x="1100" y="410" width="200" height="50" rx="6" fill="#f0f8f6" stroke="#0e7d6e"/>
+  <text x="1200" y="432" text-anchor="middle" fill="#0e7d6e" font-size="12" font-weight="700">ECC (optional)</text>
+  <text x="1200" y="450" text-anchor="middle" fill="#5b6570" font-size="10.5">off in baseline</text>
+  <rect x="882" y="470" width="418" height="22" rx="5" fill="#f5eefb" stroke="#6a1b9a" stroke-dasharray="3 3"/>
+  <text x="1091" y="485" text-anchor="middle" fill="#6a1b9a" font-size="10.5">timing engine: tRCD / tRP / tRC / tWR / CL / CWL</text>
+
+  <!-- PHY -->
+  <rect x="864" y="512" width="456" height="120" rx="8" fill="#ffffff" stroke="#6a1b9a" stroke-width="1.6"/>
+  <text x="882" y="536" fill="#6a1b9a" font-size="14" font-weight="700">ddr3_phy  (4:1)</text>
+  <rect x="882" y="548" width="135" height="64" rx="6" fill="#eef4ff" stroke="#1a4fa0"/>
+  <text x="949" y="570" text-anchor="middle" fill="#1a4fa0" font-size="11.5" font-weight="700">SERDES</text>
+  <text x="949" y="588" text-anchor="middle" fill="#5b6570" font-size="10">OSERDES /</text>
+  <text x="949" y="602" text-anchor="middle" fill="#5b6570" font-size="10">ISERDES 8:1</text>
+  <rect x="1027" y="548" width="135" height="64" rx="6" fill="#fdf3e8" stroke="#a86a00"/>
+  <text x="1094" y="570" text-anchor="middle" fill="#a86a00" font-size="11.5" font-weight="700">delays</text>
+  <text x="1094" y="588" text-anchor="middle" fill="#5b6570" font-size="10">IDELAY / ODELAY</text>
+  <text x="1094" y="602" text-anchor="middle" fill="#5b6570" font-size="10">90° DQS align</text>
+  <rect x="1172" y="548" width="130" height="64" rx="6" fill="#eef7ef" stroke="#2e7d32"/>
+  <text x="1237" y="570" text-anchor="middle" fill="#2e7d32" font-size="11.5" font-weight="700">calibration</text>
+  <text x="1237" y="588" text-anchor="middle" fill="#5b6570" font-size="10">write-leveling</text>
+  <text x="1237" y="602" text-anchor="middle" fill="#5b6570" font-size="10">read training</text>
+
+  <!-- behavioral models note -->
+  <rect x="864" y="644" width="456" height="120" rx="8" fill="#fbfbfc" stroke="#9aa3ab" stroke-width="1.4"/>
+  <text x="882" y="668" fill="#33414d" font-size="13.5" font-weight="700">Simulation primitives  (+define+SIM_MODEL)</text>
+  <text x="882" y="690" fill="#5b6570" font-size="11.5">testbench/models/*.v — behavioral 7-series primitives</text>
+  <text x="882" y="710" fill="#5b6570" font-size="11.5">(OSERDESE2 / ISERDESE2 / IDELAYE2 / PLLE2 …)</text>
+  <text x="882" y="730" fill="#2e7d32" font-size="11.5" font-weight="700">→ no Xilinx unisim / glbl libraries required</text>
+  <text x="882" y="750" fill="#5b6570" font-size="11.5">NO_TEST_MODEL keeps the path vendor-free in Xcelium</text>
+
+  <!-- ============================ Micron model (far right) ============================ -->
+  <rect x="1374" y="294" width="234" height="338" rx="12" fill="#fdf3e8" stroke="#a86a00" stroke-width="2.5"/>
+  <text x="1491" y="322" text-anchor="middle" fill="#a86a00" font-size="16" font-weight="700">Micron x16</text>
+  <text x="1491" y="344" text-anchor="middle" fill="#a86a00" font-size="13" font-weight="700">DDR3 model</text>
+  <text x="1491" y="372" text-anchor="middle" fill="#5b6570" font-size="11.5">testbench/ddr3.sv</text>
+  <text x="1491" y="392" text-anchor="middle" fill="#5b6570" font-size="11.5">8 Gb · sg125 · x16</text>
+  <text x="1491" y="412" text-anchor="middle" fill="#5b6570" font-size="11.5">MICRON_SIM=1</text>
+  <text x="1491" y="432" text-anchor="middle" fill="#5b6570" font-size="11.5">(short power-on)</text>
+  <line x1="1390" y1="450" x2="1592" y2="450" stroke="#ecd9bf"/>
+  <text x="1491" y="476" text-anchor="middle" fill="#33414d" font-size="11.5" font-weight="700">DDR3 bus</text>
+  <text x="1491" y="496" text-anchor="middle" fill="#5b6570" font-size="10.5">CK/CK# · CKE · CS#</text>
+  <text x="1491" y="514" text-anchor="middle" fill="#5b6570" font-size="10.5">RAS#/CAS#/WE#</text>
+  <text x="1491" y="532" text-anchor="middle" fill="#5b6570" font-size="10.5">ADDR · BA · ODT</text>
+  <text x="1491" y="550" text-anchor="middle" fill="#5b6570" font-size="10.5">DQ[15:0] · DQS · DM</text>
+  <line x1="1390" y1="566" x2="1592" y2="566" stroke="#ecd9bf"/>
+  <text x="1491" y="592" text-anchor="middle" fill="#5b6570" font-size="11">acts as the memory;</text>
+  <text x="1491" y="610" text-anchor="middle" fill="#5b6570" font-size="11">asserts model timing</text>
+  <text x="1491" y="626" text-anchor="middle" fill="#5b6570" font-size="11">checks during sim</text>
+
+  <!-- connect wb_if <-> dut, dut <-> micron -->
+  <line x1="810" y1="420" x2="862" y2="420" stroke="#1a4fa0" stroke-width="2.4" marker-end="url(#arb)"/>
+  <line x1="862" y1="470" x2="810" y2="470" stroke="#a86a00" stroke-width="2" marker-end="url(#aro)"/>
+  <text x="826" y="408" fill="#5b6570" font-size="10.5">WB</text>
+  <line x1="1320" y1="560" x2="1372" y2="500" stroke="#a86a00" stroke-width="2.4" marker-end="url(#aro)"/>
+  <line x1="1372" y1="520" x2="1320" y2="580" stroke="#a86a00" stroke-width="1.6" marker-end="url(#aro)"/>
+
+  <!-- ============================ Clocks (bottom-left) ============================ -->
+  <rect x="842" y="800" width="500" height="120" rx="10" fill="#eef7ef" stroke="#2e7d32" stroke-width="1.8"/>
+  <text x="862" y="826" fill="#2e7d32" font-size="14" font-weight="700">Clocks &amp; Reset  (tb generates)</text>
+  <text x="862" y="850" fill="#33414d" font-size="11.5">i_controller_clk = 100 MHz (10 ns)</text>
+  <text x="862" y="870" fill="#33414d" font-size="11.5">i_ddr3_clk = 400 MHz (2.5 ns, 4:1) → DDR3-800</text>
+  <text x="862" y="890" fill="#33414d" font-size="11.5">i_ddr3_clk_90 = 90° shifted · i_ref_clk = 200 MHz</text>
+  <text x="862" y="910" fill="#7a8088" font-size="11">ODELAY_SUPPORTED=0 (uses 90° clk for DQS align)</text>
+
+  <!-- config (bottom mid) -->
+  <rect x="1374" y="800" width="234" height="120" rx="10" fill="#eef4ff" stroke="#1a4fa0" stroke-width="1.8"/>
+  <text x="1394" y="826" fill="#1a4fa0" font-size="14" font-weight="700">Config (verified)</text>
+  <text x="1394" y="848" fill="#33414d" font-size="11.5">ROW/COL/BA = 14/10/3</text>
+  <text x="1394" y="867" fill="#33414d" font-size="11.5">BYTE_LANES = 2 (x16)</text>
+  <text x="1394" y="886" fill="#33414d" font-size="11.5">AUX_WIDTH = 16 · BIST=0</text>
+  <text x="1394" y="905" fill="#33414d" font-size="11.5">ECC = 0 (baseline)</text>
+
+  <!-- ============================ Calibration timeline ============================ -->
+  <rect x="28" y="820" width="784" height="100" rx="10" fill="#f6f8fa" stroke="#cdd4db" stroke-width="1.6"/>
+  <text x="48" y="846" fill="#33414d" font-size="14" font-weight="700">Bring-up timeline</text>
+  <line x1="60" y1="888" x2="780" y2="888" stroke="#9aa3ab" stroke-width="2"/>
+  <circle cx="90" cy="888" r="5" fill="#c62828"/><text x="90" y="910" text-anchor="middle" fill="#5b6570" font-size="10.5">reset</text>
+  <circle cx="250" cy="888" r="5" fill="#a86a00"/><text x="250" y="910" text-anchor="middle" fill="#5b6570" font-size="10.5">power-on / CKE</text>
+  <circle cx="430" cy="888" r="5" fill="#1a4fa0"/><text x="430" y="910" text-anchor="middle" fill="#5b6570" font-size="10.5">write-level + read training</text>
+  <circle cx="640" cy="888" r="6" fill="#2e7d32"/><text x="640" y="910" text-anchor="middle" fill="#2e7d32" font-size="10.5" font-weight="700">calib_complete ≈ 8.93 µs</text>
+  <circle cx="760" cy="888" r="5" fill="#6a1b9a"/><text x="760" y="910" text-anchor="middle" fill="#5b6570" font-size="10.5">user traffic</text>
+
+  <!-- ============================ Test suite (bottom band) ============================ -->
+  <rect x="28" y="942" width="1580" height="208" rx="12" fill="#ffffff" stroke="#33414d" stroke-width="2"/>
+  <text x="48" y="970" fill="#33414d" font-size="16" font-weight="700">Test Suite  —  run:  make sim TESTNAME=&lt;test&gt; [COV=1] [SEED=n]   (from dv/sim, after source ~/cshrc)</text>
+
+  <!-- 5 test cards -->
+  <g font-size="11.5">
+    <rect x="48" y="988" width="300" height="142" rx="8" fill="#eef4ff" stroke="#1a4fa0"/>
+    <text x="62" y="1010" fill="#1a4fa0" font-size="13" font-weight="700">1 · ddr_sanity_test</text>
+    <text x="62" y="1031" fill="#33414d">write→read at 5 addresses across</text>
+    <text x="62" y="1048" fill="#33414d">banks &amp; rows; basic data integrity</text>
+    <text x="62" y="1070" fill="#7a8088">checks: scoreboard compare</text>
+    <text x="62" y="1092" fill="#2e7d32" font-weight="700">PASS</text>
+    <text x="62" y="1116" fill="#5b6570" font-size="10.5">make sim TESTNAME=ddr_sanity_test</text>
+
+    <rect x="362" y="988" width="300" height="142" rx="8" fill="#f0f8f6" stroke="#0e7d6e"/>
+    <text x="376" y="1010" fill="#0e7d6e" font-size="13" font-weight="700">2 · ddr_bytesel_test</text>
+    <text x="376" y="1031" fill="#33414d">masked writes; only selected bytes</text>
+    <text x="376" y="1048" fill="#33414d">change (PSTRB) — 6 sel patterns</text>
+    <text x="376" y="1070" fill="#7a8088">checks: masked merge vs golden</text>
+    <text x="376" y="1092" fill="#2e7d32" font-weight="700">PASS</text>
+    <text x="376" y="1116" fill="#5b6570" font-size="10.5">make sim TESTNAME=ddr_bytesel_test</text>
+
+    <rect x="676" y="988" width="300" height="142" rx="8" fill="#fdf3e8" stroke="#a86a00"/>
+    <text x="690" y="1010" fill="#a86a00" font-size="13" font-weight="700">3 · ddr_walk_test</text>
+    <text x="690" y="1031" fill="#33414d">walk all 8 banks, rows, columns;</text>
+    <text x="690" y="1048" fill="#33414d">verify {row,bank,col} decode</text>
+    <text x="690" y="1070" fill="#7a8088">checks: per-location compare</text>
+    <text x="690" y="1092" fill="#2e7d32" font-weight="700">PASS</text>
+    <text x="690" y="1116" fill="#5b6570" font-size="10.5">make sim TESTNAME=ddr_walk_test</text>
+
+    <rect x="990" y="988" width="300" height="142" rx="8" fill="#f9f5fd" stroke="#6a1b9a"/>
+    <text x="1004" y="1010" fill="#6a1b9a" font-size="13" font-weight="700">4 · ddr_random_test</text>
+    <text x="1004" y="1031" fill="#33414d">randomized mixed R/W over a</text>
+    <text x="1004" y="1048" fill="#33414d">bounded window; shadow-checked</text>
+    <text x="1004" y="1070" fill="#7a8088">checks: golden compare, coverage</text>
+    <text x="1004" y="1092" fill="#2e7d32" font-weight="700">PASS</text>
+    <text x="1004" y="1116" fill="#5b6570" font-size="10.5">make sim TESTNAME=ddr_random_test</text>
+
+    <rect x="1304" y="988" width="288" height="142" rx="8" fill="#fff5f5" stroke="#c62828"/>
+    <text x="1318" y="1010" fill="#c62828" font-size="13" font-weight="700">5 · ddr_refresh_test</text>
+    <text x="1318" y="1031" fill="#33414d">300-txn run crossing many tREFI</text>
+    <text x="1318" y="1048" fill="#33414d">intervals; refresh transparency</text>
+    <text x="1318" y="1070" fill="#7a8088">checks: data survives refresh</text>
+    <text x="1318" y="1092" fill="#2e7d32" font-weight="700">PASS</text>
+    <text x="1318" y="1116" fill="#5b6570" font-size="10.5">make sim TESTNAME=ddr_refresh_test</text>
+  </g>
+
+  <!-- footer -->
+  <text x="36" y="1168" fill="#9aa3ab" font-size="11.5">Docs: dv/docs/ddr_design_spec.html · ddr_verification_plan.html · ddr_testcases.html      |      Vendored RTL pristine; all DV under dv/.  AXI4 wrapper: known limitation under Xcelium (env uses native Wishbone).</text>
+</svg>
