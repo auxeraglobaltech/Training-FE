@@ -1,0 +1,25 @@
+// nop.hex — minimal hand-assembled Vortex kernel (no toolchain needed).
+// Loaded at 0x8000_0000 (VX_DCR_KMU_STARTUP_ADDR0). Byte-addressed readmemh
+// image, little-endian bytes per 32-bit instruction.
+//
+// Contract (same as dv/sw/common/crt0.S):
+//   exit code 0 -> 0x8348 (PASS, simx-compatible)
+//   done magic 0x600DC0DE -> 0x8350 (proves execution; unwritten mem reads 0)
+//
+//   lui   t0, 0x8          # 000082B7
+//   addi  t0, t0, 0x348    # 34828293  -> t0 = 0x8348 = VX_MEM_IO_EXIT_CODE
+//   sw    x0, 0(t0)        # 0002A023  -> exit code 0
+//   lui   t1, 0x600DC     # 600DC337
+//   addi  t1, t1, 0xDE    # 0DE30313  -> t1 = 0x600DC0DE
+//   sw    t1, 8(t0)        # 0062A423  -> done flag @0x8350
+//   wsync                  # 0000700B  (.insn r CUSTOM0, 7, 0, x0,x0,x0)
+//   tmc x0                 # 0000000B  (.insn r CUSTOM0, 0, 0, x0,x0,x0) retire warp
+@80000000
+B7 82 00 00
+93 82 82 34
+23 A0 02 00
+37 C3 0D 60
+13 03 E3 0D
+23 A4 62 00
+0B 70 00 00
+0B 00 00 00

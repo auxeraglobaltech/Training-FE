@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vortex GPGPU — Design Specification (Verification View)</title>
+<style>
+  :root{--bg:#fff;--ink:#1c2024;--muted:#5b6570;--line:#e2e6ea;--soft:#f6f8fa;
+    --blue:#1a4fa0;--teal:#0e7d6e;--purple:#6a1b9a;--amber:#a86a00;--red:#c62828;--green:#2e7d32;--code:#f4f3ef;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:960px;margin:0 auto;padding:44px 28px 120px;}
+  header.doc{border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:8px;}
+  header.doc h1{font-size:29px;margin:0 0 4px;letter-spacing:-.01em;}
+  header.doc .sub{color:var(--muted);font-size:15px;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:var(--muted);margin-top:12px;}
+  .meta b{color:var(--ink);font-weight:600;}
+  h2{font-size:22px;margin:42px 0 10px;padding-top:10px;border-top:1px solid var(--line);}
+  h3{font-size:17px;margin:26px 0 8px;}h4{font-size:15px;margin:18px 0 6px;}
+  p{margin:10px 0;}ul,ol{margin:10px 0 10px 22px;}li{margin:4px 0;}
+  code{font-family:ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;font-size:13px;}
+  p code,li code,td code{background:var(--code);padding:1px 5px;border-radius:4px;color:#7a2c8f;}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;}
+  pre code{font-size:12.5px;color:#1c2024;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.5px;}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--soft);font-weight:600;}tr:nth-child(even) td{background:#fcfdfe;}
+  figure{margin:22px 0;text-align:center;}figure svg{max-width:100%;height:auto;}
+  figcaption{font-size:12.5px;color:var(--muted);margin-top:8px;}
+  .note{border-left:3px solid var(--teal);background:#f0f8f6;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .warn{border-left:3px solid var(--amber);background:#fff8ec;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .toc{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:14px 20px;margin:22px 0;}
+  .toc h4{margin:0 0 8px;}.toc ol{margin:0 0 0 18px;columns:2;font-size:14px;}
+  .mono{font-family:ui-monospace,monospace;}.kv{font-size:13px;color:var(--muted);}
+  svg text{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>Vortex RISC-V GPGPU — Design Specification</h1>
+  <div class="sub">Verification view of the open-source Vortex GPGPU configured as a <b>single core</b>
+  (1&nbsp;cluster × 1&nbsp;core): SIMT execution model, memory hierarchy, the flat
+  <code>rtlsim_shim</code> interfaces we drive, the DCR boot sequence, and the frozen configuration used
+  for simulation in Cadence Xcelium.</div>
+  <div class="meta">
+    <span><b>DUT:</b> <code>rtlsim_shim</code> → <code>Vortex</code></span>
+    <span><b>ISA:</b> RV32IMF + Vortex SIMT extensions</span>
+    <span><b>Config:</b> 1 cluster · 1 core · 4 warps · 4 threads</span>
+    <span><b>FPU:</b> FPNEW (pure RTL, no DPI)</span>
+    <span><b>Sim:</b> Xcelium 25.03 + UVM CDNS-1.2</span>
+    <span><b>Source:</b> vortexgpgpu/vortex @ <code>b70e0d56</code> (v3.0, Apache-2.0)</span>
+  </div>
+</header>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#intro">Introduction &amp; Scope</a></li>
+    <li><a href="#arch">Architecture</a></li>
+    <li><a href="#simt">SIMT Execution Model</a></li>
+    <li><a href="#isa">ISA Extensions &amp; CSRs</a></li>
+    <li><a href="#mem">Memory Hierarchy</a></li>
+    <li><a href="#shimif">The rtlsim_shim Interfaces</a></li>
+    <li><a href="#memif">Memory Interface &amp; Addressing</a></li>
+    <li><a href="#dcr">DCR Registers &amp; Boot Sequence</a></li>
+    <li><a href="#exit">Program Exit Contract</a></li>
+    <li><a href="#cfg">Frozen Configuration</a></li>
+    <li><a href="#shims">Xcelium Portability Shims</a></li>
+    <li><a href="#files">File Manifest</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================= -->
+<h2 id="intro">1 · Introduction &amp; Scope</h2>
+<p><a href="https://github.com/vortexgpgpu/vortex">Vortex</a> is an open-source RISC-V GPGPU: a SIMT
+(single-instruction, multiple-thread) processor that executes standard RV32IMF code extended with a small
+set of warp/thread-control instructions. Upstream it is verified with a Verilator/C++ harness
+(<code>sim/rtlsim</code>). This project instead brings a <b>single Vortex core</b> up under
+<b>Cadence Xcelium</b> and drives it from a native SystemVerilog UVM environment — no C++ harness, no DPI
+in the RTL build.</p>
+<p>The driving surface is upstream's own <code>sim/rtlsim/rtlsim_shim.sv</code>: a thin wrapper around the
+<code>Vortex</code> top that exposes flat, per-bank memory ports, a DCR (device-configuration-register)
+write port, and a <code>start</code>/<code>busy</code> control pair — exactly the contract the C++
+harness's <code>processor.cpp</code> uses, replicated here in SV/UVM.</p>
+<div class="note">Vendored RTL under <code>RTL/vortex/hw</code>, <code>sim/</code>, etc. is kept
+<b>pristine</b> at the pinned commit (see <code>SOURCE.md</code>). All verification work lives under
+<code>RTL/vortex/dv/</code>; the few files needing Xcelium fixes are <b>shadow copies</b> in
+<code>dv/shim/</code>. Companion documents: <a href="vx_verification_plan.html">Verification Plan</a> and
+<a href="vx_testcases.html">Test-Case Catalog</a>.</div>
+
+<!-- ============================================================= -->
+<h2 id="arch">2 · Architecture</h2>
+<p>Vortex is hierarchical: <code>Vortex</code> (top) → clusters → sockets → cores. Our configuration
+collapses this to one of each. A core contains the SIMT front-end (warp scheduler, fetch, decode), the
+issue stage (scoreboard, operand collect), execution units (ALU, LSU, FPU, SFU), and per-core L1
+instruction/data caches. The single core's L1 misses flow through the (pass-through at this size)
+L2/L3 levels to the external memory ports that our testbench serves.</p>
+
+<figure>
+<svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" font-size="11">
+  <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5b6570"/></marker></defs>
+
+  <!-- rtlsim_shim outline -->
+  <rect x="15" y="15" width="850" height="370" rx="12" fill="none" stroke="#5b6570" stroke-dasharray="6 4" stroke-width="1.5"/>
+  <text x="30" y="36" font-size="12" fill="#5b6570" font-weight="600">rtlsim_shim (flat-port wrapper)</text>
+
+  <!-- Vortex top -->
+  <rect x="40" y="55" width="560" height="310" rx="10" fill="#faf7fd" stroke="#6a1b9a" stroke-width="2.5"/>
+  <text x="320" y="78" text-anchor="middle" fill="#6a1b9a" font-weight="700">Vortex · 1 cluster · 1 socket · 1 core</text>
+
+  <!-- core -->
+  <rect x="60" y="92" width="330" height="250" rx="8" fill="#fff" stroke="#1a4fa0" stroke-width="2"/>
+  <text x="225" y="112" text-anchor="middle" fill="#1a4fa0" font-weight="700">VX_core</text>
+
+  <rect x="75" y="124" width="140" height="42" rx="5" fill="#e8f0fe" stroke="#1a4fa0"/>
+  <text x="145" y="141" text-anchor="middle" font-size="10" font-weight="600">warp scheduler</text>
+  <text x="145" y="156" text-anchor="middle" font-size="9" fill="#5b6570">4 warps × 4 threads</text>
+
+  <rect x="235" y="124" width="140" height="42" rx="5" fill="#e8f0fe" stroke="#1a4fa0"/>
+  <text x="305" y="141" text-anchor="middle" font-size="10" font-weight="600">fetch / decode</text>
+  <text x="305" y="156" text-anchor="middle" font-size="9" fill="#5b6570">via icache</text>
+
+  <rect x="75" y="180" width="300" height="36" rx="5" fill="#e8f0fe" stroke="#1a4fa0"/>
+  <text x="225" y="202" text-anchor="middle" font-size="10" font-weight="600">issue · scoreboard · operand collect</text>
+
+  <rect x="75" y="230" width="66" height="40" rx="5" fill="#fff" stroke="#0e7d6e"/>
+  <text x="108" y="254" text-anchor="middle" font-size="10" font-weight="600" fill="#0e7d6e">ALU</text>
+  <rect x="151" y="230" width="66" height="40" rx="5" fill="#fff" stroke="#0e7d6e"/>
+  <text x="184" y="254" text-anchor="middle" font-size="10" font-weight="600" fill="#0e7d6e">LSU</text>
+  <rect x="227" y="230" width="76" height="40" rx="5" fill="#fff" stroke="#0e7d6e"/>
+  <text x="265" y="248" text-anchor="middle" font-size="10" font-weight="600" fill="#0e7d6e">FPU</text>
+  <text x="265" y="262" text-anchor="middle" font-size="8.5" fill="#5b6570">FPNEW</text>
+  <rect x="313" y="230" width="62" height="40" rx="5" fill="#fff" stroke="#0e7d6e"/>
+  <text x="344" y="248" text-anchor="middle" font-size="10" font-weight="600" fill="#0e7d6e">SFU</text>
+  <text x="344" y="262" text-anchor="middle" font-size="8.5" fill="#5b6570">CSR/warp</text>
+
+  <rect x="75" y="284" width="140" height="42" rx="5" fill="#f0f8f6" stroke="#0e7d6e"/>
+  <text x="145" y="301" text-anchor="middle" font-size="10" font-weight="600">L1 icache</text>
+  <text x="145" y="316" text-anchor="middle" font-size="9" fill="#5b6570">16 KB</text>
+  <rect x="235" y="284" width="140" height="42" rx="5" fill="#f0f8f6" stroke="#0e7d6e"/>
+  <text x="305" y="301" text-anchor="middle" font-size="10" font-weight="600">L1 dcache</text>
+  <text x="305" y="316" text-anchor="middle" font-size="9" fill="#5b6570">16 KB · banked</text>
+
+  <!-- L2/L3 -->
+  <rect x="420" y="140" width="150" height="70" rx="6" fill="#fff" stroke="#6a1b9a"/>
+  <text x="495" y="167" text-anchor="middle" font-size="10" font-weight="600">L2 / L3 level</text>
+  <text x="495" y="184" text-anchor="middle" font-size="9" fill="#5b6570">pass-through @1-core</text>
+  <text x="495" y="198" text-anchor="middle" font-size="9" fill="#5b6570">MEM_PORTS = 1</text>
+
+  <rect x="420" y="240" width="150" height="60" rx="6" fill="#fff" stroke="#6a1b9a"/>
+  <text x="495" y="263" text-anchor="middle" font-size="10" font-weight="600">DCR bus fan-out</text>
+  <text x="495" y="280" text-anchor="middle" font-size="9" fill="#5b6570">KMU · per-core base regs</text>
+
+  <line x1="390" y1="305" x2="420" y2="200" stroke="#5b6570" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- external ports -->
+  <rect x="650" y="80" width="190" height="90" rx="8" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+  <text x="745" y="103" text-anchor="middle" fill="#a86a00" font-weight="700">Memory ports</text>
+  <text x="745" y="122" text-anchor="middle" font-size="9.5" fill="#5b6570">2 banks × 512-bit data</text>
+  <text x="745" y="137" text-anchor="middle" font-size="9.5" fill="#5b6570">req valid/rw/byteen/addr/data/tag</text>
+  <text x="745" y="152" text-anchor="middle" font-size="9.5" fill="#5b6570">rsp valid/data/tag + ready</text>
+
+  <rect x="650" y="195" width="190" height="70" rx="8" fill="#eef7ef" stroke="#2e7d32" stroke-width="2"/>
+  <text x="745" y="218" text-anchor="middle" fill="#2e7d32" font-weight="700">DCR port</text>
+  <text x="745" y="236" text-anchor="middle" font-size="9.5" fill="#5b6570">write: valid/addr[11:0]/data[31:0]</text>
+  <text x="745" y="251" text-anchor="middle" font-size="9.5" fill="#5b6570">read: rsp_valid/data</text>
+
+  <rect x="650" y="290" width="190" height="60" rx="8" fill="#e8f0fe" stroke="#1a4fa0" stroke-width="2"/>
+  <text x="745" y="313" text-anchor="middle" fill="#1a4fa0" font-weight="700">Control</text>
+  <text x="745" y="331" text-anchor="middle" font-size="9.5" fill="#5b6570">start (in) · busy (out)</text>
+
+  <line x1="570" y1="125" x2="648" y2="125" stroke="#a86a00" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="648" y1="145" x2="572" y2="145" stroke="#a86a00" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="648" y1="230" x2="572" y2="230" stroke="#2e7d32" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="648" y1="320" x2="602" y2="320" stroke="#1a4fa0" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="602" y1="335" x2="648" y2="335" stroke="#1a4fa0" stroke-width="1.5" marker-end="url(#a)"/>
+</svg>
+<figcaption>Single-core Vortex under <code>rtlsim_shim</code>: SIMT core with L1 caches, pass-through
+L2/L3, and the three flat interfaces (memory, DCR, control) the testbench drives.</figcaption>
+</figure>
+
+<!-- ============================================================= -->
+<h2 id="simt">3 · SIMT Execution Model</h2>
+<p>Execution is organized as <b>warps</b> of <b>threads</b> in lock-step:</p>
+<ul>
+  <li>A <b>thread</b> is one SIMT lane: its own register file view, its own memory lane in the LSU.</li>
+  <li>A <b>warp</b> is a group of <code>NUM_THREADS</code> (= 4) threads sharing one PC. All active
+  threads of a warp execute the same instruction each cycle.</li>
+  <li>The core holds <code>NUM_WARPS</code> (= 4) warps; the warp scheduler picks a ready warp each cycle,
+  hiding memory latency by switching warps.</li>
+  <li><b>Divergence</b> on a branch is handled with a thread mask + IPDOM stack: threads that take
+  different paths are masked off and re-converged later. Software can also manipulate the mask directly
+  with <code>tmc</code>.</li>
+</ul>
+<p>At boot only <b>warp 0, thread 0</b> is active. Software widens execution explicitly:
+<code>tmc</code> activates more threads of the current warp, <code>wspawn</code> launches additional warps
+at an entry PC. Our single-hart kernels (bare-metal C) run entirely on warp&nbsp;0/thread&nbsp;0; the
+<code>divergence</code> asm test exercises the full 4×4 fabric.</p>
+
+<!-- ============================================================= -->
+<h2 id="isa">4 · ISA Extensions &amp; CSRs</h2>
+<p>The base ISA is RV32IMF (+Zicsr). Vortex adds SIMT control instructions on the <b>custom-0</b> opcode
+(<code>0x0B</code>), R-type, selected by funct3:</p>
+<table>
+<tr><th>Instruction</th><th>funct3</th><th>Operands</th><th>Effect</th><th>Encoding (x0 operands)</th></tr>
+<tr><td><code>tmc</code></td><td>0</td><td>rs1 = thread mask</td><td>Set the current warp's thread mask. <code>tmc x0</code> (mask 0) retires the warp.</td><td><code>32'h0000_000B</code></td></tr>
+<tr><td><code>wspawn</code></td><td>1</td><td>rs1 = count, rs2 = entry PC</td><td>Activate warps 1..count-1 starting at the entry PC.</td><td>—</td></tr>
+<tr><td><code>split</code>/<code>join</code></td><td>2/3</td><td>predicate</td><td>Hardware divergence push/pop (compiler-generated).</td><td>—</td></tr>
+<tr><td><code>wsync</code> (bar)</td><td>7</td><td>—</td><td>Barrier / drain; used before retiring to flush pending stores.</td><td><code>32'h0000_700B</code></td></tr>
+</table>
+<p>Identification CSRs used by the tests (from <code>hw/rtl/VX_types.vh</code>):</p>
+<table>
+<tr><th>CSR</th><th>Address</th><th>Meaning</th></tr>
+<tr><td><code>VX_CSR_THREAD_ID</code></td><td><code>0xCC0</code></td><td>Thread index within the warp</td></tr>
+<tr><td><code>VX_CSR_WARP_ID</code></td><td><code>0xCC1</code></td><td>Warp index within the core</td></tr>
+<tr><td><code>VX_CSR_NUM_THREADS</code></td><td><code>0xFC0</code></td><td>Threads per warp (4)</td></tr>
+<tr><td><code>VX_CSR_NUM_WARPS</code></td><td><code>0xFC1</code></td><td>Warps per core (4)</td></tr>
+<tr><td><code>VX_CSR_NUM_CORES</code></td><td><code>0xFC2</code></td><td>Total cores (1)</td></tr>
+<tr><td><code>VX_CSR_MHARTID</code></td><td><code>0xF14</code></td><td>Global hart id</td></tr>
+</table>
+<div class="warn"><b>Gotcha found during bring-up:</b> <code>NUM_WARPS</code> is CSR <code>0xFC1</code>,
+not <code>0xFC2</code> (<code>0xFC2</code> is <code>NUM_CORES</code>). Reading the wrong one made
+<code>wspawn</code> spawn a single warp and the divergence test hang.</div>
+
+<!-- ============================================================= -->
+<h2 id="mem">5 · Memory Hierarchy</h2>
+<ul>
+  <li><b>L1 icache / dcache</b> per core, write-through dcache with per-bank organization.</li>
+  <li><b>L2 (per cluster) and L3 (chip)</b> — at 1 core these levels are pass-through
+  (<code>L2_ENABLED/L3_ENABLED = 0</code>); requests are simply forwarded.</li>
+  <li><b>External memory ports</b>: <code>MEM_NUM_BANKS = 2</code> banks, each moving one
+  <b>64-byte (512-bit) line</b> per transaction with a per-byte <code>byteen</code> write mask and an
+  opaque <code>tag</code> for out-of-order response matching (our responder replies in order).</li>
+  <li><b>Local memory (LMEM)</b> exists upstream but is unused here (<code>LMEM_SIZE = 0</code> in the
+  kernel launch DCRs).</li>
+</ul>
+
+<!-- ============================================================= -->
+<h2 id="shimif">6 · The rtlsim_shim Interfaces</h2>
+<p><code>sim/rtlsim/rtlsim_shim.sv</code> instantiates <code>Vortex</code> and flattens its SV-interface
+ports into plain signals — no DPI, no classes — making it the ideal UVM driving surface. Ports (arrays are
+per-bank, <code>[MEM_NUM_BANKS]</code>):</p>
+<table>
+<tr><th>Group</th><th>Signal</th><th>Dir</th><th>Width</th><th>Notes</th></tr>
+<tr><td rowspan="2">Clock/Reset</td><td><code>clk</code></td><td>in</td><td>1</td><td>100 MHz in TB</td></tr>
+<tr><td><code>reset</code></td><td>in</td><td>1</td><td>active-high; internal pipeline needs <code>RESET_DELAY</code>=8 extra cycles</td></tr>
+<tr><td rowspan="7">Memory (per bank)</td><td><code>mem_req_valid</code></td><td>out</td><td>1</td><td rowspan="7">valid/ready handshake; request accepted when
+<code>valid &amp;&amp; ready</code>. <code>rw</code>=1 → write. Response carries the request's tag; write requests get no response.</td></tr>
+<tr><td><code>mem_req_rw</code></td><td>out</td><td>1</td></tr>
+<tr><td><code>mem_req_byteen</code></td><td>out</td><td>64</td></tr>
+<tr><td><code>mem_req_addr</code></td><td>out</td><td>ADDR</td></tr>
+<tr><td><code>mem_req_data</code></td><td>out</td><td>512</td></tr>
+<tr><td><code>mem_req_tag</code></td><td>out</td><td>TAG</td></tr>
+<tr><td><code>mem_req_ready</code> / <code>mem_rsp_valid,data,tag</code> / <code>mem_rsp_ready</code></td><td>in/out</td><td>—</td></tr>
+<tr><td rowspan="2">DCR</td><td><code>dcr_wr_valid,addr[11:0],data[31:0]</code></td><td>in</td><td>—</td><td>single-cycle write strobe</td></tr>
+<tr><td><code>dcr_rd</code> path (<code>rsp_valid/data</code>)</td><td>out</td><td>—</td><td>used for the cache-flush readback</td></tr>
+<tr><td rowspan="2">Control</td><td><code>start</code></td><td>in</td><td>1</td><td>1-cycle pulse after boot DCRs</td></tr>
+<tr><td><code>busy</code></td><td>out</td><td>1</td><td>see the warning below</td></tr>
+</table>
+<div class="warn"><b><code>busy</code> is discontinuous.</b> The kernel-management unit runs the launch in
+phases and <code>busy</code> can drop between them. Waiting for a single fall gives a <b>false PASS</b>
+(observed: "completion" with zero instruction fetches). Completion must be defined as
+<code>busy</code> low <b>stable for ≥100 consecutive cycles</b>; both the smoke TB and the UVM ctrl agent
+implement this.</div>
+
+<!-- ============================================================= -->
+<h2 id="memif">7 · Memory Interface &amp; Addressing</h2>
+<p>Requests are line-addressed per bank. With <code>INTERLEAVE = 1</code> (verified against
+<code>processor.cpp:357</code>), the byte address of a request on bank <code>b</code> is:</p>
+<pre><code>byte_addr = (mem_req_addr * MEM_NUM_BANKS + b) * DATA_SIZE     // = (addr*2 + b) * 64</code></pre>
+<p>Address-map landmarks used by the tests (byte addresses):</p>
+<table>
+<tr><th>Region</th><th>Address</th><th>Use</th></tr>
+<tr><td>Program load / startup PC</td><td><code>0x8000_0000</code></td><td><code>STARTUP_ADDR</code>; hex images are loaded here</td></tr>
+<tr><td>Kernel output region</td><td><code>0x8002_0000</code></td><td><code>OUT_ADDR</code> convention for C tests; checked by golden files / DPI ref</td></tr>
+<tr><td>Scratch (asm tests)</td><td><code>0x8003_0000</code></td><td>divergence test per-thread/per-warp slots</td></tr>
+<tr><td>Stack top</td><td><code>0x8010_0000</code></td><td><code>crt0.S</code> initial <code>sp</code> (1 MB RAM window)</td></tr>
+<tr><td>Exit code</td><td><code>0x8348</code></td><td><code>VX_MEM_IO_EXIT_CODE</code>; §9</td></tr>
+<tr><td>Done flag</td><td><code>0x8350</code></td><td>DV-defined magic word; §9</td></tr>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="dcr">8 · DCR Registers &amp; Boot Sequence</h2>
+<p>Device Configuration Registers program the kernel launch. The boot sequence below mirrors upstream
+<code>processor.cpp</code> exactly and is implemented twice: in the directed smoke TB and as the UVM
+<code>vx_boot_seq</code>.</p>
+<table>
+<tr><th>#</th><th>DCR addr</th><th>Register</th><th>Value (this env)</th></tr>
+<tr><td>1–2</td><td><code>0x010/0x011</code></td><td><code>KMU_STARTUP_ADDR 0/1</code></td><td><code>0x8000_0000</code> / 0</td></tr>
+<tr><td>3–4</td><td><code>0x012/0x013</code></td><td><code>KMU_ARG 0/1</code></td><td>0 / 0 (no kernel arg struct)</td></tr>
+<tr><td>5–7</td><td><code>0x014–0x016</code></td><td><code>GRID_DIM x/y/z</code></td><td>1 / 1 / 1</td></tr>
+<tr><td>8–10</td><td><code>0x017–0x019</code></td><td><code>BLOCK_DIM x/y/z</code></td><td>1 / 1 / 1</td></tr>
+<tr><td>11–13</td><td><code>0x01A–0x01C</code></td><td><code>CLUSTER_DIM / …</code></td><td>1 / 1 / 1</td></tr>
+<tr><td>14</td><td>—</td><td><code>LMEM_SIZE</code></td><td>0</td></tr>
+<tr><td>15</td><td>—</td><td><code>BLOCK_SIZE</code></td><td>1</td></tr>
+<tr><td>16–17</td><td>—</td><td><code>WARP_STEP x</code> (=NUM_THREADS) / y,z</td><td>4 / 0</td></tr>
+</table>
+<p>Full launch flow:</p>
+<ol>
+  <li>Assert <code>reset</code> 8 cycles, release, wait <code>RESET_DELAY</code> = 8 more.</li>
+  <li>Load the program hex into the TB memory model at <code>0x8000_0000</code>.</li>
+  <li>Issue the 17 DCR writes above.</li>
+  <li>Pulse <code>start</code> for one cycle.</li>
+  <li>Serve memory requests; wait until <code>busy</code> is low for 100 consecutive cycles.</li>
+  <li>Per core: DCR <b>read</b> of <code>BASE_CACHE_FLUSH</code> (<code>0x000</code>) to flush dirty
+  cache lines to memory.</li>
+  <li>Read results back from the TB memory model (exit code, done flag, output region).</li>
+</ol>
+
+<!-- ============================================================= -->
+<h2 id="exit">9 · Program Exit Contract</h2>
+<p>Every kernel (via <code>dv/sw/common/crt0.S</code>, or hand-assembled in <code>nop.hex</code>) ends with:</p>
+<pre><code>sw   a0, 0x8348      # exit code = main() return value; 0 = PASS
+li   t1, 0x600DC0DE
+sw   t1, 0x8350      # done flag: proves the kernel actually executed
+wsync                # drain pending stores
+tmc  x0              # retire the warp</code></pre>
+<p>Two words are deliberate — each defeats a distinct false-pass mode:</p>
+<ul>
+  <li><b>Exit code 0 = PASS at <code>0x8348</code></b> keeps the image compatible with the
+  <b>simx</b> golden simulator, which returns the exit word's low byte as its process return code
+  (a non-zero "magic pass value" scheme made simx exit rc=222 and broke co-sim).</li>
+  <li><b>Done magic at <code>0x8350</code></b>: unwritten memory reads back 0 — identical to a passing
+  exit code. The magic word distinguishes "kernel ran and passed" from "kernel never ran".
+  The scoreboard additionally requires <code>n_rd &gt; 0</code> (the core fetched something).</li>
+</ul>
+
+<!-- ============================================================= -->
+<h2 id="cfg">10 · Frozen Configuration</h2>
+<p>Upstream generates <code>VX_config.vh</code> with a Python resolver (<code>configure --xlen=32</code>).
+We froze the resolved 1-core output as <code>dv/shim/VX_config.vh</code> so builds are reproducible.
+Key parameters:</p>
+<table>
+<tr><th>Parameter</th><th>Value</th><th>Parameter</th><th>Value</th></tr>
+<tr><td><code>NUM_CLUSTERS</code></td><td>1</td><td><code>NUM_CORES</code></td><td>1</td></tr>
+<tr><td><code>NUM_WARPS</code></td><td>4</td><td><code>NUM_THREADS</code></td><td>4</td></tr>
+<tr><td><code>XLEN</code></td><td>32</td><td>FPU</td><td>FPNEW (<code>-define VX_CFG_FPU_TYPE_FPNEW</code>)</td></tr>
+<tr><td><code>EXT_M / EXT_F</code></td><td>enabled</td><td><code>RESET_DELAY</code></td><td>8</td></tr>
+<tr><td><code>PLATFORM_MEMORY_ADDR_WIDTH</code></td><td>32</td><td><code>PLATFORM_MEMORY_DATA_SIZE</code></td><td>64 bytes</td></tr>
+<tr><td><code>PLATFORM_MEMORY_NUM_BANKS</code></td><td>2</td><td><code>PLATFORM_MEMORY_INTERLEAVE</code></td><td>1</td></tr>
+<tr><td><code>L2/L3_MEM_PORTS</code></td><td>1 (hand-fixed, see below)</td><td><code>SV_DPI</code></td><td><b>never defined</b></td></tr>
+</table>
+<div class="warn"><b>Resolver bug worked around:</b> the config generator emits <b>0</b> for macros whose
+definitions reference SV package localparams. <code>L2_MEM_PORTS</code>/<code>L3_MEM_PORTS</code> resolve
+to <code>min(L2_NUM_REQS, 2)</code> where <code>L2_NUM_REQS = 1</code> at this size; the frozen shim config
+hand-sets both to <b>1</b> (a 0 makes elaboration fail with a non-positive array bound in
+<code>[VX_MEM_PORTS]</code>).</div>
+
+<!-- ============================================================= -->
+<h2 id="shims">11 · Xcelium Portability Shims</h2>
+<p>A handful of upstream files need Xcelium-compatible edits. Each is a <b>shadow copy</b> in
+<code>dv/shim/</code>, listed <b>explicitly</b> in <code>dv/sim/filelist_vx.f</code> <i>before</i> the
+<code>-y</code> library directories (explicit entries shadow; <code>-y</code> ordering does not):</p>
+<table>
+<tr><th>Shim file</th><th>Reason</th></tr>
+<tr><td><code>VX_config.vh</code></td><td>frozen resolved config + L2/L3_MEM_PORTS fix (§10)</td></tr>
+<tr><td><code>Vortex.sv</code>, <code>VX_cta_dispatch.sv</code>, <code>VX_cache_bank.sv</code>,
+<code>VX_stream_xbar.sv</code>, <code>VX_generic_arbiter.sv</code>, <code>VX_onehot_encoder.sv</code></td>
+<td>Verilator-isms / elaboration constructs Xcelium rejects (constant functions, zero-width edge cases)</td></tr>
+</table>
+<div class="note">Debug tip: a stale <code>dv/xcelium.d</code> snapshot can report <b>ghost errors</b>
+from previous compiles — <code>rm -rf dv/xcelium.d</code> before judging elaboration results.</div>
+
+<!-- ============================================================= -->
+<h2 id="files">12 · File Manifest</h2>
+<pre><code>RTL/vortex/
+  hw/ sim/ sw/ ...                  vendored upstream @ b70e0d56 (pristine)
+  SOURCE.md                         pinned commit, license, local-additions inventory
+  dv/
+    shim/                           Xcelium shadow copies + frozen VX_config.vh
+    sim/                            filelist_vx.f · filelist_smoke.f · filelist_uvm.f · Makefile
+    tb/                             UVM env (see Verification Plan)
+    sw/                             bare-metal kernels: common/ tests/{asm,c}/ ref/ (see Test Catalog)
+    docs/                           this document + verification plan + test catalog</code></pre>
+
+</div>
+</body>
+</html>

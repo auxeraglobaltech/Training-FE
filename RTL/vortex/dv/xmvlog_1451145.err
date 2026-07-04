@@ -1,0 +1,105 @@
+csi-xmvlog - CSI: Command line:
+xmvlog
+    -f /home/user1/Documents/june_noc/Training-FE/RTL/vortex/dv/xcelium.d/run.lnx8664.25.03.d/xmvlog.args
+        -XLMODE ./xcelium.d/run.lnx8664.25.03.d
+        -RUNMODE
+        -sv
+        -DEFINE SIMULATION
+        -DEFINE NDEBUG
+        -DEFINE VX_CFG_FPU_TYPE_FPNEW
+        -DEFINE VX_CFG_XLEN=32
+        -DEFINE VX_CFG_XLEN_32
+        -INCDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/build/hw
+        -INCDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl
+        -INCDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/libs
+        -INCDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/interfaces
+        -INCDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/core
+        -INCDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/mem
+        -INCDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/cache
+        -INCDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/fpu
+        -INCDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/third_party/cvfpu/src/common_cells/include
+        -INCDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/third_party/cvfpu/src/common_cells/src
+        -INCDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/third_party/cvfpu/src
+        /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/VX_gpu_pkg.sv
+        /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/fpu/VX_fpu_pkg.sv
+        /home/user1/Documents/june_noc/Training-FE/RTL/vortex/third_party/cvfpu/src/fpnew_pkg.sv
+        /home/user1/Documents/june_noc/Training-FE/RTL/vortex/third_party/cvfpu/src/common_cells/src/cf_math_pkg.sv
+        /home/user1/Documents/june_noc/Training-FE/RTL/vortex/third_party/cvfpu/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv
+        /home/user1/Documents/june_noc/Training-FE/RTL/vortex/third_party/cvfpu/src/fpu_div_sqrt_mvp/hdl/control_mvp.sv
+        /home/user1/Documents/june_noc/Training-FE/RTL/vortex/third_party/cvfpu/src/fpu_div_sqrt_mvp/hdl/iteration_div_sqrt_mvp.sv
+        /home/user1/Documents/june_noc/Training-FE/RTL/vortex/third_party/cvfpu/src/fpu_div_sqrt_mvp/hdl/norm_div_sqrt_mvp.sv
+        /home/user1/Documents/june_noc/Training-FE/RTL/vortex/third_party/cvfpu/src/fpu_div_sqrt_mvp/hdl/nrbd_nrsc_mvp.sv
+        /home/user1/Documents/june_noc/Training-FE/RTL/vortex/third_party/cvfpu/src/fpu_div_sqrt_mvp/hdl/preprocess_mvp.sv
+        /home/user1/Documents/june_noc/Training-FE/RTL/vortex/third_party/cvfpu/src/fpu_div_sqrt_mvp/hdl/div_sqrt_top_mvp.sv
+        /home/user1/Documents/june_noc/Training-FE/RTL/vortex/third_party/cvfpu/src/fpu_div_sqrt_mvp/hdl/div_sqrt_mvp_wrapper.sv
+        /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/VX_trace_pkg.sv
+        /home/user1/Documents/june_noc/Training-FE/RTL/vortex/sim/rtlsim/rtlsim_shim.sv
+        -YDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl
+        -YDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/libs
+        -YDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/interfaces
+        -YDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/core
+        -YDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/mem
+        -YDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/cache
+        -YDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/fpu
+        -YDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/third_party/cvfpu/src
+        -YDIR /home/user1/Documents/june_noc/Training-FE/RTL/vortex/third_party/cvfpu/src/common_cells/src
+        -LIBEXT .sv
+        -LIBEXT .v
+        -CDSLIB ./xcelium.d/run.lnx8664.25.03.d/cdsrun.lib
+        -HDLVAR ./xcelium.d/run.lnx8664.25.03.d/hdlrun.var
+        -no_analogsolver
+        -MESSAGES
+        -UPDATE
+        -XLLIBSTORE ./xcelium.d/run.lnx8664.25.03.d/xllibs
+        -ALLOWUNBOUND
+        -sv_ms
+        -hastop
+    -CHECK_VERSION TOOL:	xrun(64)	25.03-s001
+    -LOG_FD 4
+
+csi-xmvlog - CSI: *F,INTERR: INTERNAL EXCEPTION
+-----------------------------------------------------------------
+The tool has encountered an unexpected condition and must exit.
+Contact Cadence Design Systems customer support about this
+problem and provide enough information to help us reproduce it,
+including the logfile that contains this error message.
+  TOOL:	xmvlog(64)	25.03-s001 (CL: 756168 )
+  HOSTNAME: man-srv
+  OPERATING SYSTEM: Linux 5.14.0-611.49.1.el9_7.x86_64 #1 SMP PREEMPT_DYNAMIC Tue Apr 21 16:39:08 EDT 2026 x86_64
+  MESSAGE: Unexpected signal #11, program terminated (null)
+-----------------------------------------------------------------
+
+csi-xmvlog - CSI: Cadence Support Investigation, recording details
+Verilog Syntax Tree: root (VST_ROOT) in compilation_unit worklib.\$unit_0x3f972731 :compilation_unit (VST)
+	Decompile: $unit_0x3f972731
+Verilog Syntax Tree: compilation unit declaration (VST_D_COMP_UNIT) in compilation_unit worklib.\$unit_0x3f972731 :compilation_unit (VST)
+	Scope: $unit_0x3f972731
+	Decompile: $unit_0x3f972731
+Verilog Syntax Tree: package declaration (VST_D_PACKAGE)
+	File: /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/VX_gpu_pkg.sv, line 21, position 17
+	Scope: VX_gpu_pkg
+	Decompile: VX_gpu_pkg
+	Source  : package VX_gpu_pkg;
+	Position:                  ^
+Verilog Syntax Tree: parameter declaration (VST_D_PARAMETER)
+	File: /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/VX_gpu_pkg.sv, line 25, position 30
+	Scope: VX_gpu_pkg
+	Decompile: unspecified DCACHE_NUM_BANKS
+	Source  :     localparam DCACHE_NUM_BANKS                 = `VX_CFG_DCACHE_NUM_BANKS;
+	Position:                               ^
+Verilog Syntax Tree: conditional expression (VST_E_CONDITIONAL)
+	File: /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/VX_gpu_pkg.sv, line 25, position 73
+	Decompile: (DCACHE_NUM_REQS < 16)?DCACHE_NUM_REQS:16
+	Source  :     localparam DCACHE_NUM_BANKS                 = `VX_CFG_DCACHE_NUM_BANKS;
+	Position:                                                                          ^
+Verilog Syntax Tree: number expression (VST_E_NUMBER)
+	File: /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/VX_gpu_pkg.sv, line 25, position 73
+	Decompile: 16
+	Source  :     localparam DCACHE_NUM_BANKS                 = `VX_CFG_DCACHE_NUM_BANKS;
+	Position:                                                                          ^
+Verilog Syntax Tree: less than expression (VST_E_LESS_THAN)
+	File: /home/user1/Documents/june_noc/Training-FE/RTL/vortex/hw/rtl/VX_gpu_pkg.sv, line 25, position 73
+	Decompile: (DCACHE_NUM_REQS < 16)
+	Source  :     localparam DCACHE_NUM_BANKS                 = `VX_CFG_DCACHE_NUM_BANKS;
+	Position:                                                                          ^
+csi-xmvlog - CSI: investigation complete took 0.003 secs, send this file to Cadence Support

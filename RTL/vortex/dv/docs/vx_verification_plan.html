@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vortex GPGPU — Verification Plan</title>
+<style>
+  :root{--bg:#fff;--ink:#1c2024;--muted:#5b6570;--line:#e2e6ea;--soft:#f6f8fa;
+    --blue:#1a4fa0;--teal:#0e7d6e;--purple:#6a1b9a;--amber:#a86a00;--red:#c62828;--green:#2e7d32;--code:#f4f3ef;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:960px;margin:0 auto;padding:44px 28px 120px;}
+  header.doc{border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:8px;}
+  header.doc h1{font-size:29px;margin:0 0 4px;letter-spacing:-.01em;}
+  header.doc .sub{color:var(--muted);font-size:15px;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:var(--muted);margin-top:12px;}
+  .meta b{color:var(--ink);font-weight:600;}
+  h2{font-size:22px;margin:42px 0 10px;padding-top:10px;border-top:1px solid var(--line);}
+  h3{font-size:17px;margin:26px 0 8px;}h4{font-size:15px;margin:18px 0 6px;}
+  p{margin:10px 0;}ul,ol{margin:10px 0 10px 22px;}li{margin:4px 0;}
+  code{font-family:ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;font-size:13px;}
+  p code,li code,td code{background:var(--code);padding:1px 5px;border-radius:4px;color:#7a2c8f;}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;}
+  pre code{font-size:12.5px;color:#1c2024;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.5px;}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--soft);font-weight:600;}tr:nth-child(even) td{background:#fcfdfe;}
+  figure{margin:22px 0;text-align:center;}figure svg{max-width:100%;height:auto;}
+  figcaption{font-size:12.5px;color:var(--muted);margin-top:8px;}
+  .note{border-left:3px solid var(--teal);background:#f0f8f6;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .warn{border-left:3px solid var(--amber);background:#fff8ec;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0;}
+  .toc{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:14px 20px;margin:22px 0;}
+  .toc h4{margin:0 0 8px;}.toc ol{margin:0 0 0 18px;columns:2;font-size:14px;}
+  .mono{font-family:ui-monospace,monospace;}.kv{font-size:13px;color:var(--muted);}
+  svg text{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>Vortex Single-Core GPGPU — Verification Plan</h1>
+  <div class="sub">The UVM environment around <code>rtlsim_shim</code>: agents, sequences, a
+  four-layer checking strategy (exit contract, golden files, DPI-C reference, simx co-sim), functional
+  coverage, and how to run everything.</div>
+  <div class="meta">
+    <span><b>Methodology:</b> UVM CDNS-1.2 (Xcelium 25.03)</span>
+    <span><b>DUT:</b> <code>rtlsim_shim</code> (1-core Vortex)</span>
+    <span><b>Test layers:</b> C/asm kernels × SV/UVM scenarios × hybrid</span>
+    <span><b>Status:</b> 7/7 kernels green, cosim 6/6</span>
+  </div>
+</header>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#strategy">Strategy: Two Layers, Hybrid Checking</a></li>
+    <li><a href="#arch">Testbench Architecture</a></li>
+    <li><a href="#agents">Agents</a></li>
+    <li><a href="#seq">Sequences</a></li>
+    <li><a href="#sb">Scoreboard — Four Check Layers</a></li>
+    <li><a href="#cov">Functional Coverage</a></li>
+    <li><a href="#tests">Test Plan</a></li>
+    <li><a href="#build">Software Build Flow</a></li>
+    <li><a href="#run">How to Run</a></li>
+    <li><a href="#passfail">Pass/Fail Criteria</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================= -->
+<h2 id="strategy">1 · Strategy: Two Layers, Hybrid Checking</h2>
+<p>A GPGPU's "stimulus" is a program. The environment therefore has <b>two orthogonal test layers</b>,
+composed through Makefile knobs:</p>
+<ul>
+  <li><b>Layer A — software testcases (C or asm) that run ON the core.</b> Bare-metal RISC-V programs in
+  <code>dv/sw/tests/</code>, built with the Vortex GNU toolchain into <code>$readmemh</code> images.
+  Selected with <code>KERNEL=&lt;name&gt;</code>.</li>
+  <li><b>Layer B — SV/UVM testcases that DRIVE the core.</b> The env boots the selected image over DCR,
+  serves memory, and checks the outcome. Selected with <code>TESTNAME=&lt;uvm_test&gt;</code>
+  (plus the pre-UVM directed <code>vx_smoke</code>).</li>
+  <li><b>Hybrid</b> = a UVM run whose scoreboard additionally cross-checks the kernel's memory output
+  against a <b>DPI-C golden model</b> (<code>HYBRID=1</code>), and/or the same ELF replayed on the
+  <b>simx</b> cycle-approximate golden simulator (<code>make cosim</code>).</li>
+</ul>
+
+<!-- ============================================================= -->
+<h2 id="arch">2 · Testbench Architecture</h2>
+<figure>
+<svg viewBox="0 0 900 520" xmlns="http://www.w3.org/2000/svg" font-size="11">
+  <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5b6570"/></marker></defs>
+
+  <!-- tb_top -->
+  <rect x="10" y="10" width="880" height="500" rx="12" fill="none" stroke="#5b6570" stroke-dasharray="6 4" stroke-width="1.5"/>
+  <text x="26" y="32" font-size="12" fill="#5b6570" font-weight="600">tb_top_vx_uvm.sv — clk 100 MHz · reset · interface instances · run_test()</text>
+
+  <!-- DUT -->
+  <rect x="620" y="70" width="240" height="330" rx="10" fill="#faf7fd" stroke="#6a1b9a" stroke-width="2.5"/>
+  <text x="740" y="94" text-anchor="middle" fill="#6a1b9a" font-weight="700">rtlsim_shim</text>
+  <text x="740" y="110" text-anchor="middle" font-size="9.5" fill="#5b6570">Vortex · 1 core · 4×4</text>
+  <rect x="640" y="130" width="200" height="52" rx="6" fill="#fff" stroke="#a86a00"/>
+  <text x="740" y="151" text-anchor="middle" font-size="10" font-weight="600" fill="#a86a00">mem ports · bank 0/1</text>
+  <text x="740" y="168" text-anchor="middle" font-size="9" fill="#5b6570">512-bit line · tag · byteen</text>
+  <rect x="640" y="200" width="200" height="44" rx="6" fill="#fff" stroke="#2e7d32"/>
+  <text x="740" y="218" text-anchor="middle" font-size="10" font-weight="600" fill="#2e7d32">dcr port</text>
+  <text x="740" y="234" text-anchor="middle" font-size="9" fill="#5b6570">wr addr/data · rd rsp</text>
+  <rect x="640" y="262" width="200" height="44" rx="6" fill="#fff" stroke="#1a4fa0"/>
+  <text x="740" y="280" text-anchor="middle" font-size="10" font-weight="600" fill="#1a4fa0">start / busy</text>
+
+  <!-- interfaces -->
+  <rect x="480" y="130" width="110" height="52" rx="6" fill="#fdf3e8" stroke="#a86a00"/>
+  <text x="535" y="151" text-anchor="middle" font-size="10" font-weight="600">vx_mem_if ×2</text>
+  <text x="535" y="167" text-anchor="middle" font-size="9" fill="#5b6570">per bank</text>
+  <rect x="480" y="200" width="110" height="44" rx="6" fill="#eef7ef" stroke="#2e7d32"/>
+  <text x="535" y="226" text-anchor="middle" font-size="10" font-weight="600">vx_dcr_if</text>
+  <rect x="480" y="262" width="110" height="44" rx="6" fill="#e8f0fe" stroke="#1a4fa0"/>
+  <text x="535" y="288" text-anchor="middle" font-size="10" font-weight="600">vx_ctrl_if</text>
+  <line x1="590" y1="156" x2="638" y2="156" stroke="#a86a00" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="638" y1="170" x2="592" y2="170" stroke="#a86a00" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="590" y1="222" x2="638" y2="222" stroke="#2e7d32" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="590" y1="284" x2="638" y2="284" stroke="#1a4fa0" stroke-width="2" marker-end="url(#a)"/>
+
+  <!-- env -->
+  <rect x="30" y="60" width="420" height="360" rx="10" fill="#f6f8fa" stroke="#1a4fa0" stroke-width="2"/>
+  <text x="240" y="82" text-anchor="middle" fill="#1a4fa0" font-weight="700">vx_env</text>
+
+  <rect x="50" y="100" width="180" height="70" rx="6" fill="#fff" stroke="#a86a00" stroke-width="1.5"/>
+  <text x="140" y="119" text-anchor="middle" font-size="10" font-weight="600" fill="#a86a00">vx_mem_agent ×2</text>
+  <text x="140" y="135" text-anchor="middle" font-size="9" fill="#5b6570">reactive responder</text>
+  <text x="140" y="149" text-anchor="middle" font-size="9" fill="#5b6570">+ monitor (req publish)</text>
+  <text x="140" y="163" text-anchor="middle" font-size="9" fill="#5b6570">RSP_LATENCY=4, in-order</text>
+
+  <rect x="250" y="100" width="180" height="52" rx="6" fill="#fff" stroke="#0e7d6e" stroke-width="1.5"/>
+  <text x="340" y="120" text-anchor="middle" font-size="10" font-weight="600" fill="#0e7d6e">vx_mem_model</text>
+  <text x="340" y="136" text-anchor="middle" font-size="9" fill="#5b6570">byte assoc-array RAM · load_hex</text>
+  <text x="340" y="148" text-anchor="middle" font-size="9" fill="#5b6570">n_rd / n_wr counters</text>
+
+  <rect x="50" y="190" width="180" height="56" rx="6" fill="#fff" stroke="#2e7d32" stroke-width="1.5"/>
+  <text x="140" y="210" text-anchor="middle" font-size="10" font-weight="600" fill="#2e7d32">vx_dcr_agent</text>
+  <text x="140" y="226" text-anchor="middle" font-size="9" fill="#5b6570">sequencer + driver + monitor</text>
+
+  <rect x="50" y="262" width="180" height="50" rx="6" fill="#fff" stroke="#1a4fa0" stroke-width="1.5"/>
+  <text x="140" y="282" text-anchor="middle" font-size="10" font-weight="600" fill="#1a4fa0">vx_ctrl_agent</text>
+  <text x="140" y="298" text-anchor="middle" font-size="9" fill="#5b6570">pulse_start() · wait_done(100)</text>
+
+  <rect x="250" y="190" width="180" height="90" rx="6" fill="#fff" stroke="#c62828" stroke-width="1.5"/>
+  <text x="340" y="209" text-anchor="middle" font-size="10" font-weight="600" fill="#c62828">vx_scoreboard</text>
+  <text x="340" y="226" text-anchor="middle" font-size="9" fill="#5b6570">① exit + done + n_rd</text>
+  <text x="340" y="240" text-anchor="middle" font-size="9" fill="#5b6570">② +EXPECTED golden file</text>
+  <text x="340" y="254" text-anchor="middle" font-size="9" fill="#5b6570">③ DPI-C ref (VX_HYBRID)</text>
+  <text x="340" y="268" text-anchor="middle" font-size="9" fill="#5b6570">④ simx co-sim (make cosim)</text>
+
+  <rect x="250" y="300" width="180" height="56" rx="6" fill="#fff" stroke="#6a1b9a" stroke-width="1.5"/>
+  <text x="340" y="320" text-anchor="middle" font-size="10" font-weight="600" fill="#6a1b9a">vx_coverage</text>
+  <text x="340" y="336" text-anchor="middle" font-size="9" fill="#5b6570">cg_mem · cg_dcr (COV=1)</text>
+
+  <rect x="50" y="336" width="180" height="66" rx="6" fill="#fff" stroke="#5b6570" stroke-width="1.5"/>
+  <text x="140" y="356" text-anchor="middle" font-size="10" font-weight="600">tests</text>
+  <text x="140" y="372" text-anchor="middle" font-size="9" fill="#5b6570">vx_base_test → boot seq →</text>
+  <text x="140" y="386" text-anchor="middle" font-size="9" fill="#5b6570">start → wait → flush → check</text>
+
+  <line x1="230" y1="135" x2="248" y2="130" stroke="#5b6570" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="230" y1="150" x2="248" y2="220" stroke="#c62828" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="230" y1="215" x2="248" y2="330" stroke="#6a1b9a" stroke-width="1.2" marker-end="url(#a)"/>
+
+  <!-- kernel input -->
+  <rect x="30" y="440" width="270" height="52" rx="8" fill="#fdf3e8" stroke="#a86a00" stroke-width="2"/>
+  <text x="165" y="461" text-anchor="middle" font-size="10" font-weight="600" fill="#a86a00">+KERNEL=&lt;name&gt;.hex</text>
+  <text x="165" y="478" text-anchor="middle" font-size="9" fill="#5b6570">dv/sw kernel image → mem_model.load_hex @0x8000_0000</text>
+  <line x1="200" y1="438" x2="290" y2="152" stroke="#a86a00" stroke-width="1.2" marker-end="url(#a)"/>
+
+  <rect x="330" y="440" width="260" height="52" rx="8" fill="#f0f8f6" stroke="#0e7d6e" stroke-width="2"/>
+  <text x="460" y="461" text-anchor="middle" font-size="10" font-weight="600" fill="#0e7d6e">golden refs</text>
+  <text x="460" y="478" text-anchor="middle" font-size="9" fill="#5b6570">.expected.hex · vx_ref.c (DPI) · simx ELF replay</text>
+  <line x1="440" y1="438" x2="400" y2="282" stroke="#0e7d6e" stroke-width="1.2" marker-end="url(#a)"/>
+</svg>
+<figcaption>UVM environment: two reactive memory agents share one byte-granular memory model; the DCR
+agent boots the kernel; the ctrl agent defines completion; the scoreboard stacks four independent
+check layers.</figcaption>
+</figure>
+
+<!-- ============================================================= -->
+<h2 id="agents">3 · Agents</h2>
+<h3>3.1 Memory agent (<code>vx_mem_agent</code>, ×2 — one per bank)</h3>
+<p><b>Reactive slave.</b> There is no memory "stimulus" to generate: the DUT is the master. Components:</p>
+<ul>
+  <li><code>vx_mem_model</code> (uvm_object, one instance shared by both banks via config_db): sparse
+  byte associative array; <code>load_hex()</code> ($readmemh image), <code>rd_byte/rd_word()</code> for
+  end-of-test checking; global <code>n_rd</code>/<code>n_wr</code> counters.</li>
+  <li><code>vx_mem_responder</code>: always-ready request acceptance; writes commit immediately
+  (byteen-masked); reads are queued with a due-cycle (<code>RSP_LATENCY</code> = 4) and returned
+  <b>in order</b> with the request's tag, honoring <code>mem_rsp_ready</code> backpressure.</li>
+  <li><code>vx_mem_monitor</code>: publishes every <i>accepted</i> request as a <code>vx_mem_txn</code>
+  (rw, bank, computed <b>byte address</b> per the interleave formula, 512-bit data, byteen, tag) to
+  the scoreboard and coverage.</li>
+</ul>
+<h3>3.2 DCR agent (<code>vx_dcr_agent</code>)</h3>
+<p><b>Active master.</b> Standard sequencer/driver/monitor stack over <code>vx_dcr_if</code>. The driver
+issues single-cycle write strobes; for reads it waits for <code>rsp_valid</code> and returns the data in
+the response transaction before <code>item_done</code>. The monitor feeds DCR coverage.</p>
+<h3>3.3 Control agent (<code>vx_ctrl_agent</code>)</h3>
+<p>No sequencer — two task APIs used directly by tests: <code>pulse_start()</code> (1-cycle
+<code>start</code>) and <code>wait_done(idle_confirm)</code>, which declares completion only when
+<code>busy</code> stays low for <code>idle_confirm</code> = 100 consecutive cycles (the KMU deasserts
+<code>busy</code> between launch phases — a single-edge wait false-passes).</p>
+
+<!-- ============================================================= -->
+<h2 id="seq">4 · Sequences</h2>
+<table>
+<tr><th>Sequence</th><th>Purpose</th></tr>
+<tr><td><code>vx_dcr_base_seq</code></td><td><code>dcr_write()/dcr_read()</code> helper tasks.</td></tr>
+<tr><td><code>vx_boot_seq</code></td><td>The 17-write kernel-launch programming: STARTUP_ADDR = 0x8000_0000,
+ARG = 0, grid/block/cluster dims = 1, LMEM_SIZE = 0, BLOCK_SIZE = 1, WARP_STEP_X = NUM_THREADS.
+Mirrors upstream <code>processor.cpp</code> exactly.</td></tr>
+<tr><td><code>vx_flush_seq</code></td><td>Post-run DCR <b>read</b> of <code>BASE_CACHE_FLUSH</code> (0x000)
+per core — flushes dirty dcache lines so the memory model holds final results before checking.</td></tr>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="sb">5 · Scoreboard — Four Check Layers</h2>
+<p>Each layer defeats a specific failure/false-pass mode; a run can enable any subset.</p>
+<table>
+<tr><th>#</th><th>Layer</th><th>Enabled by</th><th>What it proves</th></tr>
+<tr><td>①</td><td><b>Exit contract</b>: exit word @<code>0x8348</code> == 0, done magic
+<code>0x600DC0DE</code> @<code>0x8350</code>, live exit-write observed on the bus, and
+<code>n_rd &gt; 0</code>.</td><td>always</td><td>The kernel <i>ran</i> (fetches happened, done magic set —
+unwritten memory reads 0) and its own self-checks passed.</td></tr>
+<tr><td>②</td><td><b>Golden output file</b>: <code>+EXPECTED=&lt;file&gt;</code> with
+"<code>&lt;byte_addr&gt; &lt;word&gt;</code>" lines compared against the memory model.</td>
+<td>auto-added when <code>&lt;kernel&gt;.expected.hex</code> exists</td><td>The output region matches a
+pre-computed reference, independent of the kernel's own checking.</td></tr>
+<tr><td>③</td><td><b>DPI-C reference</b>: a host-compiled C golden model
+(<code>dv/sw/ref/vx_ref.c</code>) recomputes the output; scoreboard compares word-by-word at
+<code>OUT_ADDR = 0x8002_0000</code>.</td><td><code>HYBRID=1</code> (defines <code>VX_HYBRID</code>, xrun
+compiles <code>vx_ref.c</code>)</td><td>C ↔ SV ↔ UVM interplay: the same algorithm computed on the host
+must match what the RV32 core computed. Unknown ref name → info-level skip, not an error.</td></tr>
+<tr><td>④</td><td><b>simx co-simulation</b>: <code>make cosim</code> runs the same ELF on the simx golden
+simulator; its process rc is the exit word's low byte (0 = PASS).</td><td><code>make cosim</code>
+target</td><td>The program semantics agree with upstream's reference simulator — catches env-level bugs
+(boot, memory model) that RTL-only checking can't.</td></tr>
+</table>
+<div class="warn">The exit contract exists because the first smoke run "passed" with <b>zero instruction
+fetches</b>: <code>busy</code> blipped, memory was never read, and address 0x8348 read back 0 — which the
+naive check accepted. Layers ① were added specifically to make that impossible.</div>
+
+<!-- ============================================================= -->
+<h2 id="cov">6 · Functional Coverage</h2>
+<p><code>dv/tb/env/vx_coverage.sv</code> — sampled only under <code>COV=1</code>
+(<code>-coverage all -covoverwrite</code>):</p>
+<table>
+<tr><th>Covergroup</th><th>Coverpoints</th></tr>
+<tr><td><code>cg_mem</code> (per mem txn)</td><td>bank id; rw; address <b>region</b> bins
+(code @0x8000_0000, data/output, io_exit 0x8340–0x834F); byteen popcount buckets (writes only);
+<b>bank × rw</b> cross.</td></tr>
+<tr><td><code>cg_dcr</code> (per DCR txn)</td><td>boot register address bins (all 17 launch regs),
+cache-flush base reg, rw.</td></tr>
+</table>
+<p>Regression status: <b>cg_mem 86.7%</b>, <b>cg_dcr 100%</b> on the 7-kernel suite. Remaining cg_mem
+holes are structural at this config (e.g. sub-word byteen buckets the 512-bit line writes never produce).</p>
+
+<!-- ============================================================= -->
+<h2 id="tests">7 · Test Plan</h2>
+<p>Full per-test detail (stimulus, checks, run command) is in the
+<a href="vx_testcases.html">Test-Case Catalog</a>. Summary matrix:</p>
+<table>
+<tr><th>UVM test / target</th><th>Kernel(s)</th><th>Check layers</th><th>Objective</th></tr>
+<tr><td><code>make elab</code></td><td>—</td><td>—</td><td>Clean elaboration gate (0 errors, ~1118 instances)</td></tr>
+<tr><td><code>make vx_smoke</code> (directed SV)</td><td>asm/nop</td><td>①</td><td>Boot handshake + mem protocol pre-UVM</td></tr>
+<tr><td><code>vx_base_test</code></td><td>any (<code>KERNEL=</code>)</td><td>① (+②③ if available)</td><td>Generic boot→run→flush→check flow</td></tr>
+<tr><td><code>vx_asm_test</code></td><td>asm/self_check, asm/divergence</td><td>①</td><td>ISA self-checks; warp/thread divergence fabric</td></tr>
+<tr><td><code>vx_vecadd_test</code></td><td>c/vecadd</td><td>①②③④</td><td>Flagship hybrid test — all four layers</td></tr>
+<tr><td><code>vx_base_test HYBRID=1</code></td><td>c/memcpy_stride, c/ctrl_flow</td><td>①③</td><td>Memory patterns; control flow vs DPI golden</td></tr>
+<tr><td><code>vx_base_test</code></td><td>c/fp_ops</td><td>①④</td><td>FPNEW datapath (F-extension)</td></tr>
+<tr><td><code>make cosim</code></td><td>all ELF kernels</td><td>④</td><td>simx golden agreement</td></tr>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="build">8 · Software Build Flow</h2>
+<p><code>dv/sw/Makefile</code> (toolchain at <code>/home/user1/vortex/riscv32-gnu-toolchain</code>):</p>
+<pre><code>&lt;test&gt;.c/.S ──riscv32-unknown-elf-gcc──▶ .elf ──objcopy──▶ .bin ──bin2hex.py──▶ .hex (@80000000)
+   -march=rv32imf_zicsr -mabi=ilp32 -O2 -ffreestanding -nostdlib          └──▶ .dis (objdump)
+   -T common/link.ld  common/crt0.S
+vecadd_expected.py ──▶ vecadd.expected.hex   (golden file for layer ②)</code></pre>
+<p><code>crt0.S</code> sets <code>sp = 0x8010_0000</code>, zeroes BSS, calls <code>main</code>, writes the
+exit contract words, then <code>wsync</code> + <code>tmc x0</code>. <code>link.ld</code> places
+<code>.init</code> first at 0x8000_0000 (1 MB RAM window).</p>
+
+<!-- ============================================================= -->
+<h2 id="run">9 · How to Run</h2>
+<p>From <code>RTL/vortex/dv/sim</code> (csh, <code>source ~/cshrc</code> for Xcelium 25.03):</p>
+<pre><code>make -C ../sw                                   # build all kernels (.elf/.hex/.dis + expected files)
+
+make elab                                       # compile + elaborate only
+make vx_smoke                                   # directed SV smoke (asm/nop)
+make sim TESTNAME=vx_base_test                  # UVM, default KERNEL=asm/nop
+make sim TESTNAME=vx_asm_test    KERNEL=asm/self_check
+make sim TESTNAME=vx_base_test   KERNEL=asm/divergence
+make sim TESTNAME=vx_vecadd_test KERNEL=c/vecadd            # +EXPECTED auto-added
+make sim TESTNAME=vx_base_test   KERNEL=c/vecadd HYBRID=1   # + DPI-C reference (layer ③)
+make sim TESTNAME=vx_base_test   KERNEL=c/fp_ops COV=1 WAVES=1
+make cosim KERNEL=c/vecadd                      # simx golden replay (layer ④)</code></pre>
+<table>
+<tr><th>Knob</th><th>Default</th><th>Effect</th></tr>
+<tr><td><code>TESTNAME</code></td><td><code>vx_base_test</code></td><td>UVM test (<code>+UVM_TESTNAME</code>)</td></tr>
+<tr><td><code>KERNEL</code></td><td><code>asm/nop</code></td><td>kernel image under <code>dv/sw/tests/</code>; <code>+EXPECTED</code> auto-added if <code>&lt;KERNEL&gt;.expected.hex</code> exists</td></tr>
+<tr><td><code>HYBRID</code></td><td>0</td><td><code>1</code> → define <code>VX_HYBRID</code>, compile <code>vx_ref.c</code>, pass <code>+REF=&lt;kernel&gt;</code></td></tr>
+<tr><td><code>COV</code></td><td>0</td><td><code>1</code> → <code>-coverage all -covoverwrite</code></td></tr>
+<tr><td><code>WAVES</code></td><td>0</td><td><code>1</code> → record waves via <code>wave.tcl</code></td></tr>
+</table>
+<div class="note">Without <code>COV=1</code>, Xcelium prints benign <code>COVNSM</code> notices for the
+covergroups — expected. And remember the ghost-error trap: <code>rm -rf xcelium.d</code> before trusting
+a surprising elaboration failure.</div>
+
+<!-- ============================================================= -->
+<h2 id="passfail">10 · Pass/Fail Criteria</h2>
+<ul>
+  <li><b>PASS</b> = simulation completes (no 2M-cycle watchdog), <code>UVM_ERROR : 0</code>, and every
+  enabled check layer reports its <code>RESULT: … PASSED</code> line
+  (<code>make cosim</code>: <code>COSIM: [OK]</code>).</li>
+  <li><b>FAIL</b> = any <code>UVM_ERROR</code>: missing done magic, zero fetches, no exit write, non-zero
+  exit code (the code identifies the failing self-check), golden-file or DPI-ref word mismatch (address +
+  got/expect printed), or watchdog timeout.</li>
+</ul>
+<p>Final regression (2026-07): <code>vx_smoke</code> OK; 7/7 kernels <code>UVM_ERROR : 0</code> with
+<code>HYBRID=1</code>; 6/6 ELF kernels <code>cosim</code> OK; coverage cg_mem 86.7% / cg_dcr 100%.</p>
+
+</div>
+</body>
+</html>

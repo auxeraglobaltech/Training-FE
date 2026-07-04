@@ -1,0 +1,23 @@
+/build*
+/.*
+!/.gitignore
+
+# --- [dv] simulation / build artifacts (regenerable) ---
+dv/xcelium.d/
+dv/sim/xcelium.d/
+third_party/ramulator/build/
+third_party/ramulator/ext/
+third_party/**/*.so
+*.log
+*.history
+*.diag
+waves.shm/
+dv/sw/**/*.elf
+dv/sw/**/*.bin
+
+# --- [dv] heavy upstream payloads unused by the 1-core DV env (see SOURCE.md) ---
+hw/syn/libs/cln28hpm/
+hw/syn/libs/cln28hpc/
+tests/opencl/
+tests/graphics/
+tests/vulkan/
