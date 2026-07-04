@@ -85,16 +85,25 @@ axi_smoke:
 	grep -iE "SMOKE:|\[OK\]|\[FAIL\]|\[STALL\]|\[WB\]|\[WRBR\]|\[PRB\]|AW\+W|B received|R received|calibration|\*E,|\*F," $${RUN}/xrun.log | tail -60 || true
 
 # -------------------------------------------------------
-# UVM simulation (Wishbone env): make sim TESTNAME=ddr_sanity_test [COV=1]
+# UVM simulation (Wishbone env): make sim TESTNAME=ddr_sanity_test [COV=1] [WAVES=1]
+#   WAVES=1 dumps a full-hierarchy SHM database into the run dir (waves.shm);
+#   open it with:  simvision <run_dir>/waves.shm
 # -------------------------------------------------------
 sim:
 	@TS=$$(date +%Y%m%d_%H%M%S); RUN=$(ROOT)/dv/sim/runs/sim_$${TS}_$(TESTNAME)_seed$(SEED); mkdir -p $${RUN}; \
 	echo "=== UberDDR3 Wishbone UVM: $(TESTNAME) ==="; echo "  run dir: $${RUN}"; \
+	IN=""; \
+	if [ "$(WAVES)" = "1" ]; then \
+	  printf 'database -open waves -into %s/waves.shm -default\nprobe -create -shm -all -depth all -database waves\nrun\nexit\n' "$${RUN}" > $${RUN}/wave.tcl; \
+	  IN="-input $${RUN}/wave.tcl"; \
+	  echo "  waves: $${RUN}/waves.shm"; \
+	fi; \
 	cd $(ROOT) && $(XRUN) $(COMMON_OPTS) $(UVM_OPTS) $(COV_OPTS) \
 	  -f $(ROOT)/dv/sim/filelist_uvm.f \
 	  -top tb_top_wb_uvm \
 	  +UVM_TESTNAME=$(TESTNAME) \
 	  +ntb_random_seed=$(SEED) \
+	  $${IN} \
 	  -log $${RUN}/xrun.log; \
 	echo ""; echo "--- result ($${RUN}/xrun.log) ---"; \
 	grep -iE "RESULT|SCOREBOARD|UVM_ERROR :|UVM_FATAL :|calibration|\*E,|\*F," $${RUN}/xrun.log | tail -20 || true
