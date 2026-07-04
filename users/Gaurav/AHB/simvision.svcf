@@ -1,0 +1,100 @@
+# SimVision Command Script (Sat Jun 27 07:13:08 AM EDT 2026)
+#
+# Version 15.20.p001
+#
+# You can restore this configuration with:
+#
+#     simvision -input simvision.svcf
+#  or simvision -input simvision.svcf database1 database2 ...
+#
+
+
+#
+# Preferences
+#
+preferences set plugin-enable-svdatabrowser-new 1
+preferences set toolbar-Standard-WaveWindow {
+  usual
+  position -pos 1
+}
+preferences set plugin-enable-groupscope 0
+preferences set plugin-enable-interleaveandcompare 0
+preferences set plugin-enable-waveformfrequencyplot 0
+preferences set whats-new-dont-show-at-startup 1
+
+#
+# Databases
+#
+array set dbNames ""
+set dbNames(realName1) [ database require wave -hints {
+	file ./wave.shm/wave.trn
+	file /home/user6/Documents/Gaurav/Repo/Training-FE/users/Gaurav/AHB/wave.shm/wave.trn
+}]
+if {$dbNames(realName1) == ""} {
+    set dbNames(realName1) wave
+}
+#
+# Groups
+#
+catch {group new -name {Group 1} -overlay 0}
+group using {Group 1}
+group set -overlay 0
+group set -comment {}
+group clear 0 end
+
+group insert \
+    [subst  {$dbNames(realName1)::[format {top.dut.HCLK}]} ] \
+    [subst  {$dbNames(realName1)::[format {top.dut.HRESETn}]} ] \
+    [subst  {$dbNames(realName1)::[format {top.dut.HADDR[31:0]}]} ] \
+    [subst  {$dbNames(realName1)::[format {top.dut.HWDATA[31:0]}]} ] \
+    [subst  {$dbNames(realName1)::[format {top.dut.HRESETn}]} ] \
+    [subst  {$dbNames(realName1)::[format {top.dut.HRESP[1:0]}]} ] \
+    [subst  {$dbNames(realName1)::[format {top.dut.HREADYin}]} ] \
+    [subst  {$dbNames(realName1)::[format {top.dut.HREADYout}]} ] \
+    [subst  {$dbNames(realName1)::[format {top.dut.HWRITE}]} ] \
+    [subst  {$dbNames(realName1)::[format {top.dut.state[1:0]}]} ] \
+    [subst  {$dbNames(realName1)::[format {top.dut.HSEL}]} ] \
+    [subst  {$dbNames(realName1)::[format {top.dut.HSIZE[2:0]}]} ] \
+    [subst  {$dbNames(realName1)::[format {top.dut.HTRANS[1:0]}]} ]
+
+#
+# Mnemonic Maps
+#
+mmap new -reuse -name {Boolean as Logic} -radix %b -contents {{%c=FALSE -edgepriority 1 -shape low}
+{%c=TRUE -edgepriority 1 -shape high}}
+mmap new -reuse -name {Example Map} -radix %x -contents {{%b=11???? -bgcolor orange -label REG:%x -linecolor yellow -shape bus}
+{%x=1F -bgcolor red -label ERROR -linecolor white -shape EVENT}
+{%x=2C -bgcolor red -label ERROR -linecolor white -shape EVENT}
+{%x=* -label %x -linecolor gray -shape bus}}
+
+#
+# Waveform windows
+#
+if {[catch {window new WaveWindow -name "Waveform 1" -geometry 1748x675+64+74}] != ""} {
+    window geometry "Waveform 1" 1748x675+64+74
+}
+window target "Waveform 1" on
+waveform using {Waveform 1}
+waveform sidebar select designbrowser
+waveform set \
+    -primarycursor TimeA \
+    -signalnames name \
+    -signalwidth 175 \
+    -units ns \
+    -valuewidth 75
+waveform baseline set -time 0
+
+
+set groupId0 [waveform add -groups {{Group 1}}]
+
+
+waveform xview limits 0 25ns
+
+#
+# Waveform Window Links
+#
+
+#
+# Layout selection
+#
+
