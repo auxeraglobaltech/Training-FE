@@ -34,7 +34,7 @@ ifeq ($(COV),1)
 COV_OPTS := -coverage all -covoverwrite
 endif
 
-.PHONY: wb wb_smoke axi_smoke sim clean
+.PHONY: wb wb_smoke axi_smoke sim waves clean
 
 # -------------------------------------------------------
 # Phase 0 — Wishbone bring-up: existing Micron testbench in Xcelium.
@@ -107,6 +107,22 @@ sim:
 	  -log $${RUN}/xrun.log; \
 	echo ""; echo "--- result ($${RUN}/xrun.log) ---"; \
 	grep -iE "RESULT|SCOREBOARD|UVM_ERROR :|UVM_FATAL :|calibration|\*E,|\*F," $${RUN}/xrun.log | tail -20 || true
+
+# -------------------------------------------------------
+# Open a waveform DB in SimVision WITH the design snapshot, so the Source and
+# Schematic browsers work (avoids the PPESNAP "Unable to start the Post
+# Processing Environment" error) and instance pins show real input/output
+# direction. Defaults to the newest run; override with WAVE_RUN=<run dir>.
+#   make waves
+#   make waves WAVE_RUN=dv/sim/runs/sim_..._ddr_walk_test_seedNNN
+# -------------------------------------------------------
+WAVE_RUN ?= $(shell ls -dt $(ROOT)/dv/sim/runs/sim_*/ 2>/dev/null | head -1)
+waves:
+	@CDS=$$(find $(ROOT)/xcelium.d -name cds.lib -path '*run.*.d*' 2>/dev/null | head -1); \
+	if [ -z "$(WAVE_RUN)" ] || [ ! -e "$(WAVE_RUN)/waves.shm" ]; then \
+	  echo "no waves.shm found in '$(WAVE_RUN)'. Run:  make sim TESTNAME=<t> WAVES=1"; exit 1; fi; \
+	echo "opening $(WAVE_RUN)/waves.shm  (snapshot worklib.tb_top_wb_uvm:sv)"; \
+	cd $(ROOT) && simvision -64 -cdslib $${CDS} -snapshot worklib.tb_top_wb_uvm:sv $(WAVE_RUN)/waves.shm &
 
 # -------------------------------------------------------
 clean:
