@@ -49,6 +49,7 @@ wb:
 	  -top ddr3_dimm_micron_sim \
 	  -input $(ROOT)/dv/sim/run_exit.tcl \
 	  +ntb_random_seed=$(SEED) \
+	  +model_data+$(ROOT)/testbench/model_data \
 	  -log $${RUN}/xrun.log $${WV}; \
 	echo ""; echo "--- result ($${RUN}/xrun.log) ---"; \
 	grep -iE "SUMMARY|Number of (Writes|Reads|Success|Fails|Injected)|correct_read|wrong_read|calib|\*E,|\*F," $${RUN}/xrun.log | tail -25 || true
@@ -64,6 +65,7 @@ wb_smoke:
 	  -top tb_top_wb \
 	  -input $(ROOT)/dv/sim/run_exit.tcl \
 	  +ntb_random_seed=$(SEED) \
+	  +model_data+$(ROOT)/testbench/model_data \
 	  -log $${RUN}/xrun.log; \
 	echo ""; echo "--- result ($${RUN}/xrun.log) ---"; \
 	grep -iE "SMOKE:|\[OK\]|\[FAIL\]|\[STALL\]|calibration|\*E,|\*F," $${RUN}/xrun.log | tail -30 || true
@@ -80,6 +82,7 @@ axi_smoke:
 	  -top tb_top_axi \
 	  -input $(ROOT)/dv/sim/run_exit.tcl \
 	  +ntb_random_seed=$(SEED) \
+	  +model_data+$(ROOT)/testbench/model_data \
 	  -log $${RUN}/xrun.log $${WV}; \
 	echo ""; echo "--- result ($${RUN}/xrun.log) ---"; \
 	grep -iE "SMOKE:|\[OK\]|\[FAIL\]|\[STALL\]|\[WB\]|\[WRBR\]|\[PRB\]|AW\+W|B received|R received|calibration|\*E,|\*F," $${RUN}/xrun.log | tail -60 || true
@@ -103,6 +106,7 @@ sim:
 	  -top tb_top_wb_uvm \
 	  +UVM_TESTNAME=$(TESTNAME) \
 	  +ntb_random_seed=$(SEED) \
+	  +model_data+$(ROOT)/testbench/model_data \
 	  $${IN} \
 	  -log $${RUN}/xrun.log; \
 	echo ""; echo "--- result ($${RUN}/xrun.log) ---"; \
@@ -128,3 +132,4 @@ waves:
 clean:
 	rm -rf $(ROOT)/dv/sim/runs $(ROOT)/xcelium.d $(ROOT)/.simvision \
 	       $(ROOT)/waves.shm $(ROOT)/*.log $(ROOT)/*.history $(ROOT)/dv/sim/*.log
+	find $(ROOT)/testbench/model_data -not -name '.gitkeep' -not -name '.gitignore' -not -type d -delete
