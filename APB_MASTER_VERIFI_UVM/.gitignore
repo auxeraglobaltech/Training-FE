@@ -1,0 +1,24 @@
+# Xcelium
+xcelium.d/
+**/xcelium.d/
+
+# Waveforms
+wave.shm/
+**/wave.shm/
+
+# SimVision
+.simvision/
+**/.simvision/
+
+# Logs
+*.log
+*.history
+
+# Vim swap files
+*.swp
+
+# Lock files
+*.lock
+
+# Simulation results
+SIM/results/
