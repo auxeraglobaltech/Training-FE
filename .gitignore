@@ -1,0 +1,6 @@
+*.shm
+*.log
+xcelium.d
+*.history
+*.simvision
+*.swp
