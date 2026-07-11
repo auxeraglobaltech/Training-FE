@@ -356,3 +356,96 @@ class ahb_write_read_seq extends ahb_base_sequence;
    endtask
 
 endclass
+
+class ahb_wrap4_write_seq extends ahb_base_sequence;
+
+   `uvm_object_utils(ahb_wrap4_write_seq)
+
+   ahb_xtn req;
+
+   int unsigned beats;
+   int unsigned increment;
+   int unsigned wrap_size;
+
+   bit [31:0] addr;
+   bit [31:0] base_addr;
+   bit [31:0] next_addr;
+
+   function new(string name = "ahb_wrap4_write_seq");
+      super.new(name);
+   endfunction
+
+   task body();
+
+      beats = 4;
+
+      req = ahb_xtn::type_id::create("req");
+
+      start_item(req);
+
+      assert(req.randomize() with {
+
+         HSEL      == 1;
+         HREADYin  == 1;
+         HWRITE    == 1;
+
+         HBURST    == 3'b010;      // WRAP4
+
+         HSIZE inside {3'b000,
+                       3'b001,
+                       3'b010};
+
+         HTRANS    == 2'b10;       // NONSEQ
+
+         HADDR % (1 << HSIZE) == 0;
+
+      });
+
+      finish_item(req);
+
+      increment = (1 << req.HSIZE);
+
+      wrap_size = beats * increment;
+
+      base_addr = req.HADDR & ~(wrap_size - 1);
+
+      addr = req.HADDR;
+
+      for(int i = 1; i < beats; i++) begin
+
+         next_addr = addr + increment;
+
+         if(next_addr >= (base_addr + wrap_size))
+            next_addr = base_addr;
+
+         req = ahb_xtn::type_id::create($sformatf("req_%0d", i));
+
+         start_item(req);
+
+         assert(req.randomize() with {
+
+            HSEL      == 1;
+
+            HREADYin  == 1;
+
+            HWRITE    == 1;
+
+            HBURST    == 3'b010;
+
+            HSIZE     == local::req.HSIZE;
+
+            HTRANS    == 2'b11;      // SEQ
+
+            HADDR     == next_addr;
+
+         });
+
+         finish_item(req);
+
+         addr = next_addr;
+
+      end
+
+   endtask
+
+endclass

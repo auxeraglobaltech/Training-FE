@@ -60,7 +60,7 @@ class ahb_monitor extends uvm_monitor;
 
                 ap.write(tr);
 
-                `uvm_info(get_type_name(),tr.convert2string(),UVM_MEDIUM)
+                `uvm_info(get_type_name(),tr.convert2string(),UVM_LOW)
 
             	end
 

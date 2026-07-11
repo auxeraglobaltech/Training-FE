@@ -34,7 +34,7 @@ class ahb_driver extends uvm_driver #(ahb_xtn);
    endtask
 
    task drive_transfer(ahb_xtn req);
-
+//`ifndef SEQ
         @(vif.drv_cb);
 
         vif.drv_cb.HSEL      <= req.HSEL;
@@ -53,9 +53,14 @@ class ahb_driver extends uvm_driver #(ahb_xtn);
         `uvm_info(get_type_name(),
                   $sformatf("Driving Transaction:\n%s",req.convert2string()),UVM_MEDIUM)
 
-        //@(vif.drv_cb);
+        @(vif.drv_cb);
 	//@(vif.drv_cb);
+//`else
 
+
+
+
+//`endif
 
     endtask
   

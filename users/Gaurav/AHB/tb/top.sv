@@ -52,10 +52,10 @@ module top;
    		run_test();
   	end
  
-  initial
+ /* initial
 	begin
 		$shm_open("wave.shm");  
 		$shm_probe("ACTMF");
 	end
-
+*/
 endmodule

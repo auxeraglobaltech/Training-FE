@@ -50,7 +50,7 @@ class ahb_xtn extends uvm_sequence_item;
     function string convert2string();
 
         return $sformatf(
-            "HSEL=%0d HADDR=%h HTRANS=%0b HWRITE=%0d HSIZE=%0d HBURST=%0d HWDATA=%h HREADYin=%0d HRESP=%0b HREADYout=%0d HRDATA=%h",
+            "HSEL=%0d HADDR=%0h HTRANS=%0b HWRITE=%0d HSIZE=%0d HBURST=%0d HWDATA=%0h HREADYin=%0d HRESP=%0b HREADYout=%0d HRDATA=%0h",
             HSEL,
             HADDR,
             HTRANS,

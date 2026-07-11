@@ -114,6 +114,8 @@ class ahb_idle_test extends ahb_base_test;
 
       seq.start(env.agent.seqr);
 
+	#50ns;
+
       phase.drop_objection(this);
 
    endtask
@@ -241,4 +243,28 @@ class ahb_write_read_test extends ahb_base_test;
 
 endclass
 
+class ahb_wrap4_write_test extends ahb_base_test;
 
+   `uvm_component_utils(ahb_wrap4_write_test)
+
+   ahb_wrap4_write_seq seq;
+
+   function new(string name="ahb_wrap4_write_test", uvm_component parent=null);
+      super.new(name,parent);
+   endfunction
+
+   task run_phase(uvm_phase phase);
+
+      phase.raise_objection(this);
+
+      seq = ahb_wrap4_write_seq::type_id::create("seq");
+
+      seq.start(env.agent.seqr);
+
+      #20;
+
+      phase.drop_objection(this);
+
+   endtask
+
+endclass
