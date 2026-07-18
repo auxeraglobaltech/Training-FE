@@ -1,0 +1,38 @@
+
+module apb_assertions
+(
+    input logic        pclk,
+    input logic        presetn,
+
+    input logic        transfer,
+    input logic        read,
+    input logic        write,
+
+    input logic        psel,
+    input logic        penable,
+    input logic        pwrite,
+
+    input logic        pready,
+    input logic        pslverr,
+
+    input logic [31:0] paddr,
+    input logic [31:0] pwdata,
+    input logic [31:0] prdata
+);
+
+    //=========================================================
+    // Property 1 : PENABLE must never be HIGH unless PSEL is HIGH
+    //=========================================================
+
+    property penable_requires_psel;
+        @(posedge pclk)
+        disable iff(!presetn)
+        penable |-> psel;
+    endproperty
+
+    apb_penable_requires_psel :
+        assert property(penable_requires_psel)
+        else
+            $error("[APB_ASSERT] PENABLE asserted without PSEL.");
+
+endmodule
