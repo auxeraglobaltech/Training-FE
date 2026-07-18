@@ -1,79 +1,129 @@
-
-import uvm_pkg::*;
-import apb_pkg::*;
-`include "uvm_macros.svh"
+`timescale 1ns/1ps
 
 module top;
-	
-	logic pclk; 
-	always #5 pclk = ~pclk;
 
-//interface
+    import uvm_pkg::*;
+    import apb_pkg::*;
 
-	apb_if apb_vif(pclk);
+    parameter ADDR_WIDTH = 32;
+    parameter DATA_WIDTH = 32;
 
-initial begin
-	pclk = 0;
+    // Clock Generation
 
-	apb_vif.presetn = 0;
+    logic pclk;
 
-	#20;
-	apb_vif.presetn = 1;
+    initial begin
+        pclk = 0;
+        forever #5 pclk = ~pclk;
+    end
 
-end
+    // Interface
 
-//DUT INSTANTIATION
+    apb_interface #(ADDR_WIDTH, DATA_WIDTH) vif(pclk);
 
-	apb_master dut(
-		.pclk(apb_vif.pclk),
-		.presetn(apb_vif.presetn),
+    // DUT INSTANTIATION
 
-		.transfer(apb_vif.transfer),
-		.read(apb_vif.read),
-		.write(apb_vif.write),
+    apb_master #(
+        .ADDR_WIDTH (ADDR_WIDTH),
+        .DATA_WIDTH (DATA_WIDTH)
+    ) dut (
 
-		.apb_paddr(apb_vif.apb_paddr),
-		.apb_write_data(apb_vif.apb_write_data),
+        .pclk                (pclk),
+        .presetn             (vif.presetn),
 
-		.prdata(apb_vif.prdata),
-		.pready(apb_vif.pready),
-		.pslverr(apb_vif.pslverr),
+        .transfer            (vif.transfer),
+        .read                (vif.read),
+        .write               (vif.write),
+        .apb_paddr           (vif.apb_paddr),
+        .apb_write_data      (vif.apb_write_data),
 
-		.psel(apb_vif.psel),
-		.penable(apb_vif.penable),
-		.pwrite(apb_vif.pwrite),
+        .prdata              (vif.prdata),
+        .pready              (vif.pready),
+        .pslverr             (vif.pslverr),
 
-		.paddr(apb_vif.paddr),
-		.pwdata(apb_vif.pwdata),
+        .psel                (vif.psel),
+        .pwrite              (vif.pwrite),
+        .penable             (vif.penable),
+        .paddr               (vif.paddr),
+        .pwdata              (vif.pwdata),
 
-		.apb_read_data_out(apb_vif.apb_read_data_out),
-		.apb_read_data_valid(apb_vif.apb_read_data_valid)
-	);
+        .apb_read_data_out   (vif.apb_read_data_out),
+        .apb_read_data_valid (vif.apb_read_data_valid)
+    );
 
-//slave response
+    // Reset
 
-assign apb_vif.pready = 1'b1;
-assign apb_vif.pslverr = 1'b0;
-assign apb_vif.prdata = 32'h0;
+    initial begin
 
+        vif.presetn = 0;
 
-//UVM START
+        // Master inputs
+        vif.transfer       = 0;
+        vif.read           = 0;
+        vif.write          = 0;
+        vif.apb_paddr      = 0;
+        vif.apb_write_data = 0;
 
-initial begin
+        // Slave outputs
+        vif.pready  = 0;
+        vif.pslverr = 0;
+        vif.prdata  = 32'h0;
 
-	uvm_config_db #(virtual apb_if) ::set(
-		null,
-		"*",
-		"vif",
-		apb_vif
-	);
+        #20;
+        vif.presetn = 1;
 
-	run_test("apb_test");
-end
+    end
 
+    // Simple APB Slave Model
 
-initial begin
-$shm_open("wave.shm");  
-$shm_probe("ACTMF");
-end
+    always @(posedge pclk or negedge vif.presetn) begin
+
+        if (!vif.presetn) begin
+
+            vif.pready  <= 0;
+            vif.pslverr <= 0;
+            vif.prdata  <= 32'h0;
+
+        end
+        else begin
+
+            // Default every cycle
+            vif.pready  <= 0;
+            vif.pslverr <= 0;
+
+            // ACCESS phase
+            if (vif.psel && vif.penable) begin
+
+                // Complete transfer
+                vif.pready <= 1;
+
+                // Dummy read data
+                if (!vif.pwrite)
+                    vif.prdata <= 32'h1234_5678;
+
+            end
+
+        end
+
+    end
+
+    // UVM Configuration
+
+    initial begin
+
+        uvm_config_db #(virtual apb_interface)::set(
+            null,
+            "*",
+            "vif",
+            vif
+        );
+
+        run_test("apb_random_test");
+
+    end
+    initial begin
+	$shm_open("wave.shm");  
+	$shm_probe("ACTMF");
+    end
+
 endmodule

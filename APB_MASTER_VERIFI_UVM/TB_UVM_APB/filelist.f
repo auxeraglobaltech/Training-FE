@@ -1,6 +1,6 @@
-      +incdir+../TB_UVM_APB
++incdir+./tb
 
-../RTL_APB/APB_master.sv
-../TB_UVM_APB/apb_interface.sv
-../TB_UVM_APB/apb_pkg.sv
-../TB_UVM_APB/top.sv
+./rtl/apb_master.sv
+apb_interface.sv
+apb_pkg.sv
+top.sv

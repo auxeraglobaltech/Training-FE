@@ -1,80 +1,67 @@
-//interface
-// -- is a construct that bundles all the signals required for communication between DUT and TB into single container,
-// simplyfying connectivity and reducing port declartion,
-// can also have clocking blocks , modport and task and functions.
-
-interface apb_if #(
+interface apb_interface #(
 	parameter ADDR_WIDTH = 32,
-	parameter DATA_WIDTH = 32
-	)(input logic pclk);
-
-	//global signals
+	parameter DATA_WIDTH = 32) (
 	
-	logic presetn;
+	input logic pclk);
 
-	//control signals
-	
-	logic transfer;
-	logic read;
-	logic write;
-	logic [ADDR_WIDTH -1 :0] apb_paddr;
-	logic [DATA_WIDTH -1 :0] apb_write_data;
+//logic pclk;
+logic presetn;
 
-	//slave response
-	
-	logic [DATA_WIDTH-1 :0] prdata;
-	logic pready;
-	logic pslverr;
-	
-	//APB OUTPUT SIGNALS
-	
-	logic psel;
-	logic penable;
-	logic pwrite;
-	logic [ADDR_WIDTH-1 :0] paddr;
-	logic [DATA_WIDTH-1 :0] pwdata;
+logic transfer;
+logic write;
+logic read;
+logic [ADDR_WIDTH -1 :0] apb_paddr;
+logic [DATA_WIDTH -1 :0] apb_write_data;
 
-	//read response
-	
-	logic [DATA_WIDTH -1 :0] apb_read_data_out;
-	logic apb_read_data_valid;
-	
-	logic [DATA_WIDTH -1:0] mem [0:255];
+logic [DATA_WIDTH -1 :0] prdata;
+logic pready;
+logic pslverr;
 
+logic psel;
+logic penable;
+logic pwrite;
+logic [ADDR_WIDTH -1 :0] paddr;
+logic [DATA_WIDTH -1 :0] pwdata;
 
-//clocking block
-//responsibilites are: drive stimulus to DUT, synchronize with DUT clock
+logic [DATA_WIDTH-1:0] apb_read_data_out;
+logic apb_read_data_valid;
 
-//"All signal sampling and driving performed through this clocking block 
-//will be synchronized with the positive edge of pclk."
+//driver clocking block
+//it defines -- how the driver accesses signals on every positive edge. -- to
+//prevent race condition.
 
 clocking drv_cb @(posedge pclk);
+
 	default input #1step output #0;
 
-	//DRIVER --> DUT
-
 	output transfer;
-	output write;
-	output read;
-	output apb_paddr;
-	output apb_write_data;
-	
-	//SLAVE --> DRIVER
-	
-/*	input pready;
-	input pslverr;
-	input prdata;
-*/
+        output write;	
+        output read;	
+        output apb_paddr;	
+        output apb_write_data;
+
+	input apb_read_data_out;
+	input apb_read_data_valid;
+
 endclocking
 
+clocking slave_cb @(posedge pclk);
 
+	default input #1step output #0;
+	input  psel;
+        input  penable;
+        input  pwrite;
+        input  paddr;
+        input  pwdata;
 
+	output pready;
+	output pslverr;
+	output prdata;
 
-  // DUT Modport
+endclocking
 
-    modport DUT (
-
-        input  pclk,
+modport DUT (
+	input  pclk,
         input  presetn,
 
         input  transfer,
@@ -93,9 +80,47 @@ endclocking
         output paddr,
         output pwdata,
 
-	output mem,
         output apb_read_data_out,
         output apb_read_data_valid
+	);
+
+modport DRIVER(
+	clocking drv_cb,
+	input pclk,
+	input presetn
+	);
+
+modport SLAVE(
+        clocking slave_cb,
+        input pclk,
+        input presetn
     );
 
-  endinterface
+ modport MONITOR(
+
+        input pclk,
+        input presetn,
+
+        input transfer,
+        input read,
+        input write,
+        input apb_paddr,
+        input apb_write_data,
+
+        input psel,
+        input penable,
+        input pwrite,
+        input paddr,
+        input pwdata,
+
+        input prdata,
+        input pready,
+        input pslverr,
+
+        input apb_read_data_out,
+        input apb_read_data_valid
+
+    );
+
+endinterface
+

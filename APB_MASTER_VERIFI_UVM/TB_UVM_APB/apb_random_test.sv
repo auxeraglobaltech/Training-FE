@@ -1,11 +1,11 @@
-class apb_write_test extends uvm_test;
+class apb_random_test extends uvm_test;
 
-    `uvm_component_utils(apb_write_test)
+    `uvm_component_utils(apb_random_test)
 
     apb_env env;
-    apb_write_seq seq;
+    apb_random_seq seq;
 
-    function new(string name = "apb_write_test",
+    function new(string name = "apb_random_test",
                  uvm_component parent);
         super.new(name, parent);
     endfunction
@@ -23,10 +23,10 @@ class apb_write_test extends uvm_test;
         phase.raise_objection(this);
 
         `uvm_info(get_type_name(),
-                  "Starting APB Write Test",
+                  "Starting APB Random Test",
                   UVM_LOW)
 
-        seq = apb_write_seq::type_id::create("seq");
+        seq = apb_random_seq::type_id::create("seq");
 
         seq.start(env.agt.seqr);
 
