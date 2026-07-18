@@ -1,0 +1,13 @@
+/tools/cadence_march2021/XCELIUM2009/tools.lnx86/inca/bin/64bit/xmsim
+Obtained 11 stack frames.
+/tools/cadence_march2021/XCELIUM2009/tools.lnx86/inca/bin/64bit/../../../lib/64bit/libcbreakpad.so(_Z13use_backtracev+0x9d) [0x7f865be6aae9]
+/tools/cadence_march2021/XCELIUM2009/tools.lnx86/inca/bin/64bit/../../../lib/64bit/libcbreakpad.so(cbpad_generate_dump_on_demand+0x66) [0x7f865be6ae3c]
+xmsim() [0x1793e5c]
+xmsim(serror+0x95) [0x1795565]
+xmsim() [0xad8a5c]
+/lib64/libpthread.so.0(+0xf630) [0x7f865cf1f630]
+/tools/cadence_march2021/XCELIUM2009/tools/lib/64bit/libtbbshm.so(_ZN6tbbshm16ProbeQueueFilter14AddTranToQueueE8TranTypePvPhiimS2_b+0x159) [0x7f864e9ec2a9]
+/tools/cadence_march2021/XCELIUM2009/tools/lib/64bit/libtbbshm.so(_Z34tbbshm_create_probe_transition_cppPvPhiim8TranTypeS_+0x55) [0x7f864e9e4a75]
+xmsim() [0xd1720d]
+xmsim() [0xd9d349]
+[0x5b92e71]
