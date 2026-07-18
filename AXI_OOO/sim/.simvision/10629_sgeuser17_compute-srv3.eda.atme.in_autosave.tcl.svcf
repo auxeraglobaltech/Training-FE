@@ -1,0 +1,163 @@
+
+#
+# Preferences
+#
+preferences set plugin-enable-svdatabrowser-new 1
+preferences set toolbar-txe_waveform_toggle-WaveWindow {
+  usual
+  shown 0
+}
+preferences set toolbar-Standard-WaveWindow {
+  usual
+  position -pos 1
+}
+preferences set plugin-enable-groupscope 0
+preferences set plugin-enable-interleaveandcompare 0
+preferences set plugin-enable-waveformfrequencyplot 0
+preferences set savedlg-simulator ppe
+preferences set whats-new-dont-show-at-startup 1
+
+#
+# Databases
+#
+database require wave -search {
+	./wave.shm/wave.trn
+	/home/sgeuser17/Documents/user1/AXI_OOO/sim/wave.shm/wave.trn
+}
+
+#
+# Mnemonic Maps
+#
+mmap new  -reuse -name {Boolean as Logic} -radix %b -contents {{%c=FALSE -edgepriority 1 -shape low}
+{%c=TRUE -edgepriority 1 -shape high}}
+mmap new  -reuse -name {Example Map} -radix %x -contents {{%b=11???? -bgcolor orange -label REG:%x -linecolor yellow -shape bus}
+{%x=1F -bgcolor red -label ERROR -linecolor white -shape EVENT}
+{%x=2C -bgcolor red -label ERROR -linecolor white -shape EVENT}
+{%x=* -label %x -linecolor gray -shape bus}}
+
+#
+# Waveform windows
+#
+if {[catch {window new WaveWindow -name "Waveform 1" -geometry 1920x962+-1+34}] != ""} {
+    window geometry "Waveform 1" 1920x962+-1+34
+}
+window target "Waveform 1" on
+waveform using {Waveform 1}
+waveform sidebar select designbrowser
+waveform set \
+    -primarycursor TimeA \
+    -signalnames name \
+    -signalwidth 175 \
+    -units ps \
+    -valuewidth 75
+waveform baseline set -time 442ns
+
+set id [waveform add -signals  {
+	wave::top.vif.axi_aclk
+	} ]
+set id [waveform add -signals  {
+	wave::top.vif.axi_areset_n
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_awaddr[31:0]}
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_awlen[7:0]}
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_awid[3:0]}
+	} ]
+set id [waveform add -signals  {
+	wave::top.vif.axi_awvalid
+	} ]
+set id [waveform add -signals  {
+	wave::top.vif.axi_awready
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_awburst[1:0]}
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_wdata[31:0]}
+	} ]
+set id [waveform add -signals  {
+	wave::top.vif.axi_wvalid
+	} ]
+set id [waveform add -signals  {
+	wave::top.vif.axi_wready
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_wstrb[3:0]}
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_wid[3:0]}
+	} ]
+set id [waveform add -signals  {
+	wave::top.vif.axi_wlast
+	} ]
+set id [waveform add -signals  {
+	wave::top.vif.axi_bready
+	} ]
+set id [waveform add -signals  {
+	wave::top.vif.axi_bvalid
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_bresp[1:0]}
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_bid[3:0]}
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_araddr[31:0]}
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_arlen[7:0]}
+	} ]
+set id [waveform add -signals  {
+	wave::top.vif.axi_arready
+	} ]
+set id [waveform add -signals  {
+	wave::top.vif.axi_arvalid
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_arid[3:0]}
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_arburst[1:0]}
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.slave_raddr[31:0]}
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_rdata[31:0]}
+	} ]
+set id [waveform add -signals  {
+	wave::top.vif.axi_rvalid
+	} ]
+set id [waveform add -signals  {
+	wave::top.vif.axi_rready
+	} ]
+set id [waveform add -signals  {
+	wave::top.vif.axi_rlast
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_rid[3:0]}
+	} ]
+set id [waveform add -signals  {
+	{wave::top.vif.axi_rresp[1:0]}
+	} ]
+
+waveform xview limits 0 3055000ps
+
+#
+# Waveform Window Links
+#
+
+#
+# Console windows
+#
+console set -windowname Console
+window geometry Console 600x250+0+0
+
+#
+# Layout selection
+#
