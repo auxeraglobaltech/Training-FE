@@ -1,0 +1,11 @@
+axi4_m_reset_test 10
+axi4_m_write_read_en_disable_test 10
+axi4_m_writeop_handshakefailure_test 10
+axi4_m_readop_handshakefailure_test 10
+axi4_m_writeop_deviceidfailure_test 10
+axi4_m_readop_deviceidfailure_test 10
+axi4_m_writeop_test 10
+axi4_m_random_writeop_test 10
+axi4_m_readop_test 10
+axi4_m_writeop_interleavingdata_test 10
+axi4_m_writeop_interleavingdata_timeout_test 10

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
+<refinement-file-root>
+  <information comment-version="1" creation-time="Sat 11 Jul 2026 18:31:08 IST" creator="sgeuser17" csCheck="true" save-ref-method="seq" tool-version="Cadence vManager20.09" rules-signature-c="b07a3359c9f17eddc33d2d4fc9d5921e">
+    <ucm-files>
+      <ucm-file domain="icc" modelCheckSum="586793718" path="/home/sgeuser17/Documents/user1/AXI_OOO/sim/cov_work/scope/icc_22f9c2f6_00000000.ucm"></ucm-file>
+    </ucm-files>
+    <ccf-files></ccf-files>
+  </information>
+  <rules>
+    <rule ccType="inst" ccfFlagsMask="448-42" domain="icc" entityName="top/DUT/2" entityType="block" excTime="1783774766" file="0" im-checksum="311665885" line="67" name="exclude" reviewer="unknown" text="2'b00: next_addr = curr_addr;" user="1" vscope="default"></rule>
+    <rule ccType="inst" ccfFlagsMask="448-42" domain="icc" entityName="top/DUT/4" entityType="block" excTime="1783774773" file="0" im-checksum="311665885" line="71" name="exclude" reviewer="unknown" text="2'b10: begin" user="1" vscope="default"></rule>
+    <rule ccType="inst" ccfFlagsMask="448-42" domain="icc" entityName="top/DUT/5" entityType="block" excTime="1783774777" file="0" im-checksum="311665885" line="78" name="exclude" reviewer="unknown" text="next_addr = wrap_base;" user="1" vscope="default"></rule>
+    <rule ccType="inst" ccfFlagsMask="448-42" domain="icc" entityName="top/DUT/6" entityType="block" excTime="1783774781" file="0" im-checksum="311665885" line="80" name="exclude" reviewer="unknown" text="next_addr = temp_next;" user="1" vscope="default"></rule>
+    <rule ccType="inst" ccfFlagsMask="448-42" domain="icc" entityName="top/DUT/7" entityType="block" excTime="1783774785" file="0" im-checksum="311665885" line="83" name="exclude" reviewer="unknown" text="default: next_addr = curr_addr;" user="1" vscope="default"></rule>
+  </rules>
+  <cache-map>
+    <cache-entry key="0" value="/home/sgeuser17/Documents/user1/AXI_OOO/rtl/axi_slave.v"></cache-entry>
+    <cache-entry key="1" value="sgeuser17"></cache-entry>
+  </cache-map>
+</refinement-file-root>

@@ -1,0 +1,75 @@
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_reset_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 1
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_reset_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 2
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_reset_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 3
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_write_read_en_disable_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 4
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_write_read_en_disable_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 5
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_write_read_en_disable_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 6
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_handshakefailure_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 7
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_handshakefailure_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 8
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_handshakefailure_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 9
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_readop_handshakefailure_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 10
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_readop_handshakefailure_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 11
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_readop_handshakefailure_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 12
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_deviceidfailure_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 13
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_deviceidfailure_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 14
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_deviceidfailure_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 15
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_readop_deviceidfailure_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 16
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_readop_deviceidfailure_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 17
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_readop_deviceidfailure_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 18
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 19
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 20
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 21
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_readop_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 22
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_readop_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 23
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_readop_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 24
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_interleavingdata_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 25
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_interleavingdata_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 26
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_interleavingdata_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 27
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_interleavingdata_timeout_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 28
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_interleavingdata_timeout_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 29
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_interleavingdata_timeout_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 30
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_random_writeop_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 31
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_random_writeop_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 32
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_random_writeop_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 33
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 34
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 35
+
+xrun -access +rwc -f ../UVME/compilelist.f +UVM_TESTNAME=axi4_m_writeop_test -coverage all -covdut top -covworkdir /cov_work -covoverwrite -covfile ./cov_files/cov_cmd.cf -uvmhome CDNS-1.1d -seed 36
+
+
+
+

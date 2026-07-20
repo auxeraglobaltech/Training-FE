@@ -1,0 +1,43 @@
+//
+// File created by:  xrun
+// Do not modify this file
+//
+-INPUT
+"@source /man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/additions/sv/files/tcl/uvm_sim.tcl"
++UVM_VERBOSITY=UVM_MEDIUM
++UVM_NO_RELNOTES
++incdir+/home/user2/Documents/user1/AXI_DV_coverage/rtl
++incdir+/home/user2/Documents/user1/AXI_DV_coverage/tb/agents
++incdir+/home/user2/Documents/user1/AXI_DV_coverage/tb/env
++incdir+/home/user2/Documents/user1/AXI_DV_coverage/sim
++incdir+/home/user2/Documents/user1/AXI_DV_coverage/tb/sequences
++incdir+/home/user2/Documents/user1/AXI_DV_coverage/tb/tests
++incdir+/home/user2/Documents/user1/AXI_DV_coverage/tb/top
+-uvmhome
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d
+-sv_lib
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/additions/sv/lib/64bit/libuvmpli.so
++UVM_TESTNAME=test
+-INPUT
+wave.tcl
+-SVSEED
+random
+-MESSAGES
+-SV_LIB
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/additions/sv/lib/64bit/libuvmdpi.so
++EMGRLOG
+./sim/test/run.log
+-XLSTIME
+1784360504
+-XLKEEP
+-XLMODE
+./xcelium.d/run.lnx8664.25.03.d
+-RUNMODE
+-CDSLIB
+./xcelium.d/run.lnx8664.25.03.d/cds.lib
+-HDLVAR
+./xcelium.d/run.lnx8664.25.03.d/hdl.var
+-XLNAME
+xrun
+-XLVERSION
+"TOOL:	xrun(64)	25.03-s001"

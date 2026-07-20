@@ -1,0 +1,367 @@
+xrun(64): 25.03-s001: (c) Copyright 1995-2025 Cadence Design Systems, Inc.
+TOOL:	xrun(64)	25.03-s001: Started on Jul 18, 2026 at 05:57:41 EDT
+xrun
+	-access +rwc
+	-uvm
+	-timescale 1ns/1ps
+	-f ./sim/flist.f
+		+incdir+/home/user2/Documents/user1/AXI_OOO/rtl
+		+incdir+/home/user2/Documents/user1/AXI_OOO/tb/agents
+		+incdir+/home/user2/Documents/user1/AXI_OOO/tb/env
+		+incdir+/home/user2/Documents/user1/AXI_OOO/sim
+		+incdir+/home/user2/Documents/user1/AXI_OOO/tb/sequences
+		+incdir+/home/user2/Documents/user1/AXI_OOO/tb/tests
+		+incdir+/home/user2/Documents/user1/AXI_OOO/tb/top
+		/home/user2/Documents/user1/AXI_OOO/rtl/axi_slave.v
+		/home/user2/Documents/user1/AXI_OOO/tb/top/pkg.sv
+		/home/user2/Documents/user1/AXI_OOO/tb/agents/interface.sv
+		/home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv
+		/home/user2/Documents/user1/AXI_OOO/tb/top/top.sv
+	+UVM_TESTNAME=axi_incr_aligned_test
+	+UVM_VERBOSITY=UVM_MEDIUM
+	+UVM_NO_RELNOTES
+	-input wave.tcl
+	-svseed random
+	-l ./sim/axi_incr_aligned_test/run.log
+
+   User defined plus("+") options:
+	+UVM_VERBOSITY=UVM_MEDIUM
+	+UVM_NO_RELNOTES
+
+Loading snapshot worklib.top:sv .................... Done
+SVSEED set randomly from command line: -1338461677
+xcelium> source /man-vol1/tools/install/XCELIUM2503/tools/xcelium/files/xmsimrc
+xcelium> source /man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/additions/sv/files/tcl/uvm_sim.tcl
+xcelium> set test_name $env(TEST)
+axi_incr_aligned_test
+xcelium> set out_dir   $env(OUT_DIR)
+./sim/axi_incr_aligned_test
+xcelium>  
+xcelium> database -open waves \
+>          -shm \
+>          -into ${out_dir}/waves.shm
+Created SHM database waves
+xcelium>  
+xcelium> probe -create -all -depth all
+Created probe 1
+xcelium>  
+xcelium> run
+----------------------------------------------------------------
+CDNS-UVM-1.1d (25.03-s001)
+(C) 2007-2013 Mentor Graphics Corporation
+(C) 2007-2013 Cadence Design Systems, Inc.
+(C) 2006-2013 Synopsys, Inc.
+(C) 2011-2013 Cypress Semiconductor Corp.
+----------------------------------------------------------------
+UVM_INFO @ 0: reporter [RNTST] Running test axi_incr_aligned_test...
+xmsim: *W,PRFRTNEV: (-FUNCTIONS) Database must be opened in -EVENT mode to capture calling scope data. Use -wave_glitch_recording with ida_database if ida_probe is being used. Set is_sequence_time option to 1 if $shm_open/$shm_probe is being used.
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(29) @ 0: uvm_test_top.ev.agt.drv [DRV_CFG] outstanding_mode=0 ooo_mode=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(79) @ 55000: uvm_test_top.ev.agt.drv [DRV] Write Transaction Received id=3 addr=c4 len=6
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(118) @ 65000: uvm_test_top.ev.agt.drv [DRV_AW_DBG] Before AW wait:awvalid=0 awready=1 awid=3 addr=c4
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(271) @ 75000: uvm_test_top.ev.scb [AXI_SCB] AW Received AWID=3 AWADDR=c4 AWLEN=6
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(92) @ 75000: uvm_test_top.ev.agt.mon [MON_AW] AW id =3 addr=c4 len =6 burst=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(134) @ 75000: uvm_test_top.ev.agt.drv [DRV] AW sent addr=c4 len=6
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(80) @ 75000: reporter [ASSERT] 75000:p_awburst_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 85000: uvm_test_top.ev.agt.mon [MON_W] W id=3 beat=1 data=8fed3502 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(106) @ 85000: reporter [ASSERT] 85000:p_w_payload stable
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(90) @ 85000: reporter [ASSERT] 85000:p_awaddr_aligned
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 95000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[c4]=8fed3502
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 95000: uvm_test_top.ev.agt.mon [MON_W] W id=3 beat=2 data=fe51416 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 105000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[c8]=fe51416
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 105000: uvm_test_top.ev.agt.mon [MON_W] W id=3 beat=3 data=b2976d27 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 115000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[cc]=b2976d27
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 115000: uvm_test_top.ev.agt.mon [MON_W] W id=3 beat=4 data=c24d6c9d last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 125000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[d0]=c24d6c9d
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 125000: uvm_test_top.ev.agt.mon [MON_W] W id=3 beat=5 data=5dd13aa5 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 135000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[d4]=5dd13aa5
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 135000: uvm_test_top.ev.agt.mon [MON_W] W id=3 beat=6 data=1600bdee last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 145000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[d8]=1600bdee
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 145000: uvm_test_top.ev.agt.mon [MON_W] W id=3 beat=7 data=d6012438 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(311) @ 145000: uvm_test_top.ev.scb [AXI_SCB] WRITE EXPECTED STORED ID=3 COUNT =1 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(118) @ 145000: uvm_test_top.ev.agt.mon [MON_W] W burst complete id=3 beats=7
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(169) @ 145000: uvm_test_top.ev.agt.drv [DRV] W Burst sent beats=7
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 155000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[dc]=d6012438
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(199) @ 205000: uvm_test_top.ev.agt.drv [DRV] Write Response BID =3 BRESP =0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(141) @ 215000: uvm_test_top.ev.agt.mon [MON_B_DEBUG] Sending B to scoreboard BID=3 BRESP=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(380) @ 215000: uvm_test_top.ev.scb [AXI_SCB] WRITE RESPONSE PASS BID=3 BRESP=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(143) @ 215000: uvm_test_top.ev.agt.mon [MON_B] B response id = 3 bresp =0 addr=c4 beats=7 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/sequences/sequence.sv(80) @ 215000: uvm_test_top.ev.agt.sqr@@sq [SEQ2] INCR aligned Write :addr=c4 len=6 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(90) @ 215000: uvm_test_top.ev.agt.drv [DRV] Read Transaction Received id=7 addr=c4 len=6
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(135) @ 215000: reporter [ASSERT] 215000:p_bresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(412) @ 235000: uvm_test_top.ev.scb [AXI_SCB] Expected read burst stored for ARID=7 BEATS=7
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(171) @ 235000: uvm_test_top.ev.agt.mon [MON_AR] AR id=7 addr=c4 len=6 burst=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(232) @ 235000: uvm_test_top.ev.agt.drv [DRV] AR sent addr=c4 len=6
+xmsim: *E,ASRTST (./tb/top/axi_assertions.sv,167): (time 235 NS) Assertion top.axi_assertions_i.p_araddr_aligned has failed 
+UVM_ERROR /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(179) @ 235000: reporter [ASSERT] Address not aligned to arsize
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(163) @ 235000: reporter [ASSERT] 235000:p_arburst_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 270000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[c4]=8fed3502
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 275000: uvm_test_top.ev.agt.mon [MON_R] R id=7 beat =1 data=8fed3502 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 275000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =7 beat=1 data=8fed3502 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 275000: reporter [ASSERT] 275000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 280000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[c8]=fe51416
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 285000: uvm_test_top.ev.agt.mon [MON_R] R id=7 beat =2 data=fe51416 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 285000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =7 beat=2 data=fe51416 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 285000: reporter [ASSERT] 285000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 290000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[cc]=b2976d27
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 295000: uvm_test_top.ev.agt.mon [MON_R] R id=7 beat =3 data=b2976d27 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 295000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =7 beat=3 data=b2976d27 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 295000: reporter [ASSERT] 295000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 300000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[d0]=c24d6c9d
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 305000: uvm_test_top.ev.agt.mon [MON_R] R id=7 beat =4 data=c24d6c9d last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 305000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =7 beat=4 data=c24d6c9d last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 305000: reporter [ASSERT] 305000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 310000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[d4]=5dd13aa5
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 315000: uvm_test_top.ev.agt.mon [MON_R] R id=7 beat =5 data=5dd13aa5 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 315000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =7 beat=5 data=5dd13aa5 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 315000: reporter [ASSERT] 315000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 320000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[d8]=1600bdee
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 325000: uvm_test_top.ev.agt.mon [MON_R] R id=7 beat =6 data=1600bdee last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 325000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =7 beat=6 data=1600bdee last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 325000: reporter [ASSERT] 325000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 330000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[dc]=d6012438
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 335000: uvm_test_top.ev.agt.mon [MON_R] R id=7 beat =7 data=d6012438 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 335000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=7 BEAT=1 DATA=8fed3502
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 335000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=7 BEAT=2 DATA=fe51416
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 335000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=7 BEAT=3 DATA=b2976d27
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 335000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=7 BEAT=4 DATA=c24d6c9d
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 335000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=7 BEAT=5 DATA=5dd13aa5
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 335000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=7 BEAT=6 DATA=1600bdee
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 335000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=7 BEAT=7 DATA=d6012438
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(488) @ 335000: uvm_test_top.ev.scb [AXI_SCB] READ BURST PASS RID=7
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(209) @ 335000: uvm_test_top.ev.agt.mon [MON_R] R burst complete id =7 addr=c4 beats=7
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 335000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =7 beat=7 data=d6012438 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 335000: reporter [ASSERT] 335000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(298) @ 345000: uvm_test_top.ev.agt.drv [DRV] Read Burst received  beats=7
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/sequences/sequence.sv(91) @ 345000: uvm_test_top.ev.agt.sqr@@sq [SEQ] INCR aligned Read :addr=c4 len=6 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(79) @ 345000: uvm_test_top.ev.agt.drv [DRV] Write Transaction Received id=3 addr=ec len=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(118) @ 355000: uvm_test_top.ev.agt.drv [DRV_AW_DBG] Before AW wait:awvalid=0 awready=1 awid=3 addr=ec
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(271) @ 365000: uvm_test_top.ev.scb [AXI_SCB] AW Received AWID=3 AWADDR=ec AWLEN=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(92) @ 365000: uvm_test_top.ev.agt.mon [MON_AW] AW id =3 addr=ec len =1 burst=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(134) @ 365000: uvm_test_top.ev.agt.drv [DRV] AW sent addr=ec len=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(80) @ 365000: reporter [ASSERT] 365000:p_awburst_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 375000: uvm_test_top.ev.agt.mon [MON_W] W id=3 beat=1 data=2a4dcb5d last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(106) @ 375000: reporter [ASSERT] 375000:p_w_payload stable
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(90) @ 375000: reporter [ASSERT] 375000:p_awaddr_aligned
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 385000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[ec]=2a4dcb5d
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 385000: uvm_test_top.ev.agt.mon [MON_W] W id=3 beat=2 data=84048a64 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(311) @ 385000: uvm_test_top.ev.scb [AXI_SCB] WRITE EXPECTED STORED ID=3 COUNT =1 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(118) @ 385000: uvm_test_top.ev.agt.mon [MON_W] W burst complete id=3 beats=2
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(169) @ 385000: uvm_test_top.ev.agt.drv [DRV] W Burst sent beats=2
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 395000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[f0]=84048a64
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(199) @ 465000: uvm_test_top.ev.agt.drv [DRV] Write Response BID =3 BRESP =0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(141) @ 475000: uvm_test_top.ev.agt.mon [MON_B_DEBUG] Sending B to scoreboard BID=3 BRESP=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(380) @ 475000: uvm_test_top.ev.scb [AXI_SCB] WRITE RESPONSE PASS BID=3 BRESP=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(143) @ 475000: uvm_test_top.ev.agt.mon [MON_B] B response id = 3 bresp =0 addr=ec beats=2 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/sequences/sequence.sv(80) @ 475000: uvm_test_top.ev.agt.sqr@@sq [SEQ2] INCR aligned Write :addr=ec len=1 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(90) @ 475000: uvm_test_top.ev.agt.drv [DRV] Read Transaction Received id=6 addr=ec len=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(135) @ 475000: reporter [ASSERT] 475000:p_bresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(412) @ 495000: uvm_test_top.ev.scb [AXI_SCB] Expected read burst stored for ARID=6 BEATS=2
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(171) @ 495000: uvm_test_top.ev.agt.mon [MON_AR] AR id=6 addr=ec len=1 burst=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(232) @ 495000: uvm_test_top.ev.agt.drv [DRV] AR sent addr=ec len=1
+xmsim: *E,ASRTST (./tb/top/axi_assertions.sv,167): (time 495 NS) Assertion top.axi_assertions_i.p_araddr_aligned has failed 
+UVM_ERROR /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(179) @ 495000: reporter [ASSERT] Address not aligned to arsize
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(163) @ 495000: reporter [ASSERT] 495000:p_arburst_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 550000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[ec]=2a4dcb5d
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 555000: uvm_test_top.ev.agt.mon [MON_R] R id=6 beat =1 data=2a4dcb5d last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 555000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =6 beat=1 data=2a4dcb5d last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 555000: reporter [ASSERT] 555000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 560000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[f0]=84048a64
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 565000: uvm_test_top.ev.agt.mon [MON_R] R id=6 beat =2 data=84048a64 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 565000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=6 BEAT=1 DATA=2a4dcb5d
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 565000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=6 BEAT=2 DATA=84048a64
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(488) @ 565000: uvm_test_top.ev.scb [AXI_SCB] READ BURST PASS RID=6
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(209) @ 565000: uvm_test_top.ev.agt.mon [MON_R] R burst complete id =6 addr=ec beats=2
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 565000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =6 beat=2 data=84048a64 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 565000: reporter [ASSERT] 565000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(298) @ 575000: uvm_test_top.ev.agt.drv [DRV] Read Burst received  beats=2
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/sequences/sequence.sv(91) @ 575000: uvm_test_top.ev.agt.sqr@@sq [SEQ] INCR aligned Read :addr=ec len=1 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(79) @ 575000: uvm_test_top.ev.agt.drv [DRV] Write Transaction Received id=5 addr=44 len=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(118) @ 585000: uvm_test_top.ev.agt.drv [DRV_AW_DBG] Before AW wait:awvalid=0 awready=1 awid=5 addr=44
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(271) @ 595000: uvm_test_top.ev.scb [AXI_SCB] AW Received AWID=5 AWADDR=44 AWLEN=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(92) @ 595000: uvm_test_top.ev.agt.mon [MON_AW] AW id =5 addr=44 len =1 burst=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(134) @ 595000: uvm_test_top.ev.agt.drv [DRV] AW sent addr=44 len=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(80) @ 595000: reporter [ASSERT] 595000:p_awburst_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 605000: uvm_test_top.ev.agt.mon [MON_W] W id=5 beat=1 data=5b375acb last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(106) @ 605000: reporter [ASSERT] 605000:p_w_payload stable
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(90) @ 605000: reporter [ASSERT] 605000:p_awaddr_aligned
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 615000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[44]=5b375acb
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 615000: uvm_test_top.ev.agt.mon [MON_W] W id=5 beat=2 data=38386b38 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(311) @ 615000: uvm_test_top.ev.scb [AXI_SCB] WRITE EXPECTED STORED ID=5 COUNT =1 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(118) @ 615000: uvm_test_top.ev.agt.mon [MON_W] W burst complete id=5 beats=2
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(169) @ 615000: uvm_test_top.ev.agt.drv [DRV] W Burst sent beats=2
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 625000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[48]=38386b38
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(199) @ 655000: uvm_test_top.ev.agt.drv [DRV] Write Response BID =5 BRESP =0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(141) @ 665000: uvm_test_top.ev.agt.mon [MON_B_DEBUG] Sending B to scoreboard BID=5 BRESP=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(380) @ 665000: uvm_test_top.ev.scb [AXI_SCB] WRITE RESPONSE PASS BID=5 BRESP=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(143) @ 665000: uvm_test_top.ev.agt.mon [MON_B] B response id = 5 bresp =0 addr=44 beats=2 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/sequences/sequence.sv(80) @ 665000: uvm_test_top.ev.agt.sqr@@sq [SEQ2] INCR aligned Write :addr=44 len=1 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(90) @ 665000: uvm_test_top.ev.agt.drv [DRV] Read Transaction Received id=7 addr=44 len=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(135) @ 665000: reporter [ASSERT] 665000:p_bresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(412) @ 685000: uvm_test_top.ev.scb [AXI_SCB] Expected read burst stored for ARID=7 BEATS=2
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(171) @ 685000: uvm_test_top.ev.agt.mon [MON_AR] AR id=7 addr=44 len=1 burst=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(232) @ 685000: uvm_test_top.ev.agt.drv [DRV] AR sent addr=44 len=1
+xmsim: *E,ASRTST (./tb/top/axi_assertions.sv,167): (time 685 NS) Assertion top.axi_assertions_i.p_araddr_aligned has failed 
+UVM_ERROR /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(179) @ 685000: reporter [ASSERT] Address not aligned to arsize
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(163) @ 685000: reporter [ASSERT] 685000:p_arburst_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 730000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[44]=5b375acb
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 735000: uvm_test_top.ev.agt.mon [MON_R] R id=7 beat =1 data=5b375acb last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 735000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =7 beat=1 data=5b375acb last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 735000: reporter [ASSERT] 735000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 740000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[48]=38386b38
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 745000: uvm_test_top.ev.agt.mon [MON_R] R id=7 beat =2 data=38386b38 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 745000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=7 BEAT=1 DATA=5b375acb
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 745000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=7 BEAT=2 DATA=38386b38
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(488) @ 745000: uvm_test_top.ev.scb [AXI_SCB] READ BURST PASS RID=7
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(209) @ 745000: uvm_test_top.ev.agt.mon [MON_R] R burst complete id =7 addr=44 beats=2
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 745000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =7 beat=2 data=38386b38 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 745000: reporter [ASSERT] 745000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(298) @ 755000: uvm_test_top.ev.agt.drv [DRV] Read Burst received  beats=2
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/sequences/sequence.sv(91) @ 755000: uvm_test_top.ev.agt.sqr@@sq [SEQ] INCR aligned Read :addr=44 len=1 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(79) @ 755000: uvm_test_top.ev.agt.drv [DRV] Write Transaction Received id=1 addr=f8 len=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(118) @ 765000: uvm_test_top.ev.agt.drv [DRV_AW_DBG] Before AW wait:awvalid=0 awready=1 awid=1 addr=f8
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(271) @ 775000: uvm_test_top.ev.scb [AXI_SCB] AW Received AWID=1 AWADDR=f8 AWLEN=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(92) @ 775000: uvm_test_top.ev.agt.mon [MON_AW] AW id =1 addr=f8 len =0 burst=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(134) @ 775000: uvm_test_top.ev.agt.drv [DRV] AW sent addr=f8 len=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(80) @ 775000: reporter [ASSERT] 775000:p_awburst_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 785000: uvm_test_top.ev.agt.mon [MON_W] W id=1 beat=1 data=13243ca4 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(311) @ 785000: uvm_test_top.ev.scb [AXI_SCB] WRITE EXPECTED STORED ID=1 COUNT =1 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(118) @ 785000: uvm_test_top.ev.agt.mon [MON_W] W burst complete id=1 beats=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(169) @ 785000: uvm_test_top.ev.agt.drv [DRV] W Burst sent beats=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(106) @ 785000: reporter [ASSERT] 785000:p_w_payload stable
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(90) @ 785000: reporter [ASSERT] 785000:p_awaddr_aligned
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 795000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[f8]=13243ca4
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(199) @ 835000: uvm_test_top.ev.agt.drv [DRV] Write Response BID =1 BRESP =0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(141) @ 845000: uvm_test_top.ev.agt.mon [MON_B_DEBUG] Sending B to scoreboard BID=1 BRESP=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(380) @ 845000: uvm_test_top.ev.scb [AXI_SCB] WRITE RESPONSE PASS BID=1 BRESP=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(143) @ 845000: uvm_test_top.ev.agt.mon [MON_B] B response id = 1 bresp =0 addr=f8 beats=1 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/sequences/sequence.sv(80) @ 845000: uvm_test_top.ev.agt.sqr@@sq [SEQ2] INCR aligned Write :addr=f8 len=0 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(90) @ 845000: uvm_test_top.ev.agt.drv [DRV] Read Transaction Received id=3 addr=f8 len=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(135) @ 845000: reporter [ASSERT] 845000:p_bresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(412) @ 865000: uvm_test_top.ev.scb [AXI_SCB] Expected read burst stored for ARID=3 BEATS=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(171) @ 865000: uvm_test_top.ev.agt.mon [MON_AR] AR id=3 addr=f8 len=0 burst=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(232) @ 865000: uvm_test_top.ev.agt.drv [DRV] AR sent addr=f8 len=0
+xmsim: *E,ASRTST (./tb/top/axi_assertions.sv,167): (time 865 NS) Assertion top.axi_assertions_i.p_araddr_aligned has failed 
+UVM_ERROR /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(179) @ 865000: reporter [ASSERT] Address not aligned to arsize
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(163) @ 865000: reporter [ASSERT] 865000:p_arburst_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 950000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[f8]=13243ca4
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 955000: uvm_test_top.ev.agt.mon [MON_R] R id=3 beat =1 data=13243ca4 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 955000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=3 BEAT=1 DATA=13243ca4
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(488) @ 955000: uvm_test_top.ev.scb [AXI_SCB] READ BURST PASS RID=3
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(209) @ 955000: uvm_test_top.ev.agt.mon [MON_R] R burst complete id =3 addr=f8 beats=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 955000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =3 beat=1 data=13243ca4 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 955000: reporter [ASSERT] 955000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(298) @ 965000: uvm_test_top.ev.agt.drv [DRV] Read Burst received  beats=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/sequences/sequence.sv(91) @ 965000: uvm_test_top.ev.agt.sqr@@sq [SEQ] INCR aligned Read :addr=f8 len=0 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(79) @ 965000: uvm_test_top.ev.agt.drv [DRV] Write Transaction Received id=2 addr=c8 len=5
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(118) @ 975000: uvm_test_top.ev.agt.drv [DRV_AW_DBG] Before AW wait:awvalid=0 awready=1 awid=2 addr=c8
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(271) @ 985000: uvm_test_top.ev.scb [AXI_SCB] AW Received AWID=2 AWADDR=c8 AWLEN=5
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(92) @ 985000: uvm_test_top.ev.agt.mon [MON_AW] AW id =2 addr=c8 len =5 burst=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(134) @ 985000: uvm_test_top.ev.agt.drv [DRV] AW sent addr=c8 len=5
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(80) @ 985000: reporter [ASSERT] 985000:p_awburst_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 995000: uvm_test_top.ev.agt.mon [MON_W] W id=2 beat=1 data=5eee93e4 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(106) @ 995000: reporter [ASSERT] 995000:p_w_payload stable
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(90) @ 995000: reporter [ASSERT] 995000:p_awaddr_aligned
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 1005000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[c8]=5eee93e4
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 1005000: uvm_test_top.ev.agt.mon [MON_W] W id=2 beat=2 data=8754bfa0 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 1015000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[cc]=8754bfa0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 1015000: uvm_test_top.ev.agt.mon [MON_W] W id=2 beat=3 data=3b3f28bb last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 1025000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[d0]=3b3f28bb
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 1025000: uvm_test_top.ev.agt.mon [MON_W] W id=2 beat=4 data=bc8b77dd last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 1035000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[d4]=bc8b77dd
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 1035000: uvm_test_top.ev.agt.mon [MON_W] W id=2 beat=5 data=dbe410aa last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 1045000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[d8]=dbe410aa
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(112) @ 1045000: uvm_test_top.ev.agt.mon [MON_W] W id=2 beat=6 data=678a2722 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(311) @ 1045000: uvm_test_top.ev.scb [AXI_SCB] WRITE EXPECTED STORED ID=2 COUNT =1 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(118) @ 1045000: uvm_test_top.ev.agt.mon [MON_W] W burst complete id=2 beats=6
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(169) @ 1045000: uvm_test_top.ev.agt.drv [DRV] W Burst sent beats=6
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(76) @ 1055000: uvm_test_top.ev.mem_model [MEM MODEL] Write Mem[dc]=678a2722
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(199) @ 1125000: uvm_test_top.ev.agt.drv [DRV] Write Response BID =2 BRESP =0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(141) @ 1135000: uvm_test_top.ev.agt.mon [MON_B_DEBUG] Sending B to scoreboard BID=2 BRESP=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(380) @ 1135000: uvm_test_top.ev.scb [AXI_SCB] WRITE RESPONSE PASS BID=2 BRESP=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(143) @ 1135000: uvm_test_top.ev.agt.mon [MON_B] B response id = 2 bresp =0 addr=c8 beats=6 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/sequences/sequence.sv(80) @ 1135000: uvm_test_top.ev.agt.sqr@@sq [SEQ2] INCR aligned Write :addr=c8 len=5 
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(90) @ 1135000: uvm_test_top.ev.agt.drv [DRV] Read Transaction Received id=4 addr=c8 len=5
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(135) @ 1135000: reporter [ASSERT] 1135000:p_bresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(412) @ 1155000: uvm_test_top.ev.scb [AXI_SCB] Expected read burst stored for ARID=4 BEATS=6
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(171) @ 1155000: uvm_test_top.ev.agt.mon [MON_AR] AR id=4 addr=c8 len=5 burst=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(232) @ 1155000: uvm_test_top.ev.agt.drv [DRV] AR sent addr=c8 len=5
+xmsim: *E,ASRTST (./tb/top/axi_assertions.sv,167): (time 1155 NS) Assertion top.axi_assertions_i.p_araddr_aligned has failed 
+UVM_ERROR /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(179) @ 1155000: reporter [ASSERT] Address not aligned to arsize
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(163) @ 1155000: reporter [ASSERT] 1155000:p_arburst_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 1190000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[c8]=5eee93e4
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 1195000: uvm_test_top.ev.agt.mon [MON_R] R id=4 beat =1 data=5eee93e4 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 1195000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =4 beat=1 data=5eee93e4 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 1195000: reporter [ASSERT] 1195000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 1200000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[cc]=8754bfa0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 1205000: uvm_test_top.ev.agt.mon [MON_R] R id=4 beat =2 data=8754bfa0 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 1205000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =4 beat=2 data=8754bfa0 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 1205000: reporter [ASSERT] 1205000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 1210000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[d0]=3b3f28bb
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 1215000: uvm_test_top.ev.agt.mon [MON_R] R id=4 beat =3 data=3b3f28bb last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 1215000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =4 beat=3 data=3b3f28bb last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 1215000: reporter [ASSERT] 1215000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 1220000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[d4]=bc8b77dd
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 1225000: uvm_test_top.ev.agt.mon [MON_R] R id=4 beat =4 data=bc8b77dd last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 1225000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =4 beat=4 data=bc8b77dd last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 1225000: reporter [ASSERT] 1225000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 1230000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[d8]=dbe410aa
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 1235000: uvm_test_top.ev.agt.mon [MON_R] R id=4 beat =5 data=dbe410aa last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 1235000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =4 beat=5 data=dbe410aa last=0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 1235000: reporter [ASSERT] 1235000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/axi_slave_mem_model.sv(101) @ 1240000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[dc]=678a2722
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(198) @ 1245000: uvm_test_top.ev.agt.mon [MON_R] R id=4 beat =6 data=678a2722 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 1245000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=4 BEAT=1 DATA=5eee93e4
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 1245000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=4 BEAT=2 DATA=8754bfa0
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 1245000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=4 BEAT=3 DATA=3b3f28bb
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 1245000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=4 BEAT=4 DATA=bc8b77dd
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 1245000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=4 BEAT=5 DATA=dbe410aa
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(464) @ 1245000: uvm_test_top.ev.scb [AXI_SB] RDATA PASS RID=4 BEAT=6 DATA=678a2722
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/env/scoreboard.sv(488) @ 1245000: uvm_test_top.ev.scb [AXI_SCB] READ BURST PASS RID=4
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/monitor.sv(209) @ 1245000: uvm_test_top.ev.agt.mon [MON_R] R burst complete id =4 addr=c8 beats=6
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(281) @ 1245000: uvm_test_top.ev.agt.drv [DRV] RDATA RID =4 beat=6 data=678a2722 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/top/axi_assertions.sv(213) @ 1245000: reporter [ASSERT] 1245000:p_rresp_legal
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/agents/driver.sv(298) @ 1255000: uvm_test_top.ev.agt.drv [DRV] Read Burst received  beats=6
+UVM_INFO /home/user2/Documents/user1/AXI_OOO/tb/sequences/sequence.sv(91) @ 1255000: uvm_test_top.ev.agt.sqr@@sq [SEQ] INCR aligned Read :addr=c8 len=5 
+UVM_INFO /man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/sv/src/base/uvm_objection.svh(1268) @ 3255000: reporter [TEST_DONE] 'run' phase is ready to proceed to the 'extract' phase
+
+--- UVM Report catcher Summary ---
+
+
+Number of demoted UVM_FATAL reports  :    0
+Number of demoted UVM_ERROR reports  :    0
+Number of demoted UVM_WARNING reports:    0
+Number of caught UVM_FATAL reports   :    0
+Number of caught UVM_ERROR reports   :    0
+Number of caught UVM_WARNING reports :    0
+
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :  259
+UVM_WARNING :    0
+UVM_ERROR :    5
+UVM_FATAL :    0
+** Report counts by id
+[ASSERT]    48
+[AXI_SB]    18
+[AXI_SCB]    25
+[DRV]    53
+[DRV_AW_DBG]     5
+[DRV_CFG]     1
+[MEM MODEL]    18
+[MEM Model]    18
+[MON_AR]     5
+[MON_AW]     5
+[MON_B]     5
+[MON_B_DEBUG]     5
+[MON_R]    23
+[MON_W]    23
+[RNTST]     1
+[SEQ]     5
+[SEQ2]     5
+[TEST_DONE]     1
+Simulation complete via $finish(1) at time 3255 NS + 45
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/sv/src/base/uvm_root.svh:457     $finish;
+xcelium>  
+xcelium> exit
+TOOL:	xrun(64)	25.03-s001: Exiting on Jul 18, 2026 at 05:57:41 EDT  (total: 00:00:00)

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
+<refinement-file-root>
+  <information comment-version="1" creation-time="Thu 25 Jun 2026 18:09:44 IST" creator="sgeuser17" csCheck="false" save-ref-method="seq" tool-version="Cadence vManager20.09" rules-signature-c="2322c2dfe79506ccfc19dd55117645">
+    <ucm-files>
+      <ucm-file domain="icc" modelCheckSum="566449942" path="/home/sgeuser17/Documents/user1/AXI_DV_coverage/sim/cov_work/scope/icc_21c35716_3d47d09d.ucm"></ucm-file>
+    </ucm-files>
+    <ccf-files></ccf-files>
+  </information>
+  <rules>
+    <rule ccType="inst" domain="icc" entityName="uvm_pkg/uvm_test_top/ev/cov/axi_cg" entityType="covergroup" excTime="1782390876" name="review" reviewer="unknown" user="0" vscope="default"></rule>
+    <rule ccType="inst" domain="icc" entityName="uvm_pkg/uvm_test_top/ev/cov/axi_cg/cp_awsize" entityType="coveritem" excTime="1782389929" name="exclude" reviewer="unknown" user="0" vscope="default"></rule>
+    <rule ccType="inst" domain="icc" entityName="uvm_pkg/uvm_test_top/ev/cov/axi_cg/cp_araddr_align/unaligned" entityType="coverbin" excTime="1782390235" name="exclude" reviewer="unknown" user="0" vscope="default"></rule>
+    <rule ccType="inst" domain="icc" entityName="uvm_pkg/uvm_test_top/ev/cov/axi_cg/cp_awaddr_align/unaligned" entityType="coverbin" excTime="1782390277" name="exclude" reviewer="unknown" user="0" vscope="default"></rule>
+    <rule ccType="inst" domain="icc" entityName="uvm_pkg/uvm_test_top/ev/cov/axi_cg/cp_awlen/long_burst" entityType="coverbin" excTime="1782391133" name="exclude" reviewer="unknown" user="0" vscope="default"></rule>
+  </rules>
+  <cache-map>
+    <cache-entry key="0" value="sgeuser17"></cache-entry>
+  </cache-map>
+</refinement-file-root>

@@ -1,0 +1,29 @@
+//
+// File created by:  xrun
+// Do not modify this file
+//
++incdir+/home/user2/Documents/user1/AXI_DV_coverage/rtl
++incdir+/home/user2/Documents/user1/AXI_DV_coverage/tb/agents
++incdir+/home/user2/Documents/user1/AXI_DV_coverage/tb/env
++incdir+/home/user2/Documents/user1/AXI_DV_coverage/sim
++incdir+/home/user2/Documents/user1/AXI_DV_coverage/tb/sequences
++incdir+/home/user2/Documents/user1/AXI_DV_coverage/tb/tests
++incdir+/home/user2/Documents/user1/AXI_DV_coverage/tb/top
+-loadpli
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/additions/sv/lib/64bit/libuvmpli.so:uvm_pli_boot
+-ACCESS
++rwc
++UVM_TESTNAME=axi_incr_aligned_test
+-no_analogsolver
+-MESSAGES
+-dms_perf
+-XLMODE
+./xcelium.d/run.lnx8664.25.03.d
+-RUNMODE
+-CDSLIB
+./xcelium.d/run.lnx8664.25.03.d/cds.lib
+-HDLVAR
+./xcelium.d/run.lnx8664.25.03.d/hdl.var
+-WORK
+worklib
+-HASXLMODE

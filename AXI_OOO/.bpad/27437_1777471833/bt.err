@@ -1,0 +1,17 @@
+/tools/cadence_march2021/XCELIUM2009/tools.lnx86/inca/bin/64bit/xmsim
+Obtained 15 stack frames.
+/tools/cadence_march2021/XCELIUM2009/tools.lnx86/inca/bin/64bit/../../../lib/64bit/libcbreakpad.so(_Z13use_backtracev+0x9d) [0x7f1a08aa2ae9]
+/tools/cadence_march2021/XCELIUM2009/tools.lnx86/inca/bin/64bit/../../../lib/64bit/libcbreakpad.so(cbpad_generate_dump_on_demand+0x66) [0x7f1a08aa2e3c]
+xmsim() [0x1793e5c]
+xmsim(serror+0x95) [0x1795565]
+xmsim() [0xad8a5c]
+/lib64/libpthread.so.0(+0xf630) [0x7f1a09b57630]
+/tools/cadence_march2021/XCELIUM2009/tools/lib/64bit/libtbbshm.so(_ZN6tbbshm21ProbeConversionFilterclEPv+0x46) [0x7f19fb9a5406]
+/tools/cadence_march2021/XCELIUM2009/tools/lib/64bit/libtbb.so.2(+0x18ed2) [0x7f19fb753ed2]
+/tools/cadence_march2021/XCELIUM2009/tools/lib/64bit/libtbb.so.2(+0x287dc) [0x7f19fb7637dc]
+/tools/cadence_march2021/XCELIUM2009/tools/lib/64bit/libtbb.so.2(+0x23065) [0x7f19fb75e065]
+/tools/cadence_march2021/XCELIUM2009/tools/lib/64bit/libtbb.so.2(+0x20f8f) [0x7f19fb75bf8f]
+/tools/cadence_march2021/XCELIUM2009/tools/lib/64bit/libtbb.so.2(+0x1c616) [0x7f19fb757616]
+/tools/cadence_march2021/XCELIUM2009/tools/lib/64bit/libtbb.so.2(+0x1c5a6) [0x7f19fb7575a6]
+/lib64/libpthread.so.0(+0x7ea5) [0x7f1a09b4fea5]
+/lib64/libc.so.6(clone+0x6d) [0x7f1a08ddab0d]
