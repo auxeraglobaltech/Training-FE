@@ -1,0 +1,21 @@
+`timescale 1ns/1ps
+package pkg;
+import uvm_pkg::*;
+`include "uvm_macros.svh"
+`include "sequence_item.sv"
+`include "sequencer.sv"
+`include "sequence.sv"
+`include "driver.sv"
+`include "monitor.sv"
+`include "agent.sv"
+`include "scoreboard.sv"
+`include "axi_coverage.sv"
+`include "axi_slave_mem_model.sv"
+`include "env.sv"
+`include "test.sv"
+`include "axi_incr_unaligned_test.sv"
+`include "axi_incr_aligned_test.sv"
+`include "axi_fixed_aligned_test.sv"
+`include "axi_wrap_aligned_test.sv"
+//`include "axi_5write_5read_test.sv"
+endpackage

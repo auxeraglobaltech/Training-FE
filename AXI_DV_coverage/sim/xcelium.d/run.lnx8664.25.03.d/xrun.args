@@ -1,0 +1,10 @@
+//
+// File created by:  xrun
+// Do not modify this file
+//
+-uvm
+-access
++rwc
+-f
+flist.f
++UVM_TESTNAME=axi_incr_aligned_test
