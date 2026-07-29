@@ -1,0 +1,27 @@
+xrun(64): 25.03-s001: (c) Copyright 1995-2025 Cadence Design Systems, Inc.
+TOOL:	xrun(64)	25.03-s001: Started on Jul 28, 2026 at 05:49:11 EDT
+xrun
+	crc32.v
+	crc32_tb.v
+Loading snapshot worklib.crc32_calc_tb:v .................... Done
+xcelium> source /man-vol1/tools/install/XCELIUM2503/tools/xcelium/files/xmsimrc
+xcelium> run
+xmsim: *W,DVEXACC: some objects excluded from $dumpvars due to access restrictions, use +access+r on command line for access to all objects.
+            File: ./crc32_tb.v, line = 110, pos = 12
+           Scope: crc32_calc_tb
+            Time: 0 FS + 0
+
+Time=35000  Data=0x12  CRC=0x21bb9ec5
+Time=55000  Data=0x34  CRC=0x18999699
+Time=75000  Data=0x56  CRC=0xd9c1a93a
+Time=95000  Data=0x78  CRC=0x4a090e98
+Time=135000  Data=0xaa  CRC=0xe401a57b
+Time=155000  Data=0x55  CRC=0x0e30e3e7
+Time=175000  Data=0xff  CRC=0xc1604738
+----------------------------------------
+Final CRC = 0xc1604738
+----------------------------------------
+Simulation complete via $finish(1) at time 195 NS + 0
+./crc32_tb.v:99     $finish;
+xcelium> exit
+TOOL:	xrun(64)	25.03-s001: Exiting on Jul 28, 2026 at 05:49:13 EDT  (total: 00:00:02)
