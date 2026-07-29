@@ -1,0 +1,39 @@
+$date
+    Jul 28, 2026  05:49:13
+$end
+$version
+    TOOL:	xmsim(64)	25.03-s001
+$end
+$timescale
+    1 ps
+$end
+
+$scope module crc32_calc_tb $end
+$var parameter 32 !    CRC_SIZE $end
+$var parameter 32 "    DATA_WIDTH $end
+
+$scope module dut $end
+$var parameter 32 #    CRC_SIZE $end
+$var parameter 32 $    DATA_WIDTH $end
+$var parameter 32 %    POLY [31:0] $end
+$var parameter 32 &    INIT [31:0] $end
+$var parameter 32 '    REF_IN $end
+$var parameter 32 (    REF_OUT $end
+$var parameter 32 )    XOR_OUT [31:0] $end
+$upscope $end
+
+$upscope $end
+
+$enddefinitions $end
+$dumpvars
+b11111111111111111111111111111111 )
+b1 (
+b1 '
+b11111111111111111111111111111111 &
+b100110000010001110110110111 %
+b1000 $
+b100000 #
+b1000 "
+b100000 !
+$end
+#195000

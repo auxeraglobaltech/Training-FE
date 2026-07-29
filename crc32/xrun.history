@@ -1,0 +1,4 @@
+#e1(28Jul2026:03:51:55): source ./xcelium.d/env.d/env.history.28Jul2026_03_51_55
+s1(28Jul2026:03:51:55):  xrun crc32.v crc32_tb.v 
+#e2(28Jul2026:05:49:12): source ./xcelium.d/env.d/env.history.28Jul2026_05_49_12
+s2(28Jul2026:05:49:12):  xrun crc32.v crc32_tb.v 
