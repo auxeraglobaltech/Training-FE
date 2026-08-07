@@ -1,0 +1,39 @@
+//
+// File created by:  xrun
+// Do not modify this file
+//
+-INPUT
+"@source /man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/additions/sv/files/tcl/uvm_sim.tcl"
++incdir+/home/user2/Documents/user1/AGU_DV/RTL/agu
++incdir+/home/user2/Documents/user1/AGU_DV/RTL/files
++incdir+/home/user2/Documents/user1/AGU_DV/tb/agents
++incdir+/home/user2/Documents/user1/AGU_DV/tb/env
++incdir+/home/user2/Documents/user1/AGU_DV/sim
++incdir+/home/user2/Documents/user1/AGU_DV/tb/sequences
++incdir+/home/user2/Documents/user1/AGU_DV/tb/tests
++incdir+/home/user2/Documents/user1/AGU_DV/tb/top
+-uvmhome
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d
+-sv_lib
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/additions/sv/lib/64bit/libuvmpli.so
++UVM_TESTNAME=agu_basic_2d_test
+-MESSAGES
+-RUN
+-SV_LIB
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/additions/sv/lib/64bit/libuvmdpi.so
++EMGRLOG
+xrun.log
+-XLSTIME
+1785755425
+-XLKEEP
+-XLMODE
+./xcelium.d/run.lnx8664.25.03.d
+-RUNMODE
+-CDSLIB
+./xcelium.d/run.lnx8664.25.03.d/cds.lib
+-HDLVAR
+./xcelium.d/run.lnx8664.25.03.d/hdl.var
+-XLNAME
+xrun
+-XLVERSION
+"TOOL:	xrun(64)	25.03-s001"

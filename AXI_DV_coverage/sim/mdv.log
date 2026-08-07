@@ -1,0 +1,7 @@
+03:44:05:0417 [com.cadence.mdv.imc.Main] [main] INFO  - Binding debug tools http on port: 39695
+03:44:15:0074 [com.cadence.mdv.messaging.MDVASynchronicMessaging] [frontend-pool] ERROR - Error loading database file /home/user2/Documents/verification/AXI_DV3/sim/cov_work/scope/icc_34833e34_3d4e1f2a.ucm:
+serialization exception.
+03:44:15:0074 [com.cadence.mdv.messaging.MDVASynchronicMessaging] [frontend-pool] ERROR - Valid data file not found for run directory /home/user2/Documents/verification/AXI_DV3/sim/cov_work/scope/test. Specify a valid run directory with correct ucm, ucd files and rerun the command.	   
+03:45:20:0586 [com.cadence.mdv.messaging.MDVASynchronicMessaging] [frontend-pool] ERROR - Error loading database file /home/user2/Documents/user1/AXI_DV_coverage/sim/cov_work/scope/icc_21c35716_3d47d09d.ucm:
+serialization exception.
+03:45:20:0586 [com.cadence.mdv.messaging.MDVASynchronicMessaging] [frontend-pool] ERROR - Valid data file not found for run directory /home/user2/Documents/user1/AXI_DV_coverage/sim/cov_work/scope/test. Specify a valid run directory with correct ucm, ucd files and rerun the command.	   

@@ -1,0 +1,24 @@
+//
+// File created by:  xrun
+// Do not modify this file
+//
+-INCDIR
+/home/user2/Documents/user1/AXI_DV_coverage/rtl
+-INCDIR
+/home/user2/Documents/user1/AXI_DV_coverage/tb/agents
+-INCDIR
+/home/user2/Documents/user1/AXI_DV_coverage/tb/env
+-INCDIR
+/home/user2/Documents/user1/AXI_DV_coverage/sim
+-INCDIR
+/home/user2/Documents/user1/AXI_DV_coverage/tb/sequences
+-INCDIR
+/home/user2/Documents/user1/AXI_DV_coverage/tb/tests
+-INCDIR
+/home/user2/Documents/user1/AXI_DV_coverage/tb/top
+-I_INCDIR
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/sv/src
+-DEFINE
+USE_PARAMETERIZED_WRAPPER
+-I_INCDIR
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/additions/sv

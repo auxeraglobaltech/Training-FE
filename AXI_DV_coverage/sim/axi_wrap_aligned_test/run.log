@@ -1,0 +1,285 @@
+xrun(64): 25.03-s001: (c) Copyright 1995-2025 Cadence Design Systems, Inc.
+TOOL:	xrun(64)	25.03-s001: Started on Jul 18, 2026 at 03:41:43 EDT
+xrun
+	-access +rwc
+	-uvm
+	-timescale 1ns/1ps
+	-f ./sim/flist.f
+		+incdir+/home/user2/Documents/user1/AXI_DV_coverage/rtl
+		+incdir+/home/user2/Documents/user1/AXI_DV_coverage/tb/agents
+		+incdir+/home/user2/Documents/user1/AXI_DV_coverage/tb/env
+		+incdir+/home/user2/Documents/user1/AXI_DV_coverage/sim
+		+incdir+/home/user2/Documents/user1/AXI_DV_coverage/tb/sequences
+		+incdir+/home/user2/Documents/user1/AXI_DV_coverage/tb/tests
+		+incdir+/home/user2/Documents/user1/AXI_DV_coverage/tb/top
+		/home/user2/Documents/user1/AXI_DV_coverage/rtl/axi_slave.v
+		/home/user2/Documents/user1/AXI_DV_coverage/tb/top/pkg.sv
+		/home/user2/Documents/user1/AXI_DV_coverage/tb/agents/interface.sv
+		/home/user2/Documents/user1/AXI_DV_coverage/tb/top/top.sv
+	+UVM_TESTNAME=axi_wrap_aligned_test
+	+UVM_VERBOSITY=UVM_MEDIUM
+	+UVM_NO_RELNOTES
+	-input wave.tcl
+	-svseed random
+	-l ./sim/axi_wrap_aligned_test/run.log
+
+   User defined plus("+") options:
+	+UVM_VERBOSITY=UVM_MEDIUM
+	+UVM_NO_RELNOTES
+
+Loading snapshot worklib.top:sv .................... Done
+SVSEED set randomly from command line: 1306250166
+xcelium> source /man-vol1/tools/install/XCELIUM2503/tools/xcelium/files/xmsimrc
+xcelium> source /man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/additions/sv/files/tcl/uvm_sim.tcl
+xcelium> set test_name $env(TEST)
+axi_wrap_aligned_test
+xcelium> set out_dir   $env(OUT_DIR)
+./sim/axi_wrap_aligned_test
+xcelium>  
+xcelium> database -open waves \
+>          -shm \
+>          -into ${out_dir}/waves.shm
+Created SHM database waves
+xcelium>  
+xcelium> probe -create -all -depth all
+Created probe 1
+xcelium>  
+xcelium> run
+----------------------------------------------------------------
+CDNS-UVM-1.1d (25.03-s001)
+(C) 2007-2013 Mentor Graphics Corporation
+(C) 2007-2013 Cadence Design Systems, Inc.
+(C) 2006-2013 Synopsys, Inc.
+(C) 2011-2013 Cypress Semiconductor Corp.
+----------------------------------------------------------------
+UVM_INFO @ 0: reporter [RNTST] Running test axi_wrap_aligned_test...
+xmsim: *W,PRFRTNEV: (-FUNCTIONS) Database must be opened in -EVENT mode to capture calling scope data. Use -wave_glitch_recording with ida_database if ida_probe is being used. Set is_sequence_time option to 1 if $shm_open/$shm_probe is being used.
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(64) @ 15000: uvm_test_top.ev.agt.drv [DRV] Write Transaction Received addr=ac len=3
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(81) @ 45000: uvm_test_top.ev.mem_model [MEM_MODEL ] Write Burst start addr=ac beats=4
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(106) @ 45000: uvm_test_top.ev.agt.drv [DRV] AW sent addr=ac len=3
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 55000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[ac]=253729f6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 65000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[a0]=88e88c1b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 75000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[a4]=443fb56b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 85000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[a8]=9e0f42c5
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(141) @ 85000: uvm_test_top.ev.agt.drv [DRV] W Burst sent beats=4
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(159) @ 95000: uvm_test_top.ev.agt.drv [DRV] Write Response =0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 105000: uvm_test_top.ev.scb [SB] WRITE MEM[ac]=253729f6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 105000: uvm_test_top.ev.scb [SB] WRITE MEM[a0]=88e88c1b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 105000: uvm_test_top.ev.scb [SB] WRITE MEM[a4]=443fb56b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 105000: uvm_test_top.ev.scb [SB] WRITE MEM[a8]=9e0f42c5
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/monitor.sv(86) @ 105000: uvm_test_top.ev.agt.mon [MON] Write MON addr=ac len=3
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/sequences/sequence.sv(216) @ 105000: uvm_test_top.ev.agt.sqr@@sq [SEQ2] Wrap aligned Write :addr=ac len=3 
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(73) @ 105000: uvm_test_top.ev.agt.drv [DRV] Read Transaction Received addr=ac len=3
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(132) @ 135000: uvm_test_top.ev.mem_model [MEM_MODEL ] Read Burst start addr=ac beats=4
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(192) @ 135000: uvm_test_top.ev.agt.drv [DRV] AR sent addr=ac len=3
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 140000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[ac]=253729f6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 155000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=1 data=253729f6 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 160000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[a0]=88e88c1b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 165000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=2 data=88e88c1b last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 170000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[a4]=443fb56b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 175000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=3 data=443fb56b last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 180000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[a8]=9e0f42c5
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 185000: uvm_test_top.ev.scb [SB] MATCH Beat=1 addr=ac exp=253729f6 act=253729f6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 185000: uvm_test_top.ev.scb [SB] MATCH Beat=2 addr=a0 exp=88e88c1b act=88e88c1b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 185000: uvm_test_top.ev.scb [SB] MATCH Beat=3 addr=a4 exp=443fb56b act=443fb56b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 185000: uvm_test_top.ev.scb [SB] MATCH Beat=4 addr=a8 exp=9e0f42c5 act=9e0f42c5
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/monitor.sv(121) @ 185000: uvm_test_top.ev.agt.mon [MON] READ MON addr=ac len=3
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 185000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=4 data=9e0f42c5 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(244) @ 195000: uvm_test_top.ev.agt.drv [DRV] Read Burst received  beats=4
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/sequences/sequence.sv(227) @ 195000: uvm_test_top.ev.agt.sqr@@sq [SEQ] Wrap aligned Read :addr=ac len=3 
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(64) @ 195000: uvm_test_top.ev.agt.drv [DRV] Write Transaction Received addr=54 len=3
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(81) @ 225000: uvm_test_top.ev.mem_model [MEM_MODEL ] Write Burst start addr=54 beats=4
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(106) @ 225000: uvm_test_top.ev.agt.drv [DRV] AW sent addr=54 len=3
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 235000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[54]=d7d483db
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 245000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[58]=952ce4c6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 255000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[5c]=72f373b6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 265000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[50]=b877fa0c
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(141) @ 265000: uvm_test_top.ev.agt.drv [DRV] W Burst sent beats=4
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(159) @ 275000: uvm_test_top.ev.agt.drv [DRV] Write Response =0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 285000: uvm_test_top.ev.scb [SB] WRITE MEM[54]=d7d483db
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 285000: uvm_test_top.ev.scb [SB] WRITE MEM[58]=952ce4c6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 285000: uvm_test_top.ev.scb [SB] WRITE MEM[5c]=72f373b6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 285000: uvm_test_top.ev.scb [SB] WRITE MEM[50]=b877fa0c
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/monitor.sv(86) @ 285000: uvm_test_top.ev.agt.mon [MON] Write MON addr=54 len=3
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/sequences/sequence.sv(216) @ 285000: uvm_test_top.ev.agt.sqr@@sq [SEQ2] Wrap aligned Write :addr=54 len=3 
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(73) @ 285000: uvm_test_top.ev.agt.drv [DRV] Read Transaction Received addr=54 len=3
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(132) @ 315000: uvm_test_top.ev.mem_model [MEM_MODEL ] Read Burst start addr=54 beats=4
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(192) @ 315000: uvm_test_top.ev.agt.drv [DRV] AR sent addr=54 len=3
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 320000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[54]=d7d483db
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 335000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=1 data=d7d483db last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 340000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[58]=952ce4c6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 345000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=2 data=952ce4c6 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 350000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[5c]=72f373b6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 355000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=3 data=72f373b6 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 360000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[50]=b877fa0c
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 365000: uvm_test_top.ev.scb [SB] MATCH Beat=1 addr=54 exp=d7d483db act=d7d483db
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 365000: uvm_test_top.ev.scb [SB] MATCH Beat=2 addr=58 exp=952ce4c6 act=952ce4c6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 365000: uvm_test_top.ev.scb [SB] MATCH Beat=3 addr=5c exp=72f373b6 act=72f373b6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 365000: uvm_test_top.ev.scb [SB] MATCH Beat=4 addr=50 exp=b877fa0c act=b877fa0c
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/monitor.sv(121) @ 365000: uvm_test_top.ev.agt.mon [MON] READ MON addr=54 len=3
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 365000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=4 data=b877fa0c last=1
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(244) @ 375000: uvm_test_top.ev.agt.drv [DRV] Read Burst received  beats=4
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/sequences/sequence.sv(227) @ 375000: uvm_test_top.ev.agt.sqr@@sq [SEQ] Wrap aligned Read :addr=54 len=3 
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(64) @ 375000: uvm_test_top.ev.agt.drv [DRV] Write Transaction Received addr=bc len=7
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(81) @ 405000: uvm_test_top.ev.mem_model [MEM_MODEL ] Write Burst start addr=bc beats=8
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(106) @ 405000: uvm_test_top.ev.agt.drv [DRV] AW sent addr=bc len=7
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 415000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[bc]=c68d6254
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 425000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[a0]=ab5db675
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 435000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[a4]=4cc2704b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 445000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[a8]=e961897b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 455000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[ac]=7f3c2f1
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 465000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[b0]=694dd104
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 475000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[b4]=109c2c28
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 485000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[b8]=2912431c
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(141) @ 485000: uvm_test_top.ev.agt.drv [DRV] W Burst sent beats=8
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(159) @ 495000: uvm_test_top.ev.agt.drv [DRV] Write Response =0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 505000: uvm_test_top.ev.scb [SB] WRITE MEM[bc]=c68d6254
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 505000: uvm_test_top.ev.scb [SB] WRITE MEM[a0]=ab5db675
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 505000: uvm_test_top.ev.scb [SB] WRITE MEM[a4]=4cc2704b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 505000: uvm_test_top.ev.scb [SB] WRITE MEM[a8]=e961897b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 505000: uvm_test_top.ev.scb [SB] WRITE MEM[ac]=7f3c2f1
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 505000: uvm_test_top.ev.scb [SB] WRITE MEM[b0]=694dd104
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 505000: uvm_test_top.ev.scb [SB] WRITE MEM[b4]=109c2c28
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 505000: uvm_test_top.ev.scb [SB] WRITE MEM[b8]=2912431c
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/monitor.sv(86) @ 505000: uvm_test_top.ev.agt.mon [MON] Write MON addr=bc len=7
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/sequences/sequence.sv(216) @ 505000: uvm_test_top.ev.agt.sqr@@sq [SEQ2] Wrap aligned Write :addr=bc len=7 
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(73) @ 505000: uvm_test_top.ev.agt.drv [DRV] Read Transaction Received addr=bc len=7
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(132) @ 535000: uvm_test_top.ev.mem_model [MEM_MODEL ] Read Burst start addr=bc beats=8
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(192) @ 535000: uvm_test_top.ev.agt.drv [DRV] AR sent addr=bc len=7
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 540000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[bc]=c68d6254
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 555000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=1 data=c68d6254 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 560000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[a0]=ab5db675
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 565000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=2 data=ab5db675 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 570000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[a4]=4cc2704b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 575000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=3 data=4cc2704b last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 580000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[a8]=e961897b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 585000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=4 data=e961897b last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 590000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[ac]=7f3c2f1
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 595000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=5 data=7f3c2f1 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 600000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[b0]=694dd104
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 605000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=6 data=694dd104 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 610000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[b4]=109c2c28
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 615000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=7 data=109c2c28 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 620000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[b8]=2912431c
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 625000: uvm_test_top.ev.scb [SB] MATCH Beat=1 addr=bc exp=c68d6254 act=c68d6254
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 625000: uvm_test_top.ev.scb [SB] MATCH Beat=2 addr=a0 exp=ab5db675 act=ab5db675
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 625000: uvm_test_top.ev.scb [SB] MATCH Beat=3 addr=a4 exp=4cc2704b act=4cc2704b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 625000: uvm_test_top.ev.scb [SB] MATCH Beat=4 addr=a8 exp=e961897b act=e961897b
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 625000: uvm_test_top.ev.scb [SB] MATCH Beat=5 addr=ac exp=7f3c2f1 act=7f3c2f1
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 625000: uvm_test_top.ev.scb [SB] MATCH Beat=6 addr=b0 exp=694dd104 act=694dd104
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 625000: uvm_test_top.ev.scb [SB] MATCH Beat=7 addr=b4 exp=109c2c28 act=109c2c28
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 625000: uvm_test_top.ev.scb [SB] MATCH Beat=8 addr=b8 exp=2912431c act=2912431c
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/monitor.sv(121) @ 625000: uvm_test_top.ev.agt.mon [MON] READ MON addr=bc len=7
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 625000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=8 data=2912431c last=1
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(244) @ 635000: uvm_test_top.ev.agt.drv [DRV] Read Burst received  beats=8
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/sequences/sequence.sv(227) @ 635000: uvm_test_top.ev.agt.sqr@@sq [SEQ] Wrap aligned Read :addr=bc len=7 
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(64) @ 635000: uvm_test_top.ev.agt.drv [DRV] Write Transaction Received addr=8c len=1
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(81) @ 665000: uvm_test_top.ev.mem_model [MEM_MODEL ] Write Burst start addr=8c beats=2
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(106) @ 665000: uvm_test_top.ev.agt.drv [DRV] AW sent addr=8c len=1
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 675000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[8c]=9e17755c
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 685000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[88]=ee39f619
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(141) @ 685000: uvm_test_top.ev.agt.drv [DRV] W Burst sent beats=2
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(159) @ 695000: uvm_test_top.ev.agt.drv [DRV] Write Response =0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 705000: uvm_test_top.ev.scb [SB] WRITE MEM[8c]=9e17755c
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 705000: uvm_test_top.ev.scb [SB] WRITE MEM[88]=ee39f619
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/monitor.sv(86) @ 705000: uvm_test_top.ev.agt.mon [MON] Write MON addr=8c len=1
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/sequences/sequence.sv(216) @ 705000: uvm_test_top.ev.agt.sqr@@sq [SEQ2] Wrap aligned Write :addr=8c len=1 
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(73) @ 705000: uvm_test_top.ev.agt.drv [DRV] Read Transaction Received addr=8c len=1
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(132) @ 735000: uvm_test_top.ev.mem_model [MEM_MODEL ] Read Burst start addr=8c beats=2
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(192) @ 735000: uvm_test_top.ev.agt.drv [DRV] AR sent addr=8c len=1
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 740000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[8c]=9e17755c
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 755000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=1 data=9e17755c last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 760000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[88]=ee39f619
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 765000: uvm_test_top.ev.scb [SB] MATCH Beat=1 addr=8c exp=9e17755c act=9e17755c
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 765000: uvm_test_top.ev.scb [SB] MATCH Beat=2 addr=88 exp=ee39f619 act=ee39f619
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/monitor.sv(121) @ 765000: uvm_test_top.ev.agt.mon [MON] READ MON addr=8c len=1
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 765000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=2 data=ee39f619 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(244) @ 775000: uvm_test_top.ev.agt.drv [DRV] Read Burst received  beats=2
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/sequences/sequence.sv(227) @ 775000: uvm_test_top.ev.agt.sqr@@sq [SEQ] Wrap aligned Read :addr=8c len=1 
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(64) @ 775000: uvm_test_top.ev.agt.drv [DRV] Write Transaction Received addr=bc len=7
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(81) @ 805000: uvm_test_top.ev.mem_model [MEM_MODEL ] Write Burst start addr=bc beats=8
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(106) @ 805000: uvm_test_top.ev.agt.drv [DRV] AW sent addr=bc len=7
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 815000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[bc]=c4cf5ed6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 825000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[a0]=1a3036f9
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 835000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[a4]=5b26f0e6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 845000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[a8]=ed18c293
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 855000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[ac]=57101759
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 865000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[b0]=119d6fe8
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 875000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[b4]=15a3e673
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(90) @ 885000: uvm_test_top.ev.mem_model [MEM Model] Write Mem[b8]=6e76201
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(141) @ 885000: uvm_test_top.ev.agt.drv [DRV] W Burst sent beats=8
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(159) @ 895000: uvm_test_top.ev.agt.drv [DRV] Write Response =0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 905000: uvm_test_top.ev.scb [SB] WRITE MEM[bc]=c4cf5ed6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 905000: uvm_test_top.ev.scb [SB] WRITE MEM[a0]=1a3036f9
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 905000: uvm_test_top.ev.scb [SB] WRITE MEM[a4]=5b26f0e6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 905000: uvm_test_top.ev.scb [SB] WRITE MEM[a8]=ed18c293
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 905000: uvm_test_top.ev.scb [SB] WRITE MEM[ac]=57101759
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 905000: uvm_test_top.ev.scb [SB] WRITE MEM[b0]=119d6fe8
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 905000: uvm_test_top.ev.scb [SB] WRITE MEM[b4]=15a3e673
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(71) @ 905000: uvm_test_top.ev.scb [SB] WRITE MEM[b8]=6e76201
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/monitor.sv(86) @ 905000: uvm_test_top.ev.agt.mon [MON] Write MON addr=bc len=7
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/sequences/sequence.sv(216) @ 905000: uvm_test_top.ev.agt.sqr@@sq [SEQ2] Wrap aligned Write :addr=bc len=7 
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(73) @ 905000: uvm_test_top.ev.agt.drv [DRV] Read Transaction Received addr=bc len=7
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(132) @ 935000: uvm_test_top.ev.mem_model [MEM_MODEL ] Read Burst start addr=bc beats=8
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(192) @ 935000: uvm_test_top.ev.agt.drv [DRV] AR sent addr=bc len=7
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 940000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[bc]=c4cf5ed6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 955000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=1 data=c4cf5ed6 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 960000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[a0]=1a3036f9
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 965000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=2 data=1a3036f9 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 970000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[a4]=5b26f0e6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 975000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=3 data=5b26f0e6 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 980000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[a8]=ed18c293
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 985000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=4 data=ed18c293 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 990000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[ac]=57101759
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 995000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=5 data=57101759 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 1000000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[b0]=119d6fe8
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 1005000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=6 data=119d6fe8 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 1010000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[b4]=15a3e673
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 1015000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=7 data=15a3e673 last=0
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/axi_slave_mem_model.sv(136) @ 1020000: uvm_test_top.ev.mem_model [MEM Model] Read Mem[b8]=6e76201
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 1025000: uvm_test_top.ev.scb [SB] MATCH Beat=1 addr=bc exp=c4cf5ed6 act=c4cf5ed6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 1025000: uvm_test_top.ev.scb [SB] MATCH Beat=2 addr=a0 exp=1a3036f9 act=1a3036f9
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 1025000: uvm_test_top.ev.scb [SB] MATCH Beat=3 addr=a4 exp=5b26f0e6 act=5b26f0e6
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 1025000: uvm_test_top.ev.scb [SB] MATCH Beat=4 addr=a8 exp=ed18c293 act=ed18c293
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 1025000: uvm_test_top.ev.scb [SB] MATCH Beat=5 addr=ac exp=57101759 act=57101759
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 1025000: uvm_test_top.ev.scb [SB] MATCH Beat=6 addr=b0 exp=119d6fe8 act=119d6fe8
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 1025000: uvm_test_top.ev.scb [SB] MATCH Beat=7 addr=b4 exp=15a3e673 act=15a3e673
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/env/scoreboard.sv(83) @ 1025000: uvm_test_top.ev.scb [SB] MATCH Beat=8 addr=b8 exp=6e76201 act=6e76201
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/monitor.sv(121) @ 1025000: uvm_test_top.ev.agt.mon [MON] READ MON addr=bc len=7
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(227) @ 1025000: uvm_test_top.ev.agt.drv [DRV] RDATA beat=8 data=6e76201 last=1
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/agents/driver.sv(244) @ 1035000: uvm_test_top.ev.agt.drv [DRV] Read Burst received  beats=8
+UVM_INFO /home/user2/Documents/user1/AXI_DV_coverage/tb/sequences/sequence.sv(227) @ 1035000: uvm_test_top.ev.agt.sqr@@sq [SEQ] Wrap aligned Read :addr=bc len=7 
+UVM_INFO /man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/sv/src/base/uvm_objection.svh(1268) @ 3035000: reporter [TEST_DONE] 'run' phase is ready to proceed to the 'extract' phase
+
+--- UVM Report catcher Summary ---
+
+
+Number of demoted UVM_FATAL reports  :    0
+Number of demoted UVM_ERROR reports  :    0
+Number of demoted UVM_WARNING reports:    0
+Number of caught UVM_FATAL reports   :    0
+Number of caught UVM_ERROR reports   :    0
+Number of caught UVM_WARNING reports :    0
+
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :  197
+UVM_WARNING :    0
+UVM_ERROR :    0
+UVM_FATAL :    0
+** Report counts by id
+[DRV]    61
+[MEM Model]    52
+[MEM_MODEL ]    10
+[MON]    10
+[RNTST]     1
+[SB]    52
+[SEQ]     5
+[SEQ2]     5
+[TEST_DONE]     1
+Simulation complete via $finish(1) at time 3035 NS + 45
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/sv/src/base/uvm_root.svh:457     $finish;
+xcelium>  
+xcelium> exit
+TOOL:	xrun(64)	25.03-s001: Exiting on Jul 18, 2026 at 03:41:43 EDT  (total: 00:00:00)

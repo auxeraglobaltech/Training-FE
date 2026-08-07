@@ -1,0 +1,40 @@
+//
+// File created by:  xrun
+// Do not modify this file
+//
+-INPUT
+"@source /man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/additions/sv/files/tcl/uvm_sim.tcl"
++incdir+/home/user2/Documents/user1/AXI_OOO/rtl
++incdir+/home/user2/Documents/user1/AXI_OOO/tb/agents
++incdir+/home/user2/Documents/user1/AXI_OOO/tb/env
++incdir+/home/user2/Documents/user1/AXI_OOO/sim
++incdir+/home/user2/Documents/user1/AXI_OOO/tb/sequences
++incdir+/home/user2/Documents/user1/AXI_OOO/tb/tests
++incdir+/home/user2/Documents/user1/AXI_OOO/tb/top
+-uvmhome
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d
+-sv_lib
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/additions/sv/lib/64bit/libuvmpli.so
++UVM_TESTNAME=axi_incr_aligned_test
+-MESSAGES
+-RUN
+-SV_LIB
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/additions/sv/lib/64bit/libuvmdpi.so
++EMGRLOG
+xrun.log
+-XLSTIME
+1784361911
+-XLKEEP
+-XLMODE
+./xcelium.d/run.lnx8664.25.03.d
+-RUNMODE
+-CDSLIB
+./xcelium.d/run.lnx8664.25.03.d/cds.lib
+-HDLVAR
+./xcelium.d/run.lnx8664.25.03.d/hdl.var
+-XLNAME
+xrun
+-XLVERSION
+"TOOL:	xrun(64)	25.03-s001"
+-XLNAME
+./xcelium.d/run.lnx8664.25.03.d/man-srv_575387

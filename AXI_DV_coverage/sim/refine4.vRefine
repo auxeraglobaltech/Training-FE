@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
+<refinement-file-root>
+  <information comment-version="1" creation-time="Wed 08 Jul 2026 17:06:37 IST" creator="sgeuser17" csCheck="false" save-ref-method="seq" tool-version="Cadence vManager20.09" rules-signature-c="2d19f974b7be42e5f2a0b18a38a946f">
+    <ucm-files>
+      <ucm-file domain="icc" modelCheckSum="566449942" path="/home/sgeuser17/Documents/user1/AXI_DV_coverage/sim/cov_work/scope/icc_21c35716_3d47d09d.ucm"></ucm-file>
+    </ucm-files>
+    <ccf-files></ccf-files>
+  </information>
+  <rules>
+    <rule ccType="inst" domain="icc" entityName="top/DUT/axi_awid" entityType="toggle" excTime="1783510500" name="exclude" reviewer="unknown" user="0" vscope="default"></rule>
+  </rules>
+  <cache-map>
+    <cache-entry key="0" value="sgeuser17"></cache-entry>
+  </cache-map>
+</refinement-file-root>

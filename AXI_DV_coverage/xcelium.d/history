@@ -1,0 +1,10 @@
+//
+// File created by:  xrun
+// Do not modify this file
+
+s1::(18Jul2026:03:41:22):( xrun -access +rwc -uvm -timescale 1ns/1ps -f ./sim/flist.f +UVM_TESTNAME=axi_incr_aligned_test +UVM_VERBOSITY=UVM_MEDIUM +UVM_NO_RELNOTES -input wave.tcl -svseed random -l ./sim/axi_incr_aligned_test/run.log )&&(./xcelium.d/env.d/env.history.18Jul2026_03_41_22)
+s2::(18Jul2026:03:41:41):( xrun -access +rwc -uvm -timescale 1ns/1ps -f ./sim/flist.f +UVM_TESTNAME=axi_incr_aligned_test +UVM_VERBOSITY=UVM_MEDIUM +UVM_NO_RELNOTES -input wave.tcl -svseed random -l ./sim/axi_incr_aligned_test/run.log )&&(./xcelium.d/env.d/env.history.18Jul2026_03_41_41)
+s3::(18Jul2026:03:41:42):( xrun -access +rwc -uvm -timescale 1ns/1ps -f ./sim/flist.f +UVM_TESTNAME=axi_incr_unaligned_test +UVM_VERBOSITY=UVM_MEDIUM +UVM_NO_RELNOTES -input wave.tcl -svseed random -l ./sim/axi_incr_unaligned_test/run.log )&&(./xcelium.d/env.d/env.history.18Jul2026_03_41_42)
+s4::(18Jul2026:03:41:42):( xrun -access +rwc -uvm -timescale 1ns/1ps -f ./sim/flist.f +UVM_TESTNAME=axi_fixed_aligned_test +UVM_VERBOSITY=UVM_MEDIUM +UVM_NO_RELNOTES -input wave.tcl -svseed random -l ./sim/axi_fixed_aligned_test/run.log )&&(./xcelium.d/env.d/env.history.18Jul2026_03_41_42)
+s5::(18Jul2026:03:41:43):( xrun -access +rwc -uvm -timescale 1ns/1ps -f ./sim/flist.f +UVM_TESTNAME=axi_wrap_aligned_test +UVM_VERBOSITY=UVM_MEDIUM +UVM_NO_RELNOTES -input wave.tcl -svseed random -l ./sim/axi_wrap_aligned_test/run.log )&&(./xcelium.d/env.d/env.history.18Jul2026_03_41_43)
+s6::(18Jul2026:03:41:44):( xrun -access +rwc -uvm -timescale 1ns/1ps -f ./sim/flist.f +UVM_TESTNAME=test +UVM_VERBOSITY=UVM_MEDIUM +UVM_NO_RELNOTES -input wave.tcl -svseed random -l ./sim/test/run.log )&&(./xcelium.d/env.d/env.history.18Jul2026_03_41_44)
