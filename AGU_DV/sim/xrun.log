@@ -1,0 +1,105 @@
+xrun(64): 25.03-s001: (c) Copyright 1995-2025 Cadence Design Systems, Inc.
+TOOL:	xrun(64)	25.03-s001: Started on Aug 03, 2026 at 07:10:25 EDT
+xrun
+	-uvm
+	-access +rwc
+	-f flist.f
+		+incdir+/home/user2/Documents/user1/AGU_DV/RTL/agu
+		+incdir+/home/user2/Documents/user1/AGU_DV/RTL/files
+		+incdir+/home/user2/Documents/user1/AGU_DV/tb/agents
+		+incdir+/home/user2/Documents/user1/AGU_DV/tb/env
+		+incdir+/home/user2/Documents/user1/AGU_DV/sim
+		+incdir+/home/user2/Documents/user1/AGU_DV/tb/sequences
+		+incdir+/home/user2/Documents/user1/AGU_DV/tb/tests
+		+incdir+/home/user2/Documents/user1/AGU_DV/tb/top
+		/home/user2/Documents/user1/AGU_DV/RTL/agu/rtddma_agutop.v
+		/home/user2/Documents/user1/AGU_DV/RTL/agu/rtddma_aguaddrpipe.v
+		/home/user2/Documents/user1/AGU_DV/RTL/agu/rtddma_aguboundschk.v
+		/home/user2/Documents/user1/AGU_DV/RTL/agu/rtddma_aguburstplan.v
+		/home/user2/Documents/user1/AGU_DV/RTL/agu/rtddma_agucore2d.v
+		/home/user2/Documents/user1/AGU_DV/RTL/agu/rtddma_agulinectrl.v
+		/home/user2/Documents/user1/AGU_DV/RTL/agu/rtddmafaultcodes.vh
+		/home/user2/Documents/user1/AGU_DV/RTL/agu/rtddmaparams.vh
+		/home/user2/Documents/user1/AGU_DV/RTL/agu/rtddmastates.vh
+		/home/user2/Documents/user1/AGU_DV/RTL/agu/rtddmaagudefs.vh
+		/home/user2/Documents/user1/AGU_DV/RTL/files/rtddma_descfields.vh
+		/home/user2/Documents/user1/AGU_DV/tb/top/pkg.sv
+		/home/user2/Documents/user1/AGU_DV/tb/agents/interface.sv
+		/home/user2/Documents/user1/AGU_DV/tb/top/top.sv
+	+UVM_TESTNAME=agu_basic_2d_test
+Loading snapshot worklib.top:sv .................... Done
+SVSEED default: 1
+xcelium> source /man-vol1/tools/install/XCELIUM2503/tools/xcelium/files/xmsimrc
+xcelium> source /man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/additions/sv/files/tcl/uvm_sim.tcl
+xcelium> run
+----------------------------------------------------------------
+CDNS-UVM-1.1d (25.03-s001)
+(C) 2007-2013 Mentor Graphics Corporation
+(C) 2007-2013 Cadence Design Systems, Inc.
+(C) 2006-2013 Synopsys, Inc.
+(C) 2011-2013 Cypress Semiconductor Corp.
+----------------------------------------------------------------
+
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  You are using a version of the UVM library that has been compiled
+  with `UVM_NO_DEPRECATED undefined.
+  See http://www.eda.org/svdb/view.php?id=3313 for more details.
+
+  You are using a version of the UVM library that has been compiled
+  with `UVM_OBJECT_MUST_HAVE_CONSTRUCTOR undefined.
+  See http://www.eda.org/svdb/view.php?id=3770 for more details.
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+UVM_INFO @ 0: reporter [RNTST] Running test agu_basic_2d_test...
+xmsim: *W,PRFRTNEV: (-FUNCTIONS) Database must be opened in -EVENT mode to capture calling scope data. Use -wave_glitch_recording with ida_database if ida_probe is being used. Set is_sequence_time option to 1 if $shm_open/$shm_probe is being used.
+xmsim: *W,SHMPOPT: Some objects excluded from $shm_probe due to optimizations.
+            File: ../tb/top/top.sv, line = 78, pos = 13
+           Scope: top
+            Time: 0 FS + 0
+
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(27) @ 15000: uvm_test_top.ev.agt.drv [AGU_DRV] Received AGU transaction:SRC=1000 DST=8000 X_COUNT=4 Y_COUNT=3 X_STRIDE=4 Y_STRIDE=64
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(80) @ 15000: uvm_test_top.ev.agt.drv [AGU_DRV] Starting AGU drive_transfer()
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(116) @ 35000: uvm_test_top.ev.agt.drv [AGU_DRV] Programing descriptor:W0=50a800 W1=1000 W2=8000 W3=40004 W4=30040
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(151) @ 55000: uvm_test_top.ev.agt.drv [AGU_DRV] Sending start_i pulse
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(210) @ 145000: uvm_test_top.ev.agt.drv [AGU_DRV] Address accepted: SRC=1000 DST=8000 BURST_BYTES=4
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(210) @ 175000: uvm_test_top.ev.agt.drv [AGU_DRV] Address accepted: SRC=1004 DST=8004 BURST_BYTES=4
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(210) @ 225000: uvm_test_top.ev.agt.drv [AGU_DRV] Address accepted: SRC=1008 DST=8008 BURST_BYTES=4
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(210) @ 275000: uvm_test_top.ev.agt.drv [AGU_DRV] Address accepted: SRC=100c DST=800c BURST_BYTES=4
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(210) @ 325000: uvm_test_top.ev.agt.drv [AGU_DRV] Address accepted: SRC=1040 DST=8040 BURST_BYTES=4
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(210) @ 375000: uvm_test_top.ev.agt.drv [AGU_DRV] Address accepted: SRC=1044 DST=8044 BURST_BYTES=4
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(210) @ 425000: uvm_test_top.ev.agt.drv [AGU_DRV] Address accepted: SRC=1048 DST=8048 BURST_BYTES=4
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(210) @ 475000: uvm_test_top.ev.agt.drv [AGU_DRV] Address accepted: SRC=104c DST=804c BURST_BYTES=4
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(210) @ 525000: uvm_test_top.ev.agt.drv [AGU_DRV] Address accepted: SRC=1080 DST=8080 BURST_BYTES=4
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(210) @ 575000: uvm_test_top.ev.agt.drv [AGU_DRV] Address accepted: SRC=1084 DST=8084 BURST_BYTES=4
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(210) @ 625000: uvm_test_top.ev.agt.drv [AGU_DRV] Address accepted: SRC=1088 DST=8088 BURST_BYTES=4
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(210) @ 675000: uvm_test_top.ev.agt.drv [AGU_DRV] Address accepted: SRC=1088 DST=8088 BURST_BYTES=4
+UVM_INFO /home/user2/Documents/user1/AGU_DV/tb/agents/driver.sv(241) @ 695000: uvm_test_top.ev.agt.drv [AGU_DRV] AGU completed after 63 cycles
+UVM_INFO /man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/sv/src/base/uvm_objection.svh(1268) @ 2715000: reporter [TEST_DONE] 'run' phase is ready to proceed to the 'extract' phase
+
+--- UVM Report catcher Summary ---
+
+
+Number of demoted UVM_FATAL reports  :    0
+Number of demoted UVM_ERROR reports  :    0
+Number of demoted UVM_WARNING reports:    0
+Number of caught UVM_FATAL reports   :    0
+Number of caught UVM_ERROR reports   :    0
+Number of caught UVM_WARNING reports :    0
+
+--- UVM Report Summary ---
+
+** Report counts by severity
+UVM_INFO :   19
+UVM_WARNING :    0
+UVM_ERROR :    0
+UVM_FATAL :    0
+** Report counts by id
+[AGU_DRV]    17
+[RNTST]     1
+[TEST_DONE]     1
+Simulation complete via $finish(1) at time 2715 NS + 45
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/sv/src/base/uvm_root.svh:457     $finish;
+xcelium> exit
+TOOL:	xrun(64)	25.03-s001: Exiting on Aug 03, 2026 at 07:10:27 EDT  (total: 00:00:02)

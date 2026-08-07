@@ -1,0 +1,26 @@
+//
+// File created by:  xrun
+// Do not modify this file
+//
+-INCDIR
+/home/user2/Documents/user1/AGU_DV/RTL/agu
+-INCDIR
+/home/user2/Documents/user1/AGU_DV/RTL/files
+-INCDIR
+/home/user2/Documents/user1/AGU_DV/tb/agents
+-INCDIR
+/home/user2/Documents/user1/AGU_DV/tb/env
+-INCDIR
+/home/user2/Documents/user1/AGU_DV/sim
+-INCDIR
+/home/user2/Documents/user1/AGU_DV/tb/sequences
+-INCDIR
+/home/user2/Documents/user1/AGU_DV/tb/tests
+-INCDIR
+/home/user2/Documents/user1/AGU_DV/tb/top
+-I_INCDIR
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/sv/src
+-DEFINE
+USE_PARAMETERIZED_WRAPPER
+-I_INCDIR
+/man-vol1/tools/install/XCELIUM2503/tools/methodology/UVM/CDNS-1.1d/additions/sv
