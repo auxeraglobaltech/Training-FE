@@ -1,0 +1,76 @@
+xrun(64): 25.03-s001: (c) Copyright 1995-2025 Cadence Design Systems, Inc.
+TOOL:	xrun(64)	25.03-s001: Started on Jul 22, 2026 at 05:49:38 EDT
+xrun
+	apb_master.v
+	apb_master_tb.v
+	-access +rwc
+	-gui
+file: apb_master_tb.v
+	module worklib.apb_master_tb:v
+		errors: 0, warnings: 0
+		Caching library 'worklib' ....... Done
+	Elaborating the design hierarchy:
+	Top level design units:
+		apb_master_tb
+	Building instance overlay tables: .................... Done
+	Generating native compiled code:
+		worklib.apb_master_tb:v <0x68854981>
+			streams:  13, words: 10417
+		worklib.apb_master:v <0x3b6f5282>
+			streams:  12, words:  7361
+	Building instance specific data structures.
+	Loading native compiled code:     .................... Done
+	Design hierarchy summary:
+		                 Instances  Unique
+		Modules:                 2       2
+		Registers:              18      18
+		Scalar wires:            8       -
+		Vectored wires:          3       -
+		Always blocks:           5       5
+		Initial blocks:          8       8
+		Cont. assignments:       1       1
+		Pseudo assignments:      5       -
+		Process Clocks:          2       1
+		Simulation timescale:  1ps
+	Writing initial simulation snapshot: worklib.apb_master_tb:v
+xmsim: *W,NOMTDGUI: Multi-Threaded Dumping is disabled for interactive debug mode.
+
+-------------------------------------
+Relinquished control to SimVision...
+xcelium> 
+xcelium> source /man-vol1/tools/install/XCELIUM2503/tools/xcelium/files/xmsimrc
+xcelium> database -open waves -into waves.shm -default
+Created default SHM database waves
+xcelium> probe -create -shm apb_master_tb.dut.PADDR apb_master_tb.dut.PCLK apb_master_tb.dut.PENABLE apb_master_tb.dut.PRDATA apb_master_tb.dut.PREADY apb_master_tb.dut.PRESETn apb_master_tb.dut.PSEL apb_master_tb.dut.PSLVERR apb_master_tb.dut.PWDATA apb_master_tb.dut.PWRITE apb_master_tb.dut.addr_reg apb_master_tb.dut.data_reg apb_master_tb.dut.error_reg apb_master_tb.dut.next_state apb_master_tb.dut.read_reg apb_master_tb.dut.state apb_master_tb.dut.transfer apb_master_tb.dut.transfer_count apb_master_tb.dut.write_reg
+Created probe 1
+xcelium> run
+---------------------------------------------------------------
+TIME	STATE	PSEL PENABLE PWRITE PADDR		PWDATA		PREADY
+---------------------------------------------------------------
+0	00	0	0	0	00000000	00000000	1
+25000	01	1	0	1	00000000	11111111	1
+35000	10	1	1	1	00000000	11111111	1
+45000	01	1	0	0	00000004	11111112	1
+55000	10	1	1	0	00000004	11111112	1
+65000	01	1	0	1	00000008	11111113	1
+75000	10	1	1	1	00000008	11111113	1
+80000	10	1	1	1	00000008	11111113	0
+110000	10	1	1	1	00000008	11111113	1
+115000	01	1	0	0	0000000c	11111114	1
+125000	10	1	1	0	0000000c	11111114	1
+135000	01	1	0	1	00000010	11111115	1
+145000	10	1	1	1	00000010	11111115	1
+155000	01	1	0	0	00000014	11111116	1
+165000	10	1	1	0	00000014	11111116	1
+175000	01	1	0	1	00000018	11111117	1
+185000	10	1	1	1	00000018	11111117	1
+195000	01	1	0	0	0000001c	11111118	1
+205000	10	1	1	0	0000001c	11111118	1
+215000	01	1	0	0	0000001c	11111118	1
+225000	10	1	1	0	0000001c	11111118	1
+235000	00	0	0	0	00000000	00000000	1
+Simulation complete via $finish(1) at time 400 NS + 0
+./apb_master_tb.v:156     $finish;
+xcelium> ^C
+xcelium> exit
+TOOL:	xrun(64)	25.03-s001: Exiting on Jul 22, 2026 at 06:04:35 EDT  (total: 00:14:57)
