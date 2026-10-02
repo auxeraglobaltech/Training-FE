@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ibex Core — Memory Map &amp; CSR Address Map</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --panel: #ffffff;
+    --border: #e1e4ea;
+    --text: #1f2430;
+    --muted: #65708a;
+    --accent: #1a73e8;
+    --accent-bg: #eaf2fe;
+    --rom: #e8f0fc;
+    --rom-text: #1a56a8;
+    --ram: #e9f8ee;
+    --ram-text: #1a7a3c;
+    --alias: #fdf1e3;
+    --alias-text: #a1600f;
+    --csr-r: #f1edfc;
+    --csr-r-text: #6b3fc9;
+    --csr-rw: #fdeef0;
+    --csr-rw-text: #c23a5a;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem 5rem;
+  }
+  header {
+    margin-bottom: 2rem;
+  }
+  h1 {
+    font-size: 1.9rem;
+    margin: 0 0 0.3rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 1rem;
+    margin: 0;
+  }
+  .subtitle code { font-size: 0.9em; }
+
+  nav.toc {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin: 1.4rem 0 0;
+  }
+  nav.toc a {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+  }
+  nav.toc a:hover { background: var(--accent-bg); }
+
+  section { margin-top: 3rem; }
+
+  h2 {
+    font-size: 1.35rem;
+    margin: 0 0 0.9rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    scroll-margin-top: 1.5rem;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 1.1rem;
+  }
+  h3 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 1.6rem 0 0.6rem;
+    font-weight: 700;
+  }
+  h3:first-of-type { margin-top: 0; }
+
+  .note {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    padding: 0.9rem 1.1rem;
+    font-size: 0.92rem;
+    color: var(--text);
+    margin: 0 0 1.3rem;
+    border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(20,25,40,0.04);
+  }
+  .note.warn { border-left-color: #d98324; background: var(--alias); }
+  .note strong { color: var(--text); }
+
+  .legend {
+    display: flex;
+    gap: 1.4rem;
+    margin: 0 0 1.2rem;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 0.5rem; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(20,25,40,0.05);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+  }
+  thead th {
+    position: sticky;
+    top: 0;
+    background: #fafbfc;
+    color: var(--muted);
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-bottom: 2px solid var(--border);
+  }
+  td {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #fafbfe; }
+  tbody tr.group-row td {
+    background: #f1f3f7;
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    padding: 0.5rem 1rem;
+  }
+  tbody tr.group-row:hover td { background: #f1f3f7; }
+
+  .addr {
+    font-family: var(--mono);
+    color: var(--accent);
+    white-space: nowrap;
+    font-weight: 600;
+  }
+  .name { font-family: var(--mono); font-weight: 600; white-space: nowrap; }
+  .desc { color: var(--text); }
+  .desc code { background: #f1f3f7; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.88em; }
+  .size { color: var(--muted); white-space: nowrap; font-family: var(--mono); font-size: 0.88em; }
+
+  .tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+  .tag.rom   { background: var(--rom);   color: var(--rom-text); }
+  .tag.ram   { background: var(--ram);   color: var(--ram-text); }
+  .tag.alias { background: var(--alias); color: var(--alias-text); }
+  .tag.csr-r  { background: var(--csr-r);  color: var(--csr-r-text); }
+  .tag.csr-rw { background: var(--csr-rw); color: var(--csr-rw-text); }
+
+  footer {
+    margin-top: 3.5rem;
+    color: var(--muted);
+    font-size: 0.82rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1.2rem;
+  }
+  footer code { font-family: var(--mono); }
+
+  @media (max-width: 720px) {
+    .wrap { padding: 1.5rem 1rem 3rem; }
+    table { font-size: 0.82rem; }
+    td, thead th { padding: 0.55rem 0.6rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Ibex Core — Memory Map &amp; CSR Address Map</h1>
+  <p class="subtitle">Training-FE verification environment · <code>tb_top.sv</code> + <code>sw/link.ld</code> + lowRISC Ibex (<code>RTL/ibex</code>) · config: RV32IMC, no PMP, no ICache, no WritebackStage</p>
+  <nav class="toc">
+    <a href="#memmap">System Memory Map</a>
+    <a href="#rom-detail">ROM Layout Detail</a>
+    <a href="#csrmap">CSR Address Map</a>
+  </nav>
+</header>
+
+<section id="memmap">
+  <h2><span class="num">1</span> System Memory Map</h2>
+  <div class="note">
+    Modeled as one flat byte array <code>mem_b[0:262143]</code> in <code>tb_top.sv</code> (256&nbsp;KB total).
+    Zero-wait-state grant, 1-cycle registered <code>rvalid</code>/<code>rdata</code> on both instruction and data buses.
+    There is <strong>no separate peripheral bus</strong> — ROM, RAM, and the UART alias all live in the same SRAM model.
+  </div>
+  <div class="legend">
+    <span><span class="tag rom">ROM</span> code / rodata — loaded from <code>hello_world.vmem</code></span>
+    <span><span class="tag ram">RAM</span> data / bss / stack — read-write</span>
+    <span><span class="tag alias">Alias</span> mapped by convention only — no real HW behavior</span>
+  </div>
+
+  <div class="card">
+  <table>
+  <thead><tr><th style="width:21%">Address Range</th><th style="width:9%">Size</th><th style="width:10%">Region</th><th>Contents</th></tr></thead>
+  <tbody>
+    <tr><td class="addr">0x0001_0000 – 0x0002_FFFF</td><td class="size">128 KB</td><td><span class="tag ram">RAM</span></td><td class="desc"><strong>Data memory</strong> — <code>MEMORY{ RAM: ORIGIN=0x10000, LENGTH=128K }</code></td></tr>
+    <tr><td class="addr">0x0000_0000 – 0x0000_FFFF</td><td class="size">64 KB</td><td><span class="tag rom">ROM</span></td><td class="desc"><strong>Code memory</strong> — <code>MEMORY{ ROM: ORIGIN=0x0, LENGTH=64K }</code>, <code>boot_addr_i=0x0</code></td></tr>
+    <tr><td class="addr">0x0001_0000</td><td class="size">4 B</td><td><span class="tag ram">RAM</span></td><td class="desc"><code>tohost</code> — pass / fail / trap-cause handshake word, polled every cycle by <code>tb_top.sv</code></td></tr>
+    <tr><td class="addr">0x0001_0004</td><td class="size">4 B</td><td><span class="tag ram">RAM</span></td><td class="desc"><code>result_add</code> — scratch result written by the current test's <code>alu_add()</code></td></tr>
+    <tr><td class="addr">0x0002_0000</td><td class="size">4 B</td><td><span class="tag alias">Alias</span></td><td class="desc"><code>UART_TX_REG</code> (<code>sw/common/uart_simple.h</code>) — falls inside plain RAM; <strong>no monitor watches this address</strong>, so writes are inert stores, not console output</td></tr>
+    <tr><td class="addr">0x0003_0000</td><td class="size">—</td><td><span class="tag ram">RAM</span></td><td class="desc"><code>_stack_top = ORIGIN(RAM) + LENGTH(RAM)</code> — stack grows down from here</td></tr>
+    <tr><td class="addr">0x0003_0000 – 0x0003_FFFF</td><td class="size">64 KB</td><td>—</td><td class="desc">Modeled in <code>mem_b[]</code> but outside both linker regions — unused padding up to the 256&nbsp;KB array bound</td></tr>
+  </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="rom-detail">
+  <h2><span class="num">2</span> ROM Layout Detail</h2>
+  <div class="note warn">
+    <strong>Reset-vector dependency:</strong> Ibex always fetches its first post-reset instruction from
+    <code>{boot_addr_i[31:8], 8'h80}</code> — fixed in hardware, independent of the linker script.
+    That address previously held zeroed memory (an illegal instruction), which happened to trap to <code>mtvec</code>'s
+    reset value (<code>0x0</code>) — coinciding with the ROM origin by accident. <code>sw/link.ld</code> +
+    <code>sw/crt0.S</code> now place a real <code>_reset_entry</code> trampoline at <code>0x80</code> explicitly,
+    so the boot path no longer depends on that coincidence.
+  </div>
+  <div class="card">
+  <table>
+  <thead><tr><th style="width:21%">Address</th><th style="width:12%">Size</th><th>Contents</th></tr></thead>
+  <tbody>
+    <tr><td class="addr">0x0000_0000 – 0x0000_007F</td><td class="size">128 B</td><td class="desc">Reserved / unused — before the hardware reset vector</td></tr>
+    <tr><td class="addr">0x0000_0080</td><td class="size">4 B</td><td class="desc"><code>_reset_entry</code> — hardware boot fetch address. Single <code>j&nbsp;_start</code> trampoline.</td></tr>
+    <tr><td class="addr">0x0000_0084</td><td class="size">~72 B</td><td class="desc"><code>_start</code> (<code>crt0.S</code>): install <code>mtvec</code>, set <code>sp</code>, zero <code>.bss</code>, call <code>main</code>, write <code>tohost</code>, halt loop</td></tr>
+    <tr><td class="addr">0x0000_00CC</td><td class="size">—</td><td class="desc"><code>trap_handler</code> — direct-mode <code>mtvec</code> target for every exception/interrupt</td></tr>
+    <tr><td class="addr">0x0000_00xx – 0x0000_FFFF</td><td class="size">—</td><td class="desc">Remaining <code>.text</code>/<code>.rodata</code> — <code>main()</code>, <code>alu_add()</code>, etc.</td></tr>
+  </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="csrmap">
+  <h2><span class="num">3</span> Ibex CSR Address Map</h2>
+  <div class="note">
+    CSR space is a <strong>separate address space</strong> from the load/store memory map above — accessed only
+    via <code>csrr</code> / <code>csrw</code> / <code>csrrs</code> / etc., never through the <code>data_*</code> bus.
+    Source: <code>RTL/ibex/rtl/ibex_pkg.sv</code> CSR enum.
+  </div>
+  <div class="legend">
+    <span><span class="tag csr-r">R</span> read-only in this core config (no PMP/ePMP/debug-trigger HW active)</span>
+    <span><span class="tag csr-rw">R/W</span> read-write where the feature is implemented</span>
+  </div>
+
+  <div class="card">
+  <table>
+  <thead><tr><th style="width:16%">Address</th><th style="width:16%">Name</th><th style="width:10%">Access</th><th>Purpose</th></tr></thead>
+  <tbody>
+
+    <tr class="group-row"><td colspan="4">Machine Information Registers</td></tr>
+    <tr><td class="addr">0xF11</td><td class="name">mvendorid</td><td><span class="tag csr-r">R</span></td><td class="desc">Vendor ID</td></tr>
+    <tr><td class="addr">0xF12</td><td class="name">marchid</td><td><span class="tag csr-r">R</span></td><td class="desc">Architecture ID</td></tr>
+    <tr><td class="addr">0xF13</td><td class="name">mimpid</td><td><span class="tag csr-r">R</span></td><td class="desc">Implementation ID</td></tr>
+    <tr><td class="addr">0xF14</td><td class="name">mhartid</td><td><span class="tag csr-r">R</span></td><td class="desc">Hart ID (tied to <code>hart_id_i</code>, <code>0x0</code> in this TB)</td></tr>
+    <tr><td class="addr">0xF15</td><td class="name">mconfigptr</td><td><span class="tag csr-r">R</span></td><td class="desc">Pointer to configuration data structure</td></tr>
+
+    <tr class="group-row"><td colspan="4">Machine Trap Setup</td></tr>
+    <tr><td class="addr">0x300</td><td class="name">mstatus</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Global interrupt-enable (<code>MIE</code>), previous privilege/interrupt state</td></tr>
+    <tr><td class="addr">0x301</td><td class="name">misa</td><td><span class="tag csr-r">R</span></td><td class="desc">ISA + extensions (RV32IMC in this config)</td></tr>
+    <tr><td class="addr">0x304</td><td class="name">mie</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Interrupt enable bits (software / timer / external / fast). Set to 0 in <code>crt0.S</code>.</td></tr>
+    <tr><td class="addr">0x305</td><td class="name">mtvec</td><td><span class="tag csr-rw">R/W</span></td><td class="desc"><strong>Trap vector base.</strong> Set by <code>_start</code> to <code>trap_handler</code> (direct mode, low bits = 00)</td></tr>
+    <tr><td class="addr">0x306</td><td class="name">mcounteren</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Counter enable (U-mode access to cycle/instret) — unused, no U-mode here</td></tr>
+    <tr><td class="addr">0x310</td><td class="name">mstatush</td><td><span class="tag csr-r">R</span></td><td class="desc">Upper bits of <code>mstatus</code> (endianness control)</td></tr>
+    <tr><td class="addr">0x30A</td><td class="name">menvcfg</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Machine environment configuration</td></tr>
+    <tr><td class="addr">0x31A</td><td class="name">menvcfgh</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Upper 32 bits of <code>menvcfg</code></td></tr>
+
+    <tr class="group-row"><td colspan="4">Machine Trap Handling</td></tr>
+    <tr><td class="addr">0x340</td><td class="name">mscratch</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Scratch register for trap handler use</td></tr>
+    <tr><td class="addr">0x341</td><td class="name">mepc</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">PC to return to on <code>mret</code> (set automatically on trap entry)</td></tr>
+    <tr><td class="addr">0x342</td><td class="name">mcause</td><td><span class="tag csr-rw">R/W</span></td><td class="desc"><strong>Trap cause.</strong> Read by <code>trap_handler</code> and forwarded to <code>tohost</code>; bit[31]=interrupt, bits[30:0]=cause code</td></tr>
+    <tr><td class="addr">0x343</td><td class="name">mtval</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Trap value (faulting address/instruction, where applicable)</td></tr>
+    <tr><td class="addr">0x344</td><td class="name">mip</td><td><span class="tag csr-r">R</span></td><td class="desc">Pending interrupt bits</td></tr>
+
+    <tr class="group-row"><td colspan="4">Physical Memory Protection — PMP = 0 in this build (present but unused)</td></tr>
+    <tr><td class="addr">0x3A0 – 0x3A3</td><td class="name">pmpcfg0–3</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">PMP region config (8 regions each, 32 total)</td></tr>
+    <tr><td class="addr">0x3B0 – 0x3BF</td><td class="name">pmpaddr0–15</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">PMP region addresses</td></tr>
+    <tr><td class="addr">0x5A8</td><td class="name">scontext</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Supervisor context (debug)</td></tr>
+    <tr><td class="addr">0x747</td><td class="name">mseccfg</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">ePMP security configuration</td></tr>
+    <tr><td class="addr">0x757</td><td class="name">mseccfgh</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Upper 32 bits of <code>mseccfg</code></td></tr>
+
+    <tr class="group-row"><td colspan="4">Debug / Trigger Module</td></tr>
+    <tr><td class="addr">0x7A0</td><td class="name">tselect</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Trigger select</td></tr>
+    <tr><td class="addr">0x7A1 – 0x7A3</td><td class="name">tdata1–3</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Trigger data registers</td></tr>
+    <tr><td class="addr">0x7A8</td><td class="name">mcontext</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Machine context (debug)</td></tr>
+    <tr><td class="addr">0x7AA</td><td class="name">mscontext</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Machine supervisor context (debug)</td></tr>
+    <tr><td class="addr">0x7B0</td><td class="name">dcsr</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Debug control/status (debug mode only)</td></tr>
+    <tr><td class="addr">0x7B1</td><td class="name">dpc</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Debug PC</td></tr>
+    <tr><td class="addr">0x7B2 / 0x7B3</td><td class="name">dscratch0/1</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Debug scratch registers (optional)</td></tr>
+
+    <tr class="group-row"><td colspan="4">Machine Counters / Timers</td></tr>
+    <tr><td class="addr">0x320</td><td class="name">mcountinhibit</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Inhibit counter increment</td></tr>
+    <tr><td class="addr">0x323 – 0x33F</td><td class="name">mhpmevent3–31</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Event selectors for programmable HPM counters</td></tr>
+    <tr><td class="addr">0xB00</td><td class="name">mcycle</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Cycle counter, lower 32 bits</td></tr>
+    <tr><td class="addr">0xB02</td><td class="name">minstret</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Retired-instruction counter, lower 32 bits</td></tr>
+    <tr><td class="addr">0xB03 – 0xB1F</td><td class="name">mhpmcounter3–31</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Programmable HW performance counters, lower 32 bits</td></tr>
+    <tr><td class="addr">0xB80</td><td class="name">mcycleh</td><td><span class="tag csr-rw">R/W</span></td><td class="desc"><code>mcycle</code> upper 32 bits</td></tr>
+    <tr><td class="addr">0xB82</td><td class="name">minstreth</td><td><span class="tag csr-rw">R/W</span></td><td class="desc"><code>minstret</code> upper 32 bits</td></tr>
+    <tr><td class="addr">0xB83 – 0xB9F</td><td class="name">mhpmcounter3–31h</td><td><span class="tag csr-rw">R/W</span></td><td class="desc">Programmable HPM counters, upper 32 bits</td></tr>
+  </tbody>
+  </table>
+  </div>
+</section>
+
+<footer>
+  Generated for Training-FE Ibex UVM verification environment.
+  Sources: <code>tb/top/tb_top.sv</code>, <code>sw/link.ld</code>, <code>sw/crt0.S</code>,
+  <code>sw/common/uart_simple.h</code>, <code>RTL/ibex/rtl/ibex_pkg.sv</code> (CSR enum).
+  Core params (in <code>tb_top.sv</code>): RV32MFast, RV32BNone, ICache=0, SecureIbex=0, WritebackStage=0.
+</footer>
+
+</div>
+</body>
+</html>

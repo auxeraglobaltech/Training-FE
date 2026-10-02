@@ -5,102 +5,59 @@ sim/hello_world.elf:     file format elf32-littleriscv
 Disassembly of section .text.reset_vector:
 
 00000080 <_reset_entry>:
-  # a coincidentally-zero mtvec.
-  # ---------------------------------------------------------------
-  .section .text.reset_vector,"ax",@progbits
-  .globl _reset_entry
-_reset_entry:
-  j _start
   80:	0040006f          	j	84 <_start>
 
 Disassembly of section .text:
 
 00000084 <_start>:
-  la   t0, trap_handler
   84:	00000297          	auipc	t0,0x0
   88:	04828293          	addi	t0,t0,72 # cc <trap_handler>
-  csrw mtvec, t0
   8c:	30529073          	csrw	mtvec,t0
-  la   sp, _stack_top
   90:	00030117          	auipc	sp,0x30
   94:	f7010113          	addi	sp,sp,-144 # 30000 <_stack_top>
-  la   t0, _bss_start
   98:	00010297          	auipc	t0,0x10
   9c:	f6c28293          	addi	t0,t0,-148 # 10004 <_bss_end>
-  la   t1, _bss_end
   a0:	00010317          	auipc	t1,0x10
   a4:	f6430313          	addi	t1,t1,-156 # 10004 <_bss_end>
 
 000000a8 <bss_loop>:
-  bge  t0, t1, bss_done
   a8:	0062d663          	bge	t0,t1,b4 <bss_done>
-  sw   zero, 0(t0)
   ac:	0002a023          	sw	zero,0(t0)
-  addi t0, t0, 4
   b0:	0291                	addi	t0,t0,4
-  j    bss_loop
   b2:	bfdd                	j	a8 <bss_loop>
 
 000000b4 <bss_done>:
-  li   t0, 0
   b4:	4281                	li	t0,0
-  csrw mie, t0
   b6:	30429073          	csrw	mie,t0
-  call main
   ba:	2015                	jal	de <main>
-  la   t0, tohost
   bc:	00010297          	auipc	t0,0x10
   c0:	f4428293          	addi	t0,t0,-188 # 10000 <tohost>
-  li   t1, 1
   c4:	4305                	li	t1,1
-  sw   t1, 0(t0)
   c6:	0062a023          	sw	t1,0(t0)
 
 000000ca <_halt>:
-  j _halt
   ca:	a001                	j	ca <_halt>
 
 000000cc <trap_handler>:
-  csrr t2, mcause
   cc:	342023f3          	csrr	t2,mcause
-  la   t0, tohost
   d0:	00010297          	auipc	t0,0x10
   d4:	f3028293          	addi	t0,t0,-208 # 10000 <tohost>
-  sw   t2, 0(t0)
   d8:	0072a023          	sw	t2,0(t0)
 
 000000dc <trap_halt>:
-  j trap_halt
   dc:	a001                	j	dc <trap_halt>
 
 000000de <main>:
-#include "../common/uart_simple.h"
-
-int main(void) {
   de:	10000793          	li	a5,256
-#define UART_SIMPLE_H
-
-#define UART_BASE    0x20000
-#define UART_TX_REG  (*(volatile unsigned int *)(UART_BASE))
-
-static inline void uart_putc(char c) { UART_TX_REG = (unsigned int)c; }
   e2:	000206b7          	lui	a3,0x20
-static inline void uart_puts(const char *s) { while (*s) uart_putc(*s++); }
   e6:	11100713          	li	a4,273
   ea:	0007c603          	lbu	a2,0(a5)
   ee:	0785                	addi	a5,a5,1
-static inline void uart_putc(char c) { UART_TX_REG = (unsigned int)c; }
   f0:	c290                	sw	a2,0(a3)
-static inline void uart_puts(const char *s) { while (*s) uart_putc(*s++); }
   f2:	fee79ce3          	bne	a5,a4,ea <main+0xc>
-  uart_puts("Hello from Ibex!\n");
-  volatile unsigned int *tohost = (volatile unsigned int *)0x00010000;
-  *tohost = 1;
   f6:	67c1                	lui	a5,0x10
   f8:	4705                	li	a4,1
   fa:	c398                	sw	a4,0(a5)
-  return 0;
-}
   fc:	4501                	li	a0,0
   fe:	8082                	ret
  100:	6548                	.insn	2, 0x6548

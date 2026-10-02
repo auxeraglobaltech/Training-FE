@@ -175,10 +175,17 @@ module tb_top;
   always @(posedge clk) begin
     if (u_if.data_req && u_if.data_we &&
         {u_if.data_addr[31:2], 2'b00} == 32'h00010000) begin
-      if (u_if.data_wdata == 32'h1)
+      if (u_if.data_wdata == 32'h1) begin
         `uvm_info("TOHOST", "TEST PASSED", UVM_NONE)
-      else
-        `uvm_error("TOHOST", "TEST FAILED")
+      end else begin
+        // trap_handler forwards the raw mcause CSR on any exception/
+        // interrupt termination: bit[31] = interrupt, bits[30:0] = cause.
+        `uvm_error("TOHOST", $sformatf(
+          "TEST FAILED - trap taken (mcause=0x%08h, %s cause=%0d)",
+          u_if.data_wdata,
+          u_if.data_wdata[31] ? "interrupt" : "exception",
+          u_if.data_wdata[30:0]))
+      end
       fork
         begin #100; $finish; end
       join_none

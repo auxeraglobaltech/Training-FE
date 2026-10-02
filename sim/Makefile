@@ -63,9 +63,11 @@ sim: sw
 	  $${WAVE_OPTS}; \
 	SIM_RC=$$?; \
 	echo ""; \
-	echo "--- Copying artefacts to $${RUN_DIR} ---"; \
-	cp -f $(REPO_ABS)/sim/$(TEST).vmem $${RUN_DIR}/ 2>/dev/null && echo "  vmem: $(TEST).vmem" || true; \
-	cp -f $(REPO_ABS)/sim/$(TEST).dis  $${RUN_DIR}/ 2>/dev/null && echo "  dis : $(TEST).dis"  || true; \
+	echo "--- Moving artefacts to $${RUN_DIR} ---"; \
+	mv -f $(REPO_ABS)/sim/$(TEST).elf  $${RUN_DIR}/ 2>/dev/null && echo "  elf : $(TEST).elf"  || true; \
+	mv -f $(REPO_ABS)/sim/$(TEST).vmem $${RUN_DIR}/ 2>/dev/null && echo "  vmem: $(TEST).vmem" || true; \
+	mv -f $(REPO_ABS)/sim/$(TEST).dis  $${RUN_DIR}/ 2>/dev/null && echo "  dis : $(TEST).dis"  || true; \
+	mv -f $(REPO_ABS)/sim/$(TEST).pdis $${RUN_DIR}/ 2>/dev/null && echo "  pdis: $(TEST).pdis" || true; \
 	if [ "$(WAVES)" = "1" ] && [ -e $(REPO_ABS)/waves.shm ]; then \
 	  mv $(REPO_ABS)/waves.shm $${RUN_DIR}/waves.shm && echo "  shm : waves.shm"; \
 	fi; \
@@ -82,7 +84,8 @@ sim: sw
 clean:
 	rm -f $(REPO_ABS)/sim/*.elf \
 	      $(REPO_ABS)/sim/*.vmem \
-	      $(REPO_ABS)/sim/*.dis
+	      $(REPO_ABS)/sim/*.dis \
+	      $(REPO_ABS)/sim/*.pdis
 	rm -rf $(REPO_ABS)/xcelium.d \
 	       $(REPO_ABS)/.simvision \
 	       $(REPO_ABS)/waves.shm \
