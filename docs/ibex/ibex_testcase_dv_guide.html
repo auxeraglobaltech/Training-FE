@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ibex Core — Testcase DV Guide (CSR / Interrupt / Privilege)</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --panel: #ffffff;
+    --border: #e1e4ea;
+    --text: #1f2430;
+    --muted: #65708a;
+    --accent: #1a73e8;
+    --accent-bg: #eaf2fe;
+    --pass: #e9f8ee;
+    --pass-text: #1a7a3c;
+    --pend: #fdf1e3;
+    --pend-text: #a1600f;
+    --plan: #f1edfc;
+    --plan-text: #6b3fc9;
+    --bug: #fdeef0;
+    --bug-text: #c23a5a;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 2.5rem 2rem 5rem; }
+  header { margin-bottom: 2rem; }
+  h1 { font-size: 1.9rem; margin: 0 0 0.3rem; letter-spacing: -0.01em; }
+  .subtitle { color: var(--muted); font-size: 1rem; margin: 0; }
+  .subtitle code { font-size: 0.9em; }
+
+  nav.toc { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1.4rem 0 0; }
+  nav.toc a {
+    background: var(--panel); border: 1px solid var(--border); color: var(--accent);
+    text-decoration: none; font-size: 0.85rem; font-weight: 600;
+    padding: 0.45rem 0.9rem; border-radius: 999px;
+  }
+  nav.toc a:hover { background: var(--accent-bg); }
+
+  section { margin-top: 3rem; }
+  h2 { font-size: 1.35rem; margin: 0 0 0.9rem; display: flex; align-items: baseline; gap: 0.6rem; scroll-margin-top: 1.5rem; }
+  h2 .num { color: var(--accent); font-family: var(--mono); font-size: 1.1rem; }
+  h3 { font-size: 0.95rem; margin: 1.8rem 0 0.7rem; font-weight: 700; color: var(--text); }
+  h3:first-of-type { margin-top: 0; }
+  p { margin: 0.7rem 0; }
+
+  .note { background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+    padding: 0.9rem 1.1rem; font-size: 0.92rem; color: var(--text); margin: 0 0 1.3rem; border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(20,25,40,0.04); }
+  .note.warn { border-left-color: #d98324; background: var(--pend); }
+  .note.bug  { border-left-color: #c23a5a; background: var(--bug); }
+  .note strong { color: var(--text); }
+
+  .legend { display: flex; gap: 1.4rem; margin: 0 0 1.2rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 0.5rem; }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(20,25,40,0.05); margin-bottom: 1.3rem; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  thead th { position: sticky; top: 0; background: #fafbfc; color: var(--muted); font-weight: 700;
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; text-align: left;
+    padding: 0.7rem 1rem; border-bottom: 2px solid var(--border); }
+  td { padding: 0.65rem 1rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #fafbfe; }
+  tbody tr.group-row td { background: #f1f3f7; font-weight: 700; font-size: 0.76rem; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted); padding: 0.5rem 1rem; }
+  tbody tr.group-row:hover td { background: #f1f3f7; }
+
+  .name { font-family: var(--mono); font-weight: 600; white-space: nowrap; }
+  .desc { color: var(--text); }
+  .desc code { background: #f1f3f7; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.88em; }
+  code { font-family: var(--mono); }
+  pre { background: #f1f3f7; border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem 1.1rem;
+    overflow-x: auto; font-size: 0.82rem; line-height: 1.5; }
+  pre code { background: none; padding: 0; }
+
+  .tag { display: inline-block; font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 5px;
+    text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+  .tag.pass { background: var(--pass); color: var(--pass-text); }
+  .tag.pend { background: var(--pend); color: var(--pend-text); }
+  .tag.plan { background: var(--plan); color: var(--plan-text); }
+  .tag.bug  { background: var(--bug);  color: var(--bug-text); }
+
+  figure { margin: 1.2rem 0; text-align: center; }
+  figure svg { max-width: 100%; height: auto; }
+  figcaption { font-size: 0.8rem; color: var(--muted); margin-top: 0.6rem; }
+
+  footer { margin-top: 3.5rem; color: var(--muted); font-size: 0.82rem; border-top: 1px solid var(--border); padding-top: 1.2rem; }
+  footer code { font-family: var(--mono); }
+
+  @media (max-width: 720px) {
+    .wrap { padding: 1.5rem 1rem 3rem; }
+    table { font-size: 0.8rem; }
+    td, thead th { padding: 0.5rem 0.6rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Ibex Core — Testcase DV Guide</h1>
+  <p class="subtitle">CSR / Interrupt / Privilege-mode C-testcase curriculum · Training-FE Ibex UVM environment ·
+  config: RV32IMC, SecureIbex=0, ICache=0, PMP=0, WritebackStage=0</p>
+  <nav class="toc">
+    <a href="#status">1 Scope &amp; Status</a>
+    <a href="#arch">2 DV Architecture</a>
+    <a href="#infra">3 Shared Infrastructure</a>
+    <a href="#catalog">4 Test Catalog</a>
+    <a href="#bugs">5 Bugs Found During Bring-up</a>
+    <a href="#run">6 Running / Adding Tests</a>
+  </nav>
+</header>
+
+<section id="status">
+  <h2><span class="num">1</span> Scope &amp; Status</h2>
+  <p>This curriculum teaches CSR access, interrupt handling, and M/U privilege switching on Ibex through
+  phased C testcases — each one exercising a specific piece of the RISC-V privileged architecture via the
+  UVM testbench built around <code>ibex_top</code>. Phases run in order because each later phase depends on
+  infrastructure the earlier ones establish.</p>
+  <div class="card">
+  <table>
+  <thead><tr><th style="width:8%">Phase</th><th style="width:28%">Topic</th><th style="width:12%">Tests</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td class="name">0</td><td class="desc">Trap vector table, context save/restore, C↔SV irq mailbox</td><td class="desc">2 proof tests</td><td><span class="tag pass">Verified</span></td></tr>
+    <tr><td class="name">1</td><td class="desc">CSR fundamentals (<code>asm volatile</code>)</td><td class="desc">4 tests</td><td><span class="tag pass">Verified</span></td></tr>
+    <tr><td class="name">2</td><td class="desc">Individual interrupts (timer/software/external/fast/NMI)</td><td class="desc">5 tests</td><td><span class="tag pend">3 verified, 2 fix-applied pending rerun</span></td></tr>
+    <tr><td class="name">3</td><td class="desc">Interrupt priority (multiple simultaneous sources)</td><td class="desc">planned</td><td><span class="tag plan">Not yet implemented</span></td></tr>
+    <tr><td class="name">4</td><td class="desc">Interrupt nesting (preemption mid-handler)</td><td class="desc">planned</td><td><span class="tag plan">Not yet implemented</span></td></tr>
+    <tr><td class="name">5</td><td class="desc">Machine/User privilege-mode switch</td><td class="desc">planned</td><td><span class="tag plan">Not yet implemented</span></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <div class="note warn">
+    <strong>Phase 2 status detail:</strong> <code>irq_timer_basic</code>, <code>irq_external_basic</code>,
+    <code>irq_fast0_basic</code> passed in simulation. <code>irq_software_basic</code> and
+    <code>irq_nmi_basic</code> hung (ran to the 1&nbsp;ms test timeout, never wrote <code>tohost</code>) on
+    first run — root cause and fix are documented in <a href="#bugs">§5</a>; a rerun to confirm the fix has
+    been requested but not yet reported back.
+  </div>
+</section>
+
+<section id="arch">
+  <h2><span class="num">2</span> DV Architecture</h2>
+  <p>The C program on the core is the primary stimulus source — this is a <strong>software-driven</strong>
+  verification environment, not a bus-level UVM sequence environment. UVM supplies the scaffolding (reset,
+  the one dynamic piece of stimulus the C code can't generate itself — interrupt pins — and pass/fail
+  checking); the test logic itself lives in C.</p>
+  <figure>
+  <svg viewBox="0 0 900 430" xmlns="http://www.w3.org/2000/svg" font-size="11">
+    <defs>
+      <marker id="b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#65708a"/></marker>
+      <marker id="bd" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#6b3fc9"/></marker>
+      <marker id="bo" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#a1600f"/></marker>
+    </defs>
+    <rect x="14" y="14" width="872" height="402" rx="10" fill="none" stroke="#65708a" stroke-dasharray="4 3"/>
+    <text x="28" y="33" fill="#65708a">tb_top.sv  +  ibex_env</text>
+
+    <!-- C program -->
+    <rect x="40" y="55" width="190" height="70" rx="8" fill="#eaf2fe" stroke="#1a73e8" stroke-width="2.5"/>
+    <text x="135" y="85" text-anchor="middle" fill="#1a73e8" font-weight="700">C test (sw/tests/*.c)</text>
+    <text x="135" y="103" text-anchor="middle" font-size="9" fill="#65708a">runs on the core itself</text>
+
+    <!-- ibex_top -->
+    <rect x="360" y="55" width="160" height="130" rx="8" fill="#eaf2fe" stroke="#1a73e8" stroke-width="2.5"/>
+    <text x="440" y="100" text-anchor="middle" fill="#1a73e8" font-weight="700">ibex_top</text>
+    <text x="440" y="118" text-anchor="middle" font-size="9" fill="#65708a">trap_common dispatches</text>
+    <text x="440" y="132" text-anchor="middle" font-size="9" fill="#65708a">mcause/mepc/mstatus to</text>
+    <text x="440" y="146" text-anchor="middle" font-size="9" fill="#65708a">trap_c_handler() in C</text>
+
+    <!-- memory model -->
+    <rect x="590" y="55" width="190" height="56" rx="8" fill="#faf7fd" stroke="#6b3fc9" stroke-width="2"/>
+    <text x="685" y="77" text-anchor="middle" fill="#6b3fc9" font-weight="600">memory model</text>
+    <text x="685" y="94" text-anchor="middle" font-size="9" fill="#65708a">256 KB · $readmemh(+VMEM_FILE)</text>
+
+    <!-- tohost monitor -->
+    <rect x="590" y="123" width="190" height="52" rx="8" fill="#fdf1e3" stroke="#a1600f" stroke-width="2"/>
+    <text x="685" y="145" text-anchor="middle" fill="#a1600f" font-weight="600">tohost monitor</text>
+    <text x="685" y="162" text-anchor="middle" font-size="9" fill="#65708a">write 0x10000 → PASS/FAIL</text>
+
+    <!-- irq mailbox -->
+    <rect x="360" y="230" width="160" height="56" rx="8" fill="#fdf1e3" stroke="#a1600f" stroke-width="2"/>
+    <text x="440" y="252" text-anchor="middle" fill="#a1600f" font-weight="600">irq_ctrl mailbox</text>
+    <text x="440" y="269" text-anchor="middle" font-size="9" fill="#65708a">0x10004 · asserts/clears 1 line</text>
+
+    <!-- ibex_driver -->
+    <rect x="40" y="220" width="230" height="76" rx="6" fill="#eaf2fe" stroke="#1a73e8" stroke-width="2"/>
+    <text x="155" y="243" text-anchor="middle" fill="#1a73e8" font-weight="600">ibex_driver (UVM)</text>
+    <text x="155" y="260" text-anchor="middle" font-size="9" fill="#65708a">watch_irq_mailbox(): taps data bus,</text>
+    <text x="155" y="275" text-anchor="middle" font-size="9" fill="#65708a">poke_irq() drives irq_* pins</text>
+
+    <!-- ibex_monitor + scoreboard -->
+    <rect x="590" y="230" width="190" height="56" rx="6" fill="#eaf2fe" stroke="#1a73e8" stroke-width="2"/>
+    <text x="685" y="252" text-anchor="middle" fill="#1a73e8" font-weight="600">ibex_monitor</text>
+    <text x="685" y="269" text-anchor="middle" font-size="9" fill="#65708a">taps tohost writes → analysis port</text>
+
+    <rect x="590" y="310" width="190" height="56" rx="6" fill="#faf7fd" stroke="#6b3fc9" stroke-width="2"/>
+    <text x="685" y="332" text-anchor="middle" fill="#6b3fc9" font-weight="600">ibex_scoreboard</text>
+    <text x="685" y="349" text-anchor="middle" font-size="9" fill="#65708a">tohost==1 → PASS, else UVM_ERROR</text>
+
+    <!-- connections -->
+    <line x1="230" y1="90" x2="358" y2="90" stroke="#1a73e8" stroke-width="1.5" marker-end="url(#b)"/>
+    <text x="294" y="82" text-anchor="middle" font-size="8" fill="#65708a">executes</text>
+    <line x1="520" y1="85" x2="588" y2="80" stroke="#65708a" stroke-width="1.5" marker-end="url(#b)"/>
+    <line x1="520" y1="140" x2="588" y2="148" stroke="#a1600f" stroke-width="1.4" marker-end="url(#b)"/>
+
+    <line x1="230" y1="100" x2="440" y2="228" stroke="#a1600f" stroke-width="1.4" stroke-dasharray="3 2" marker-end="url(#bo)"/>
+    <text x="270" y="190" font-size="8" fill="#65708a">irq_request(line, on)</text>
+    <line x1="360" y1="258" x2="270" y2="258" stroke="#a1600f" stroke-width="1.4" marker-end="url(#bo)"/>
+    <text x="310" y="248" font-size="8" fill="#65708a">tap</text>
+    <line x1="155" y1="220" x2="400" y2="186" stroke="#1a73e8" stroke-width="1.5" marker-end="url(#b)"/>
+    <text x="260" y="222" font-size="8" fill="#65708a">drives irq_software/timer/external/nm/fast</text>
+
+    <line x1="685" y1="175" x2="685" y2="228" stroke="#a1600f" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#bo)"/>
+    <line x1="685" y1="286" x2="685" y2="308" stroke="#6b3fc9" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#bd)"/>
+
+    <text x="450" y="405" text-anchor="middle" font-size="9" fill="#65708a">Solid = bus / control · Dashed = analysis port / passive tap. Both tohost and irq_ctrl are watched the same way — a plain address-match tap on the data bus, no slave response.</text>
+  </svg>
+  <figcaption>Figure 1 — C program drives the scenario end-to-end; UVM's only two jobs are supplying interrupt
+  pin stimulus on request (via the mailbox) and checking the final <code>tohost</code> value.</figcaption>
+  </figure>
+
+  <div class="note">
+    <strong>Why a mailbox instead of a UVM sequence/sequencer:</strong> the C program is already the
+    scenario author (it decides <em>when</em> and <em>which</em> interrupt to request); routing that through
+    a sequencer would just add indirection without adding control. <code>ibex_driver.sv</code> taps the bus
+    passively — the same pattern <code>ibex_monitor.sv</code> already used for <code>tohost</code> — and
+    exposes a single <code>poke_irq(line_id, on)</code> task so a future OBI back-pressure sequence can drive
+    the same lines later without touching the irq-state bit logic.
+  </div>
+</section>
+
+<section id="infra">
+  <h2><span class="num">3</span> Shared Infrastructure (Phase 0)</h2>
+
+  <h3>Trap vector table</h3>
+  <p>Ibex hardwires <code>mtvec[7:0]</code> to <code>0b00000001</code> on every write (boot-time or
+  explicit <code>csrw</code>) and passes <code>mtvec[31:8]</code> through <em>unrounded</em>
+  (<code>RTL/ibex/rtl/ibex_cs_registers.sv</code>). Dispatch is hardwired, not read from the mode field:
+  synchronous exceptions always go to <code>base+0</code>; interrupts go to
+  <code>base + 4*mcause[4:0]</code> (<code>ibex_if_stage.sv</code>). <code>sw/link.ld</code> places
+  <code>trap_vectors</code> at a linker-enforced 256-byte boundary for exactly this reason — an unaligned
+  target would silently truncate the effective base below the real table.</p>
+  <div class="card">
+  <table>
+  <thead><tr><th style="width:14%">Cause</th><th style="width:10%">Value</th><th>Slot address</th></tr></thead>
+  <tbody>
+    <tr><td class="desc">Any synchronous exception</td><td class="name">0–2, 5–7, 11</td><td class="desc"><code>base + 0</code> (all exceptions share slot 0)</td></tr>
+    <tr><td class="desc">Software interrupt</td><td class="name">3</td><td class="desc"><code>base + 12</code></td></tr>
+    <tr><td class="desc">Timer interrupt</td><td class="name">7</td><td class="desc"><code>base + 28</code></td></tr>
+    <tr><td class="desc">External interrupt</td><td class="name">11</td><td class="desc"><code>base + 44</code></td></tr>
+    <tr><td class="desc">Fast interrupt 0–14</td><td class="name">16–30</td><td class="desc"><code>base + 64</code> .. <code>base + 120</code></td></tr>
+    <tr><td class="desc">NMI</td><td class="name">31</td><td class="desc"><code>base + 124</code></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p>All 32 slots just <code>j trap_common</code> — one shared handler, same mental model as the original
+  single-entry design, with the routing actually correct.</p>
+
+  <h3>trap_common contract</h3>
+  <div class="note bug">
+    <strong>This is the single most important rule in the whole curriculum:</strong>
+    <code>trap_c_handler()</code> must communicate the resume PC via its <strong>return value</strong>, never
+    via <code>write_csr(mepc, ...)</code>. <code>trap_common</code> snapshots <code>mepc</code>/<code>mstatus</code>
+    to the stack <em>before</em> calling C (so a nested trap can't corrupt the outer handler's return state —
+    needed for the Phase&nbsp;4 nesting test) and unconditionally restores from that stack slot afterwards. A
+    direct CSR write from C is silently overwritten the moment the handler resumes. This was found the hard
+    way: an early version of <code>trap_vec_check.c</code> wrote <code>mepc+4</code> via
+    <code>write_csr</code>, and the core re-trapped on the same illegal instruction forever. See
+    <a href="#bugs">§5</a>.
+  </div>
+  <pre><code>trap_common:                       <span style="color:#65708a">// sw/crt0.S</span>
+  addi sp, sp, -80
+  &lt;save ra, t0-t6, a0-a7&gt;
+  csrr t0, mepc   / sw t0, 64(sp)   <span style="color:#65708a">// snapshot BEFORE calling C</span>
+  csrr t0, mstatus / sw t0, 68(sp)
+  csrr a0, mcause  / csrr a1, mepc / csrr a2, mtval
+  call trap_c_handler               <span style="color:#65708a">// uint32_t trap_c_handler(mcause, mepc, mtval)</span>
+  sw   a0, 64(sp)                   <span style="color:#65708a">// handler's return value IS the resume PC</span>
+  &lt;restore mstatus, mepc from stack, then GPRs&gt;
+  mret</code></pre>
+  <p>A weak default <code>trap_c_handler</code> (forward <code>mcause</code> to <code>tohost</code>, halt)
+  covers any test that doesn't define its own — this is why <code>hello_world.c</code> needed zero changes
+  when this infrastructure was added.</p>
+
+  <h3>C↔SV irq mailbox</h3>
+  <p><code>irq_ctrl</code> is a linked symbol placed immediately after <code>tohost</code> in
+  <code>crt0.S</code>'s <code>.data</code> block, landing at <code>0x10004</code> — deterministic, the same
+  trick that already pins <code>tohost</code> to <code>0x10000</code>. <code>ibex_driver.sv</code> taps
+  writes to that address and updates exactly one <code>irq_*</code> pin, leaving the others untouched.</p>
+  <div class="card">
+  <table>
+  <thead><tr><th style="width:12%">Bits</th><th style="width:16%">Field</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td class="name">[31]</td><td class="desc">assert</td><td class="desc"><code>1</code> = assert the line, <code>0</code> = deassert</td></tr>
+    <tr><td class="name">[4:0]</td><td class="desc">line_id</td><td class="desc"><code>0</code>=software, <code>1</code>=timer, <code>2</code>=external, <code>3</code>=nmi, <code>4..18</code>=fast0..fast14</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p>C side: <code>irq_request(line_id, assert)</code> in <code>sw/common/irqmbox.h</code>. Lines are
+  level-sensitive and independent — asserting two before unmasking <code>mstatus.MIE</code> is exactly how
+  the (planned) Phase&nbsp;3 priority test works, no extra mechanism needed.</p>
+
+  <h3>CSR helper macros (<code>sw/common/csr.h</code>)</h3>
+  <div class="card">
+  <table>
+  <thead><tr><th style="width:18%">Macro</th><th style="width:16%">Instruction</th><th>Semantics</th></tr></thead>
+  <tbody>
+    <tr><td class="name">read_csr(reg)</td><td class="name">csrr</td><td class="desc">returns the CSR value</td></tr>
+    <tr><td class="name">write_csr(reg, val)</td><td class="name">csrw</td><td class="desc">no return value</td></tr>
+    <tr><td class="name">swap_csr(reg, val)</td><td class="name">csrrw</td><td class="desc">writes <code>val</code>, returns the <em>previous</em> value</td></tr>
+    <tr><td class="name">set_csr_bits(reg, mask)</td><td class="name">csrrs</td><td class="desc">atomically ORs <code>mask</code> in, returns the previous value</td></tr>
+    <tr><td class="name">clear_csr_bits(reg, mask)</td><td class="name">csrrc</td><td class="desc">atomically clears <code>mask</code>, returns the previous value</td></tr>
+  </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="catalog">
+  <h2><span class="num">4</span> Test Catalog</h2>
+
+  <h3>Phase 0 — infrastructure proof (sw/tests/)</h3>
+  <div class="card">
+  <table>
+  <thead><tr><th style="width:15%">Test</th><th>DV objective</th><th style="width:10%">Status</th></tr></thead>
+  <tbody>
+    <tr><td class="name">trap_vec_check.c</td><td class="desc">Deliberately executes an illegal instruction (<code>.word 0</code>). Confirms the vector table routes a synchronous exception to <code>trap_common</code> correctly <em>and</em> that execution can actually resume afterward (<code>trap_c_handler</code> returns <code>mepc+4</code> to skip it) — not just trap-and-die. <code>tohost=1</code> pass / <code>2</code> fail.</td><td><span class="tag pass">PASS</span></td></tr>
+    <tr><td class="name">irq_mailbox_ping.c</td><td class="desc">With <code>mie=0</code> (no trap possible), asserts the timer line via the mailbox and polls <code>mip</code> directly until the bit appears, then deasserts and polls until it clears. Isolates "does the mailbox reach the SV driver" from "does a trap fire."</td><td><span class="tag pass">PASS</span></td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <h3>Phase 1 — CSR fundamentals (pure C, no mailbox, no traps)</h3>
+  <div class="card">
+  <table>
+  <thead><tr><th style="width:15%">Test</th><th>DV objective</th><th style="width:10%">Status</th></tr></thead>
+  <tbody>
+    <tr><td class="name">csr_mscratch.c</td><td class="desc">Write/read-back 5 bit patterns on <code>mscratch</code> — the only CSR with zero hardware side effects, so this isolates <code>csrw</code>/<code>csrr</code> correctness from any WARL/field logic. Fail code <code>2+i</code> identifies which pattern mismatched.</td><td><span class="tag pass">PASS</span></td></tr>
+    <tr><td class="name">csr_mstatus_rmw.c</td><td class="desc">Uses <code>csrrs</code>/<code>csrrc</code> to flip <code>mstatus.MIE</code> in isolation and checks no other field moved — proves the atomic-RMW CSR instructions, not just <code>csrrw</code>.</td><td><span class="tag pass">PASS</span></td></tr>
+    <tr><td class="name">csr_mtvec_warl.c</td><td class="desc">Writes a deliberately misaligned/garbage <code>mtvec</code> value and checks the readback matches the hardware's forced <code>{written[31:8], 6'b0, 2'b01}</code> rule exactly — the same rule the trap vector table itself depends on.</td><td><span class="tag pass">PASS</span></td></tr>
+    <tr><td class="name">csr_counters.c</td><td class="desc"><code>mcycle</code>/<code>minstret</code> snapshot before/after a 1000-iteration loop, checked for monotonic increment. Loose bounds on purpose — proves free-running counters, not an exact cycle count. Reused later for interrupt-latency measurement.</td><td><span class="tag pass">PASS</span></td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <h3>Phase 2 — individual interrupts (needs Phase 0 mailbox + trap_common)</h3>
+  <p>Same template every time: enable the source in <code>mie</code> + <code>mstatus.MIE</code>, request it
+  via the mailbox, let <code>trap_c_handler</code> confirm <code>mcause</code> and deassert via the mailbox
+  <em>before</em> returning (the pin is level-sensitive, and <code>mret</code> restores
+  <code>mstatus.MIE</code> — leaving it asserted would re-trap immediately), then <code>mret</code> back to
+  the busy-wait loop in <code>main()</code>.</p>
+  <div class="card">
+  <table>
+  <thead><tr><th style="width:15%">Test</th><th style="width:12%">Source</th><th style="width:10%">mie/mcause bit</th><th>Notable difference from the template</th><th style="width:12%">Status</th></tr></thead>
+  <tbody>
+    <tr><td class="name">irq_timer_basic.c</td><td class="desc">timer</td><td class="name">7</td><td class="desc">— (establishes the template)</td><td><span class="tag pass">PASS</span></td></tr>
+    <tr><td class="name">irq_software_basic.c</td><td class="desc">software</td><td class="name">3</td><td class="desc">—</td><td><span class="tag pend">Fix applied, rerun pending</span></td></tr>
+    <tr><td class="name">irq_external_basic.c</td><td class="desc">external</td><td class="name">11</td><td class="desc">—</td><td><span class="tag pass">PASS</span></td></tr>
+    <tr><td class="name">irq_fast0_basic.c</td><td class="desc">fast line 0</td><td class="name">16</td><td class="desc">introduces the bit-16 offset for fast/local interrupts</td><td><span class="tag pass">PASS</span></td></tr>
+    <tr><td class="name">irq_nmi_basic.c</td><td class="desc">NMI</td><td class="name">31</td><td class="desc">deliberately leaves <code>mie</code>/<code>mstatus.MIE</code> at 0 — NMI bypasses both entirely; also confirms the core's <code>nmi_mode</code> latch clears on <code>mret</code> so it can return normally</td><td><span class="tag pend">Fix applied, rerun pending</span></td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <h3>Phases 3–5 — planned, not yet implemented</h3>
+  <div class="card">
+  <table>
+  <thead><tr><th style="width:15%">Phase</th><th>Design intent</th></tr></thead>
+  <tbody>
+    <tr><td class="name">3 · Priority</td><td class="desc">Assert two or three lines simultaneously (independent mailbox state makes this a non-issue) before unmasking <code>mstatus.MIE</code>; verify the ISR observes the highest-priority pending cause first, per the RTL's fixed order: NMI &gt; fast0 &gt; ... &gt; fast14 &gt; external &gt; software &gt; timer (<code>ibex_controller.sv</code> IRQ_TAKEN if/else chain).</td></tr>
+    <tr><td class="name">4 · Nesting</td><td class="desc">Outer ISR (lowest priority, e.g. timer) deliberately re-enables <code>mstatus.MIE</code> and requests a higher-priority source from inside its own C body; verifies preemption and correct unwind of two stacked trap contexts — the design trap_common's stack-based mepc/mstatus save exists to support.</td></tr>
+    <tr><td class="name">5 · Privilege switch</td><td class="desc">Write <code>mstatus.MPP=U</code>, <code>mret</code> into a U-mode function, attempt an M-only CSR access from U-mode (expect <code>mcause=2</code> via <code>illegal_csr_priv</code>). Bonus case: confirm M-mode interrupts are taken in U-mode regardless of <code>mstatus.MIE</code> (<code>ibex_core.sv</code> <code>new_irq</code> condition). PMP-based faults are out of scope — <code>PMPEnable=0</code> in this TB.</td></tr>
+  </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="bugs">
+  <h2><span class="num">5</span> Bugs Found During Bring-up</h2>
+  <p>Three real bugs surfaced while building this curriculum out — none were hypothetical, each was caught
+  by an actual failing/hanging simulation run. Recorded here because the fix is part of the infrastructure
+  every test now depends on.</p>
+  <div class="card">
+  <table>
+  <thead><tr><th style="width:18%">Symptom</th><th>Root cause</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr>
+      <td class="desc"><strong>All tests silently ran the wrong binary.</strong> Three different test programs reported <code>TEST PASSED</code> at identical simulation timestamps.</td>
+      <td class="desc"><code>tb_top.sv</code> hardcoded <code>$readmemh("sim/hello_world.vmem", mem_b)</code> — invisible while only one test existed, since there was nothing else to load.</td>
+      <td class="desc">Parameterized via <code>$value$plusargs("VMEM_FILE=%s", ...)</code>; <code>sim/Makefile</code> now passes <code>+VMEM_FILE=sim/$(TEST).vmem</code>.</td>
+    </tr>
+    <tr>
+      <td class="desc"><strong>Illegal-instruction test looped forever</strong> re-trapping on the exact same PC every ~102 cycles, instead of resuming.</td>
+      <td class="desc"><code>trap_c_handler</code> tried to change the resume PC via <code>write_csr(mepc, mepc+4)</code> directly. <code>trap_common</code> unconditionally restores <code>mepc</code> from a stack snapshot taken <em>before</em> the C call (required for nesting safety), silently discarding the CSR write.</td>
+      <td class="desc"><code>trap_c_handler</code> now returns the desired resume PC; <code>trap_common</code> writes that return value into the stack slot before restoring from it. See <a href="#infra">§3</a>.</td>
+    </tr>
+    <tr>
+      <td class="desc"><strong>Software and NMI interrupt tests hung</strong> at the 1&nbsp;ms test timeout with no <code>tohost</code> write, while timer/external/fast0 (built the same way) passed.</td>
+      <td class="desc"><code>tb_top.sv</code>'s DUT instantiation tied <code>.irq_software_i(1'b0)</code> and <code>.irq_nm_i(1'b0)</code> to constants instead of connecting them to <code>u_if.irq_software</code>/<code>u_if.irq_nm</code> — harmless for years because nothing previously drove those interface signals dynamically.</td>
+      <td class="desc">Both ports now wired to the interface signals, matching how <code>irq_timer_i</code>/<code>irq_external_i</code>/<code>irq_fast_i</code> were already connected.</td>
+    </tr>
+  </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="run">
+  <h2><span class="num">6</span> Running / Adding a Test</h2>
+  <pre><code>cd sim
+make sim TEST=&lt;test_name&gt;          <span style="color:#65708a"># builds sw/tests/&lt;test_name&gt;.c + crt0.S, runs xrun</span>
+grep -E "PASSED|FAILED|UVM_ERROR|UVM_FATAL" runs/run_*/xrun.log | tail</code></pre>
+  <p>To add a new test: drop a <code>.c</code> file in <code>sw/tests/</code>. Include
+  <code>sw/common/mmio.h</code> for <code>tohost</code>/<code>irq_ctrl</code>, <code>csr.h</code> for CSR
+  macros, <code>irqmbox.h</code> for <code>irq_request()</code>, and <code>trap.h</code> if defining a
+  <code>trap_c_handler</code>. Write <code>tohost=1</code> on success, a distinct small integer per failure
+  mode otherwise (document what each code means in a comment — there's no shared fail-code registry, each
+  test owns its own).</p>
+</section>
+
+<footer>
+  Generated for the Training-FE Ibex UVM verification environment.
+  Sources: <code>sw/crt0.S</code>, <code>sw/link.ld</code>, <code>sw/common/{csr,mmio,irqmbox,trap}.h</code>,
+  <code>tb/top/tb_top.sv</code>, <code>tb/env/ibex_driver.sv</code>, <code>sw/tests/*.c</code>,
+  <code>RTL/ibex/rtl/{ibex_cs_registers,ibex_if_stage,ibex_controller,ibex_core}.sv</code>.
+</footer>
+
+</div>
+</body>
+</html>

@@ -21,8 +21,13 @@ module tb_top;
   logic [7:0] mem_b [0:262143];   // 256 KB total
   initial begin
     // initialise to 0 so unloaded locations return NOP (addi x0,x0,0)
+    string vmem_file;
     for (int i = 0; i < 262144; i++) mem_b[i] = 8'h0;
-    $readmemh("sim/hello_world.vmem", mem_b);
+    if (!$value$plusargs("VMEM_FILE=%s", vmem_file)) begin
+      vmem_file = "sim/hello_world.vmem";
+    end
+    `uvm_info("VMEM", $sformatf("Loading %s", vmem_file), UVM_LOW)
+    $readmemh(vmem_file, mem_b);
   end
 
   // Little-endian word read
@@ -130,11 +135,11 @@ module tb_top;
     .data_err_i               (1'b0),
 
     // Interrupts
-    .irq_software_i           (1'b0),
+    .irq_software_i           (u_if.irq_software),
     .irq_timer_i              (u_if.irq_timer),
     .irq_external_i           (u_if.irq_external),
     .irq_fast_i               (u_if.irq_fast),
-    .irq_nm_i                 (1'b0),
+    .irq_nm_i                 (u_if.irq_nm),
 
     // Scrambling (tied off)
     .scramble_key_valid_i     (1'b0),

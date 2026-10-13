@@ -59,6 +59,7 @@ sim: sw
 	  -f filelist.f \
 	  +UVM_TESTNAME=$(TEST_NAME) \
 	  +ntb_random_seed=$(SEED) \
+	  +VMEM_FILE=sim/$(TEST).vmem \
 	  -log $${RUN_DIR}/xrun.log \
 	  $${WAVE_OPTS}; \
 	SIM_RC=$$?; \

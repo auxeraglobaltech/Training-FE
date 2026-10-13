@@ -15,9 +15,20 @@ SECTIONS {
     KEEP(*(.text.reset_vector))
   } > ROM
 
+  /* Ibex forces mtvec[7:0] to 0b00000001 on every write and passes
+     mtvec[31:8] through unrounded (truncated, not rounded) - see
+     ibex_cs_registers.sv. trap_vectors must therefore sit at a true
+     256-byte-aligned address or the effective base silently lands below
+     it; ALIGN(256) here guarantees that regardless of how much code
+     precedes it. */
+  .text.trap_vec : ALIGN(256) {
+    KEEP(*(.text.trap_vec))
+  } > ROM
+
   .text : {
     *(.text.start)
     *(.text.trap)
+    *(.text.trap_default)
     *(.text*)
     *(.rodata*)
   } > ROM
