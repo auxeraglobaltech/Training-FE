@@ -11,6 +11,21 @@ _start:
   csrw mtvec, t0
 
   la   sp, _stack_top
+
+  # Copy initialised globals (.data) from their ROM image to RAM - see
+  # the .data comment in link.ld.
+  la   t0, _data_lma
+  la   t1, _data_start
+  la   t2, _data_end
+data_loop:
+  bge  t1, t2, data_done
+  lw   t3, 0(t0)
+  sw   t3, 0(t1)
+  addi t0, t0, 4
+  addi t1, t1, 4
+  j    data_loop
+data_done:
+
   la   t0, _bss_start
   la   t1, _bss_end
 bss_loop:
@@ -22,8 +37,19 @@ bss_done:
   li   t0, 0
   csrw mie, t0
   call main
+
+  # main() returned: its return value decides the result, same encoding
+  # as test_pass()/test_fail() in sw/common/test_end.h.
+  #   return 0      -> tohost = 1                  (PASS)
+  #   return code   -> tohost = 0xFA110000 | code  (FAIL, code = 1..0xFFFF)
   la   t0, tohost
   li   t1, 1
+  beqz a0, write_tohost
+  slli a0, a0, 16          # keep only the low 16 bits of the code
+  srli a0, a0, 16
+  li   t1, 0xFA110000
+  or   t1, t1, a0
+write_tohost:
   sw   t1, 0(t0)
 _halt:
   j _halt
@@ -158,8 +184,9 @@ default_trap_halt:
 _reset_entry:
   j _start
 
-  .section .data
+  # tohost / irq_ctrl: NOLOAD section pinned to 0x10000 by link.ld.
+  .section .tohost,"aw",@nobits
   .globl tohost
-tohost: .word 0
+tohost: .space 4
   .globl irq_ctrl
-irq_ctrl: .word 0
+irq_ctrl: .space 4

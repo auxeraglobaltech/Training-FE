@@ -17,9 +17,10 @@ class ibex_monitor extends uvm_monitor;
 
   task run_phase(uvm_phase phase);
     forever begin
-      @(posedge vif.clk);
-      if (vif.data_req && vif.data_we && vif.data_addr == 32'h00010000) begin
-        ap.write(vif.data_wdata);
+      @(vif.mon_cb);
+      if (vif.mon_cb.data_req && vif.mon_cb.data_we &&
+          vif.mon_cb.data_addr == 32'h00010000) begin
+        ap.write(vif.mon_cb.data_wdata);
       end
     end
   endtask

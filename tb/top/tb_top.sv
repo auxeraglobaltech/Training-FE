@@ -30,6 +30,28 @@ module tb_top;
     $readmemh(vmem_file, mem_b);
   end
 
+  // -------------------------------------------------------
+  // TB I/O page 0x0003_0000 - 0x0003_0FFF (sw/common/memmap.h)
+  // Not backed by mem_b: stores are only observed on the bus by UVM
+  // components (ibex_console, ibex_c2sv_mbox), and loads return TB
+  // registers. Unmapped words in the page read as 0.
+  // -------------------------------------------------------
+  localparam logic [31:0] TB_IO_BASE = 32'h0003_0000;
+  localparam logic [31:0] SV2C_ACK   = 32'h0003_0018;
+  localparam logic [31:0] SV2C_DATA  = 32'h0003_001C;
+
+  function automatic logic is_tb_io(input logic [31:0] addr);
+    return addr[31:12] == TB_IO_BASE[31:12];
+  endfunction
+
+  function automatic logic [31:0] read_tb_io(input logic [31:0] addr);
+    case ({addr[31:2], 2'b00})
+      SV2C_ACK:  return u_if.sv2c_ack;
+      SV2C_DATA: return u_if.sv2c_data;
+      default:   return 32'h0;
+    endcase
+  endfunction
+
   // Little-endian word read
   function automatic logic [31:0] read_word(input logic [31:0] addr);
     logic [31:0] a;
@@ -78,13 +100,14 @@ module tb_top;
     end else begin
       data_rvalid_r <= u_if.data_req;
       // Write path (blocking so read-after-write in same cycle sees new data)
-      if (u_if.data_req && u_if.data_we) begin
+      if (u_if.data_req && u_if.data_we && !is_tb_io(u_if.data_addr)) begin
         if (u_if.data_be[0]) mem_b[{u_if.data_addr[31:2],2'b00}+0] = u_if.data_wdata[ 7: 0];
         if (u_if.data_be[1]) mem_b[{u_if.data_addr[31:2],2'b00}+1] = u_if.data_wdata[15: 8];
         if (u_if.data_be[2]) mem_b[{u_if.data_addr[31:2],2'b00}+2] = u_if.data_wdata[23:16];
         if (u_if.data_be[3]) mem_b[{u_if.data_addr[31:2],2'b00}+3] = u_if.data_wdata[31:24];
       end
-      data_rdata_r <= read_word(u_if.data_addr);
+      data_rdata_r <= is_tb_io(u_if.data_addr) ? read_tb_io(u_if.data_addr)
+                                               : read_word(u_if.data_addr);
     end
   end
 
@@ -175,22 +198,14 @@ module tb_top;
   );
 
   // -------------------------------------------------------
-  // tohost monitor
+  // End of test: the C program's single store to tohost (0x10000).
+  // The value is decoded and reported by ibex_scoreboard (via
+  // ibex_monitor); this block only stops the simulation, 100 ns later
+  // so the scoreboard message and any last C_PRINT line get logged.
   // -------------------------------------------------------
   always @(posedge clk) begin
     if (u_if.data_req && u_if.data_we &&
         {u_if.data_addr[31:2], 2'b00} == 32'h00010000) begin
-      if (u_if.data_wdata == 32'h1) begin
-        `uvm_info("TOHOST", "TEST PASSED", UVM_NONE)
-      end else begin
-        // trap_handler forwards the raw mcause CSR on any exception/
-        // interrupt termination: bit[31] = interrupt, bits[30:0] = cause.
-        `uvm_error("TOHOST", $sformatf(
-          "TEST FAILED - trap taken (mcause=0x%08h, %s cause=%0d)",
-          u_if.data_wdata,
-          u_if.data_wdata[31] ? "interrupt" : "exception",
-          u_if.data_wdata[30:0]))
-      end
       fork
         begin #100; $finish; end
       join_none

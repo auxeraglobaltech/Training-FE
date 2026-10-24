@@ -33,16 +33,43 @@ SECTIONS {
     *(.rodata*)
   } > ROM
 
+  /* TB mailbox words (tohost @ 0x10000, irq_ctrl @ 0x10004). NOLOAD:
+     they have no image in ROM and are never touched by crt0's .data
+     copy loop - the TB treats ANY store to tohost as end-of-test, so a
+     startup write of 0 there would end every test as a failure. They
+     rely on tb_top zero-filling memory at time 0 instead. */
+  .tohost ORIGIN(RAM) (NOLOAD) : {
+    KEEP(*(.tohost))
+  } > RAM
+
+  /* Initialised globals: linked to run from RAM (VMA) but stored in ROM
+     (LMA), because the .vmem image is built from load addresses.
+     crt0.S copies [_data_lma, +size) -> [_data_start, _data_end) before
+     main(), otherwise `int x = 5;` would read back as 0. */
   .data : {
+    _data_start = .;
+    *(.sdata*)
     *(.data*)
+    . = ALIGN(4);
+    _data_end = .;
   } > RAM AT > ROM
+  _data_lma = LOADADDR(.data);
 
   .bss : {
     _bss_start = .;
+    *(.sbss*)
     *(.bss*)
     *(COMMON)
+    . = ALIGN(4);
     _bss_end = .;
   } > RAM
 }
 
 _stack_top = ORIGIN(RAM) + LENGTH(RAM);
+
+/* 0x15000-0x15FFF is a test scratch area (SCRATCH_BASE in
+   sw/common/memmap.h) that C tests access through absolute pointers.
+   The linker never places anything there; this check fails the build if
+   .data/.bss ever grow far enough to collide with it. */
+ASSERT(_bss_end <= 0x15000, "globals overflow into the 0x15000 test scratch area")
+ASSERT(tohost == 0x10000, "tohost must sit at 0x10000 - tb_top/ibex_monitor hardwire it")

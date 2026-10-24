@@ -137,19 +137,19 @@
   <tbody>
     <tr><td class="name">0</td><td class="desc">Trap vector table, context save/restore, C↔SV irq mailbox</td><td class="desc">2 proof tests</td><td><span class="tag pass">Verified</span></td></tr>
     <tr><td class="name">1</td><td class="desc">CSR fundamentals (<code>asm volatile</code>)</td><td class="desc">4 tests</td><td><span class="tag pass">Verified</span></td></tr>
-    <tr><td class="name">2</td><td class="desc">Individual interrupts (timer/software/external/fast/NMI)</td><td class="desc">5 tests</td><td><span class="tag pend">3 verified, 2 fix-applied pending rerun</span></td></tr>
+    <tr><td class="name">2</td><td class="desc">Individual interrupts (timer/software/external/fast/NMI)</td><td class="desc">5 tests</td><td><span class="tag pass">Verified</span></td></tr>
     <tr><td class="name">3</td><td class="desc">Interrupt priority (multiple simultaneous sources)</td><td class="desc">planned</td><td><span class="tag plan">Not yet implemented</span></td></tr>
     <tr><td class="name">4</td><td class="desc">Interrupt nesting (preemption mid-handler)</td><td class="desc">planned</td><td><span class="tag plan">Not yet implemented</span></td></tr>
     <tr><td class="name">5</td><td class="desc">Machine/User privilege-mode switch</td><td class="desc">planned</td><td><span class="tag plan">Not yet implemented</span></td></tr>
   </tbody>
   </table>
   </div>
-  <div class="note warn">
+  <div class="note">
     <strong>Phase 2 status detail:</strong> <code>irq_timer_basic</code>, <code>irq_external_basic</code>,
-    <code>irq_fast0_basic</code> passed in simulation. <code>irq_software_basic</code> and
+    <code>irq_fast0_basic</code> passed on first run. <code>irq_software_basic</code> and
     <code>irq_nmi_basic</code> hung (ran to the 1&nbsp;ms test timeout, never wrote <code>tohost</code>) on
-    first run — root cause and fix are documented in <a href="#bugs">§5</a>; a rerun to confirm the fix has
-    been requested but not yet reported back.
+    first run — root cause and fix are documented in <a href="#bugs">§5</a>; both pass on rerun
+    (2026-10-16 full regression, Xcelium 25.03).
   </div>
 </section>
 
@@ -298,7 +298,7 @@
 
   <h3>C↔SV irq mailbox</h3>
   <p><code>irq_ctrl</code> is a linked symbol placed immediately after <code>tohost</code> in
-  <code>crt0.S</code>'s <code>.data</code> block, landing at <code>0x10004</code> — deterministic, the same
+  <code>crt0.S</code>'s NOLOAD <code>.tohost</code> section, landing at <code>0x10004</code> — deterministic, the same
   trick that already pins <code>tohost</code> to <code>0x10000</code>. <code>ibex_driver.sv</code> taps
   writes to that address and updates exactly one <code>irq_*</code> pin, leaving the others untouched.</p>
   <div class="card">
@@ -367,10 +367,10 @@
   <thead><tr><th style="width:15%">Test</th><th style="width:12%">Source</th><th style="width:10%">mie/mcause bit</th><th>Notable difference from the template</th><th style="width:12%">Status</th></tr></thead>
   <tbody>
     <tr><td class="name">irq_timer_basic.c</td><td class="desc">timer</td><td class="name">7</td><td class="desc">— (establishes the template)</td><td><span class="tag pass">PASS</span></td></tr>
-    <tr><td class="name">irq_software_basic.c</td><td class="desc">software</td><td class="name">3</td><td class="desc">—</td><td><span class="tag pend">Fix applied, rerun pending</span></td></tr>
+    <tr><td class="name">irq_software_basic.c</td><td class="desc">software</td><td class="name">3</td><td class="desc">—</td><td><span class="tag pass">PASS</span></td></tr>
     <tr><td class="name">irq_external_basic.c</td><td class="desc">external</td><td class="name">11</td><td class="desc">—</td><td><span class="tag pass">PASS</span></td></tr>
     <tr><td class="name">irq_fast0_basic.c</td><td class="desc">fast line 0</td><td class="name">16</td><td class="desc">introduces the bit-16 offset for fast/local interrupts</td><td><span class="tag pass">PASS</span></td></tr>
-    <tr><td class="name">irq_nmi_basic.c</td><td class="desc">NMI</td><td class="name">31</td><td class="desc">deliberately leaves <code>mie</code>/<code>mstatus.MIE</code> at 0 — NMI bypasses both entirely; also confirms the core's <code>nmi_mode</code> latch clears on <code>mret</code> so it can return normally</td><td><span class="tag pend">Fix applied, rerun pending</span></td></tr>
+    <tr><td class="name">irq_nmi_basic.c</td><td class="desc">NMI</td><td class="name">31</td><td class="desc">deliberately leaves <code>mie</code>/<code>mstatus.MIE</code> at 0 — NMI bypasses both entirely; also confirms the core's <code>nmi_mode</code> latch clears on <code>mret</code> so it can return normally</td><td><span class="tag pass">PASS</span></td></tr>
   </tbody>
   </table>
   </div>

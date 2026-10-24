@@ -37,10 +37,10 @@ class ibex_driver extends uvm_driver #(uvm_sequence_item);
   // decodes bit[31]=assert/deassert, bits[4:0]=line_id.
   task watch_irq_mailbox();
     forever begin
-      @(posedge vif.clk);
-      if (vif.data_req && vif.data_we &&
-          {vif.data_addr[31:2], 2'b00} == IRQ_CTRL_ADDR) begin
-        poke_irq(vif.data_wdata[4:0], vif.data_wdata[31]);
+      @(vif.mon_cb);
+      if (vif.mon_cb.data_req && vif.mon_cb.data_we &&
+          {vif.mon_cb.data_addr[31:2], 2'b00} == IRQ_CTRL_ADDR) begin
+        poke_irq(vif.mon_cb.data_wdata[4:0], vif.mon_cb.data_wdata[31]);
       end
     end
   endtask

@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ibex Core — Writing C Tests (Memory, Prints, C↔SV, Test End)</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --panel: #ffffff;
+    --border: #e1e4ea;
+    --text: #1f2430;
+    --muted: #65708a;
+    --accent: #1a73e8;
+    --accent-bg: #eaf2fe;
+    --pass: #e9f8ee;
+    --pass-text: #1a7a3c;
+    --pend: #fdf1e3;
+    --pend-text: #a1600f;
+    --plan: #f1edfc;
+    --plan-text: #6b3fc9;
+    --bug: #fdeef0;
+    --bug-text: #c23a5a;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 2.5rem 2rem 5rem; }
+  header { margin-bottom: 2rem; }
+  h1 { font-size: 1.9rem; margin: 0 0 0.3rem; letter-spacing: -0.01em; }
+  .subtitle { color: var(--muted); font-size: 1rem; margin: 0; }
+  .subtitle code { font-size: 0.9em; }
+
+  nav.toc { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1.4rem 0 0; }
+  nav.toc a {
+    background: var(--panel); border: 1px solid var(--border); color: var(--accent);
+    text-decoration: none; font-size: 0.85rem; font-weight: 600;
+    padding: 0.45rem 0.9rem; border-radius: 999px;
+  }
+  nav.toc a:hover { background: var(--accent-bg); }
+
+  section { margin-top: 3rem; }
+  h2 { font-size: 1.35rem; margin: 0 0 0.9rem; display: flex; align-items: baseline; gap: 0.6rem; scroll-margin-top: 1.5rem; }
+  h2 .num { color: var(--accent); font-family: var(--mono); font-size: 1.1rem; }
+  h3 { font-size: 0.95rem; margin: 1.8rem 0 0.7rem; font-weight: 700; color: var(--text); }
+  h3:first-of-type { margin-top: 0; }
+  p { margin: 0.7rem 0; }
+
+  .note { background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+    padding: 0.9rem 1.1rem; font-size: 0.92rem; color: var(--text); margin: 0 0 1.3rem; border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(20,25,40,0.04); }
+  .note.warn { border-left-color: #d98324; background: var(--pend); }
+  .note.bug  { border-left-color: #c23a5a; background: var(--bug); }
+  .note strong { color: var(--text); }
+
+  .legend { display: flex; gap: 1.4rem; margin: 0 0 1.2rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 0.5rem; }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(20,25,40,0.05); margin-bottom: 1.3rem; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  thead th { position: sticky; top: 0; background: #fafbfc; color: var(--muted); font-weight: 700;
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; text-align: left;
+    padding: 0.7rem 1rem; border-bottom: 2px solid var(--border); }
+  td { padding: 0.65rem 1rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #fafbfe; }
+  tbody tr.group-row td { background: #f1f3f7; font-weight: 700; font-size: 0.76rem; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted); padding: 0.5rem 1rem; }
+  tbody tr.group-row:hover td { background: #f1f3f7; }
+
+  .name { font-family: var(--mono); font-weight: 600; white-space: nowrap; }
+  .desc { color: var(--text); }
+  .desc code { background: #f1f3f7; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.88em; }
+  code { font-family: var(--mono); }
+  pre { background: #f1f3f7; border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem 1.1rem;
+    overflow-x: auto; font-size: 0.82rem; line-height: 1.5; }
+  pre code { background: none; padding: 0; }
+
+  .tag { display: inline-block; font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 5px;
+    text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+  .tag.pass { background: var(--pass); color: var(--pass-text); }
+  .tag.pend { background: var(--pend); color: var(--pend-text); }
+  .tag.plan { background: var(--plan); color: var(--plan-text); }
+  .tag.bug  { background: var(--bug);  color: var(--bug-text); }
+
+  figure { margin: 1.2rem 0; text-align: center; }
+  figure svg { max-width: 100%; height: auto; }
+  figcaption { font-size: 0.8rem; color: var(--muted); margin-top: 0.6rem; }
+
+  footer { margin-top: 3.5rem; color: var(--muted); font-size: 0.82rem; border-top: 1px solid var(--border); padding-top: 1.2rem; }
+  footer code { font-family: var(--mono); }
+
+  @media (max-width: 720px) {
+    .wrap { padding: 1.5rem 1rem 3rem; }
+    table { font-size: 0.8rem; }
+    td, thead th { padding: 0.5rem 0.6rem; }
+  }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Ibex Core — Writing C Tests</h1>
+  <p class="subtitle">Memory access with C pointers · C prints · C ↔ SV handshake · How a C test ends ·
+  Training-FE Ibex UVM environment (RV32IMC, Xcelium)</p>
+  <nav class="toc">
+    <a href="#big">1 Big Picture</a>
+    <a href="#map">2 Memory Map &amp; C Pointers</a>
+    <a href="#print">3 C Prints</a>
+    <a href="#c2sv">4 C ↔ SV Handshake</a>
+    <a href="#end">5 How a C Test Ends</a>
+    <a href="#boot">6 Before main()</a>
+    <a href="#howto">7 Write &amp; Run Your Own</a>
+    <a href="#notes">8 Fixes Made Along the Way</a>
+  </nav>
+</header>
+
+<!-- ================================================================== -->
+<section id="big">
+  <h2><span class="num">1</span> Big Picture</h2>
+  <p>A C test is an ordinary C program compiled for RV32IMC and loaded into the testbench memory. The core
+  runs it, and <strong>the only way the program can talk to the outside world is through loads and stores
+  on its data bus</strong>. Every feature in this guide uses that one channel: a store to a chosen address
+  means something to the testbench.</p>
+
+  <figure>
+  <svg viewBox="0 0 960 400" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="12">
+    <defs>
+      <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4a5568"/></marker>
+      <marker id="a1b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1a73e8"/></marker>
+    </defs>
+    <!-- C program -->
+    <rect x="20" y="40" width="210" height="300" rx="10" fill="#eaf2fe" stroke="#1a73e8"/>
+    <text x="125" y="64" text-anchor="middle" font-weight="700" fill="#1a73e8">C test (sw/tests/*.c)</text>
+    <rect x="40" y="80" width="170" height="40" rx="6" fill="#fff" stroke="#9cbcf0"/>
+    <text x="125" y="98" text-anchor="middle" font-family="monospace" font-size="10">*(uint32_t*)0x15000 = v</text>
+    <text x="125" y="113" text-anchor="middle" font-size="10" fill="#65708a">memory access</text>
+    <rect x="40" y="130" width="170" height="40" rx="6" fill="#fff" stroke="#9cbcf0"/>
+    <text x="125" y="148" text-anchor="middle" font-family="monospace" font-size="10">printf("x=%d\n", x)</text>
+    <text x="125" y="163" text-anchor="middle" font-size="10" fill="#65708a">print.h</text>
+    <rect x="40" y="180" width="170" height="40" rx="6" fill="#fff" stroke="#9cbcf0"/>
+    <text x="125" y="198" text-anchor="middle" font-family="monospace" font-size="10">r = sv_sync(cmd, arg)</text>
+    <text x="125" y="213" text-anchor="middle" font-size="10" fill="#65708a">c2sv.h</text>
+    <rect x="40" y="230" width="170" height="40" rx="6" fill="#fff" stroke="#9cbcf0"/>
+    <text x="125" y="248" text-anchor="middle" font-family="monospace" font-size="10">irq_request(line, 1)</text>
+    <text x="125" y="263" text-anchor="middle" font-size="10" fill="#65708a">irqmbox.h</text>
+    <rect x="40" y="280" width="170" height="40" rx="6" fill="#fff" stroke="#9cbcf0"/>
+    <text x="125" y="298" text-anchor="middle" font-family="monospace" font-size="10">test_pass()/test_fail(n)</text>
+    <text x="125" y="313" text-anchor="middle" font-size="10" fill="#65708a">test_end.h</text>
+
+    <!-- core -->
+    <rect x="270" y="130" width="120" height="140" rx="10" fill="#fff" stroke="#4a5568"/>
+    <text x="330" y="190" text-anchor="middle" font-weight="700">ibex_top</text>
+    <text x="330" y="208" text-anchor="middle" font-size="10" fill="#65708a">LSU → data bus</text>
+    <text x="330" y="222" text-anchor="middle" font-size="10" fill="#65708a">(OBI)</text>
+    <line x1="230" y1="200" x2="268" y2="200" stroke="#4a5568" stroke-width="2" marker-end="url(#a1)"/>
+    <text x="249" y="192" text-anchor="middle" font-size="9" fill="#65708a">runs on</text>
+
+    <!-- bus -->
+    <line x1="390" y1="200" x2="450" y2="200" stroke="#4a5568" stroke-width="3"/>
+    <line x1="450" y1="55" x2="450" y2="345" stroke="#4a5568" stroke-width="3"/>
+    <text x="458" y="40" font-size="10" fill="#65708a" font-weight="600">data bus: req / we / addr / be / wdata / rdata</text>
+
+    <!-- targets -->
+    <g font-size="11">
+      <rect x="500" y="55" width="240" height="44" rx="6" fill="#f7f8fa" stroke="#9aa3b5"/>
+      <text x="512" y="74" font-weight="700">mem_b[] memory model</text>
+      <text x="512" y="90" font-size="10" fill="#65708a">tb_top.sv · ROM + RAM 0x0 – 0x2FFFF</text>
+      <line x1="450" y1="77" x2="498" y2="77" stroke="#4a5568" stroke-width="1.6" marker-end="url(#a1)"/>
+
+      <rect x="500" y="110" width="240" height="44" rx="6" fill="#fdf1e3" stroke="#d98324"/>
+      <text x="512" y="129" font-weight="700">ibex_console</text>
+      <text x="512" y="145" font-size="10" fill="#65708a">store @ 0x30000 → [C_PRINT] line</text>
+      <line x1="450" y1="132" x2="498" y2="132" stroke="#d98324" stroke-width="1.6" stroke-dasharray="5 3" marker-end="url(#a1)"/>
+
+      <rect x="500" y="165" width="240" height="44" rx="6" fill="#f1edfc" stroke="#6b3fc9"/>
+      <text x="512" y="184" font-weight="700">ibex_c2sv_mbox</text>
+      <text x="512" y="200" font-size="10" fill="#65708a">store @ 0x30010/14 · load 0x30018/1C</text>
+      <line x1="450" y1="187" x2="498" y2="187" stroke="#6b3fc9" stroke-width="1.6" stroke-dasharray="5 3" marker-end="url(#a1)" marker-start="url(#a1)"/>
+
+      <rect x="500" y="220" width="240" height="44" rx="6" fill="#f7f8fa" stroke="#9aa3b5"/>
+      <text x="512" y="239" font-weight="700">ibex_driver (irq mailbox)</text>
+      <text x="512" y="255" font-size="10" fill="#65708a">store @ 0x10004 → drives irq_* pins</text>
+      <line x1="450" y1="242" x2="498" y2="242" stroke="#4a5568" stroke-width="1.6" stroke-dasharray="5 3" marker-end="url(#a1)"/>
+
+      <rect x="500" y="275" width="240" height="44" rx="6" fill="#e9f8ee" stroke="#1a7a3c"/>
+      <text x="512" y="294" font-weight="700">ibex_monitor → ibex_scoreboard</text>
+      <text x="512" y="310" font-size="10" fill="#65708a">store @ 0x10000 (tohost) → PASS / FAIL</text>
+      <line x1="450" y1="297" x2="498" y2="297" stroke="#1a7a3c" stroke-width="1.6" stroke-dasharray="5 3" marker-end="url(#a1)"/>
+    </g>
+
+    <!-- test -->
+    <rect x="790" y="150" width="150" height="90" rx="10" fill="#f1edfc" stroke="#6b3fc9"/>
+    <text x="865" y="178" text-anchor="middle" font-weight="700" fill="#6b3fc9">UVM test</text>
+    <text x="865" y="196" text-anchor="middle" font-family="monospace" font-size="10">handle_c_cmd()</text>
+    <text x="865" y="212" text-anchor="middle" font-size="10" fill="#65708a">ibex_base_test /</text>
+    <text x="865" y="226" text-anchor="middle" font-size="10" fill="#65708a">ibex_c_sv_sync_test</text>
+    <line x1="742" y1="187" x2="788" y2="195" stroke="#6b3fc9" stroke-width="1.6" marker-end="url(#a1)" marker-start="url(#a1)"/>
+    <path d="M865,240 L865,262 L742,262" fill="none" stroke="#6b3fc9" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#a1)"/>
+    <text x="870" y="275" font-size="9" fill="#65708a">may poke DUT pins</text>
+
+    <text x="480" y="385" text-anchor="middle" font-size="10" fill="#65708a">Solid = real memory (data stored and read back) · Dashed = passive tap: a UVM component watches the bus for a store to its address</text>
+  </svg>
+  <figcaption>Figure 1 — Every C ↔ testbench interaction is a load or store at an agreed address.</figcaption>
+  </figure>
+
+  <h3>File map</h3>
+  <div class="card"><table>
+    <thead><tr><th style="width:30%">File</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr class="group-row"><td colspan="2">C side — sw/</td></tr>
+      <tr><td class="name">sw/common/memmap.h</td><td class="desc">Every address a C test may use: <code>SCRATCH_BASE</code>, TB I/O registers, <code>REG32()</code> helper.</td></tr>
+      <tr><td class="name">sw/common/print.h</td><td class="desc"><code>print_char/str/hex/dec</code> and a small <code>printf</code>.</td></tr>
+      <tr><td class="name">sw/common/c2sv.h</td><td class="desc"><code>sv_sync(cmd, arg)</code>: hand control to SV and wait.</td></tr>
+      <tr><td class="name">sw/common/test_end.h</td><td class="desc"><code>test_pass()</code>, <code>test_fail(code)</code> and the tohost encoding.</td></tr>
+      <tr><td class="name">sw/common/mmio.h · irqmbox.h · csr.h · trap.h</td><td class="desc">tohost/irq_ctrl symbols, IRQ pin mailbox, CSR macros, trap handler prototype (see the Testcase DV Guide).</td></tr>
+      <tr><td class="name">sw/crt0.S · sw/link.ld</td><td class="desc">Startup code and memory layout: what runs before <code>main()</code> and after it returns.</td></tr>
+      <tr><td class="name">sw/tests/mem_rw_basic.c</td><td class="desc">Example: write / read / compare through pointers.</td></tr>
+      <tr><td class="name">sw/tests/c_sv_handshake.c</td><td class="desc">Example: C ↔ SV control hand-off.</td></tr>
+      <tr class="group-row"><td colspan="2">SV side — tb/</td></tr>
+      <tr><td class="name">tb/top/tb_top.sv</td><td class="desc">Memory model <code>mem_b[]</code>, TB I/O page decode, <code>$finish</code> after the tohost store.</td></tr>
+      <tr><td class="name">tb/top/ibex_if.sv</td><td class="desc">Bus signals, <code>sv2c_ack/sv2c_data</code>, and the <code>mon_cb</code> clocking block every tap samples through.</td></tr>
+      <tr><td class="name">tb/env/ibex_console.sv</td><td class="desc">Turns stores to <code>CONSOLE_TX</code> into <code>[C_PRINT]</code> log lines.</td></tr>
+      <tr><td class="name">tb/env/ibex_c2sv_mbox.sv</td><td class="desc">SV end of the handshake: <code>get_cmd()</code> / <code>reply()</code>.</td></tr>
+      <tr><td class="name">tb/env/ibex_monitor.sv · ibex_scoreboard.sv</td><td class="desc">Catch the tohost store and decode PASS / FAIL / trap / TIMEOUT.</td></tr>
+      <tr><td class="name">tb/tests/ibex_base_test.sv</td><td class="desc">Watchdog timeout, the command-serving loop, default <code>handle_c_cmd()</code>.</td></tr>
+      <tr><td class="name">tb/tests/ibex_c_sv_sync_test.sv</td><td class="desc">Example SV half of <code>c_sv_handshake.c</code>.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ================================================================== -->
+<section id="map">
+  <h2><span class="num">2</span> Memory Map &amp; C Pointers</h2>
+  <p>Ibex has no MMU: <strong>a pointer value in C is the physical address on the bus</strong>. If you know
+  the memory map, you can reach any location by casting a number to a pointer.</p>
+
+  <figure>
+  <svg viewBox="0 0 960 520" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="12">
+    <text x="190" y="22" text-anchor="middle" font-weight="700" fill="#65708a" font-size="11">ADDRESS</text>
+    <text x="400" y="22" text-anchor="middle" font-weight="700" fill="#65708a" font-size="11">CONTENT</text>
+    <text x="745" y="22" text-anchor="middle" font-weight="700" fill="#65708a" font-size="11">HANDLED BY / DEFINED IN</text>
+
+    <!-- TB IO page -->
+    <rect x="260" y="35" width="280" height="120" fill="#fdf1e3" stroke="#d98324"/>
+    <text x="400" y="54" text-anchor="middle" font-weight="700" fill="#a1600f">TB I/O page (not memory)</text>
+    <g font-family="monospace" font-size="11">
+      <text x="275" y="76">+0x00 CONSOLE_TX   W</text>
+      <text x="275" y="94">+0x10 C2SV_CMD     W</text>
+      <text x="275" y="112">+0x14 C2SV_ARG     W</text>
+      <text x="275" y="130">+0x18 SV2C_ACK     R</text>
+      <text x="275" y="148">+0x1C SV2C_DATA    R</text>
+    </g>
+    <text x="250" y="40" text-anchor="end" font-family="monospace" font-size="11">0x0003_0FFF</text>
+    <text x="250" y="158" text-anchor="end" font-family="monospace" font-size="11">0x0003_0000</text>
+    <text x="580" y="76" font-size="11">ibex_console</text>
+    <text x="580" y="103" font-size="11">ibex_c2sv_mbox (watches stores)</text>
+    <text x="580" y="139" font-size="11">tb_top read_tb_io() → ibex_if.sv2c_*</text>
+    <text x="580" y="58" font-size="10" fill="#65708a">memmap.h: TB_IO_BASE … SV2C_DATA</text>
+
+    <!-- RAM -->
+    <rect x="260" y="165" width="280" height="235" fill="#eaf2fe" stroke="#1a73e8"/>
+    <text x="400" y="184" text-anchor="middle" font-weight="700" fill="#1a73e8">RAM (128 KB)</text>
+    <rect x="275" y="193" width="250" height="34" fill="#fff" stroke="#9cbcf0"/>
+    <text x="400" y="214" text-anchor="middle" font-size="11">stack ↓ (grows down from 0x30000)</text>
+    <text x="400" y="246" text-anchor="middle" font-size="11" fill="#65708a">free</text>
+    <rect x="275" y="258" width="250" height="40" fill="#e9f8ee" stroke="#1a7a3c" stroke-width="2"/>
+    <text x="400" y="276" text-anchor="middle" font-weight="700" fill="#1a7a3c">SCRATCH 0x15000 – 0x15FFF</text>
+    <text x="400" y="291" text-anchor="middle" font-size="10" fill="#1a7a3c">free for tests · absolute pointers</text>
+    <text x="400" y="320" text-anchor="middle" font-size="11" fill="#65708a">free</text>
+    <rect x="275" y="330" width="250" height="26" fill="#fff" stroke="#9cbcf0"/>
+    <text x="400" y="347" text-anchor="middle" font-size="11">.data · .bss (your globals)</text>
+    <rect x="275" y="360" width="250" height="32" fill="#fff" stroke="#9cbcf0"/>
+    <text x="400" y="374" text-anchor="middle" font-family="monospace" font-size="10">0x10000 tohost · 0x10004 irq_ctrl</text>
+    <text x="400" y="387" text-anchor="middle" font-size="9" fill="#65708a">(.tohost, NOLOAD)</text>
+    <text x="250" y="198" text-anchor="end" font-family="monospace" font-size="11">0x0002_FFFF</text>
+    <text x="250" y="281" text-anchor="end" font-family="monospace" font-size="11" fill="#1a7a3c" font-weight="700">0x0001_5000</text>
+    <text x="250" y="398" text-anchor="end" font-family="monospace" font-size="11">0x0001_0000</text>
+    <text x="580" y="214" font-size="11">crt0.S: sp = _stack_top</text>
+    <text x="580" y="276" font-size="11">memmap.h: SCRATCH_BASE / SIZE</text>
+    <text x="580" y="292" font-size="10" fill="#65708a">link.ld ASSERT: globals never reach it</text>
+    <text x="580" y="347" font-size="11">link.ld: .data / .bss</text>
+    <text x="580" y="372" font-size="11">ibex_monitor (tohost) · ibex_driver (irq_ctrl)</text>
+
+    <!-- ROM -->
+    <rect x="260" y="410" width="280" height="95" fill="#f7f8fa" stroke="#9aa3b5"/>
+    <text x="400" y="429" text-anchor="middle" font-weight="700">ROM (64 KB)</text>
+    <text x="400" y="449" text-anchor="middle" font-size="11">.text · .rodata · .data load image</text>
+    <text x="400" y="469" text-anchor="middle" font-family="monospace" font-size="10">0x100 trap_vectors (32 slots)</text>
+    <text x="400" y="487" text-anchor="middle" font-family="monospace" font-size="10">0x080 reset entry → _start</text>
+    <text x="250" y="415" text-anchor="end" font-family="monospace" font-size="11">0x0000_FFFF</text>
+    <text x="250" y="503" text-anchor="end" font-family="monospace" font-size="11">0x0000_0000</text>
+    <text x="580" y="449" font-size="11">link.ld · crt0.S</text>
+    <text x="580" y="467" font-size="10" fill="#65708a">loaded from sim/&lt;test&gt;.vmem by $readmemh</text>
+    <text x="580" y="483" font-size="10" fill="#65708a">(plain memory - a store here also lands)</text>
+  </svg>
+  <figcaption>Figure 2 — System memory map (sw/common/memmap.h). Addresses grow upward. All of ROM and RAM is the single <code>mem_b[]</code> array in tb_top.sv.</figcaption>
+  </figure>
+
+  <div class="note"><strong>Where should a test put its data?</strong> Use the <strong>scratch area 0x15000–0x15FFF</strong>
+  for anything you address by number. The linker never places code, globals or stack there, and
+  <code>link.ld</code> fails the build if globals grow far enough to collide with it. Writing to random RAM
+  addresses can corrupt your own globals or stack, which gives confusing failures.</div>
+
+  <h3>From a C pointer to a bus transaction</h3>
+  <p>The line <code>*p = 0x12345678;</code> compiles to a single store instruction. The core's
+  load-store unit puts it on the data bus, and <code>tb_top.sv</code> writes the four bytes into
+  <code>mem_b[]</code>. Here is the real compiler output from <code>runs/&lt;run&gt;/mem_rw_basic.dis</code>:</p>
+<pre><code>  volatile uint32_t *p = (volatile uint32_t *)0x00015000;
+  *p = 0x12345678u;
+     4a8:  12345437   lui   s0,0x12345        # s0 = 0x12345000
+     4ac:  67840413   addi  s0,s0,1656        # s0 = 0x12345678   (data)
+     4b6:  64d5       lui   s1,0x15           # s1 = 0x00015000   (address)
+     4c2:  c080       sw    s0,0(s1)          # STORE word -> bus write
+  uint32_t rd = *p;
+     4c4:  4094       lw    a3,0(s1)          # LOAD word  -> bus read</code></pre>
+
+  <figure>
+  <svg viewBox="0 0 960 230" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="12">
+    <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#4a5568"/></marker></defs>
+    <rect x="10" y="60" width="170" height="70" rx="8" fill="#eaf2fe" stroke="#1a73e8"/>
+    <text x="95" y="88" text-anchor="middle" font-family="monospace" font-size="12">*p = 0x12345678;</text>
+    <text x="95" y="110" text-anchor="middle" font-size="10" fill="#65708a">C source</text>
+    <line x1="180" y1="95" x2="218" y2="95" stroke="#4a5568" stroke-width="2" marker-end="url(#a2)"/>
+    <rect x="220" y="60" width="140" height="70" rx="8" fill="#fff" stroke="#4a5568"/>
+    <text x="290" y="88" text-anchor="middle" font-family="monospace" font-size="12">sw s0,0(s1)</text>
+    <text x="290" y="110" text-anchor="middle" font-size="10" fill="#65708a">instruction</text>
+    <line x1="360" y1="95" x2="398" y2="95" stroke="#4a5568" stroke-width="2" marker-end="url(#a2)"/>
+    <rect x="400" y="30" width="260" height="130" rx="8" fill="#fff" stroke="#4a5568"/>
+    <text x="530" y="50" text-anchor="middle" font-weight="700">data bus (one clock)</text>
+    <g font-family="monospace" font-size="11">
+      <text x="418" y="72">data_req   = 1</text>
+      <text x="418" y="89">data_we    = 1      (store)</text>
+      <text x="418" y="106">data_addr  = 0x00015000</text>
+      <text x="418" y="123">data_be    = 4'b1111 (all lanes)</text>
+      <text x="418" y="140">data_wdata = 0x12345678</text>
+    </g>
+    <line x1="660" y1="95" x2="698" y2="95" stroke="#4a5568" stroke-width="2" marker-end="url(#a2)"/>
+    <rect x="700" y="40" width="250" height="110" rx="8" fill="#f7f8fa" stroke="#9aa3b5"/>
+    <text x="825" y="60" text-anchor="middle" font-weight="700">tb_top.sv  mem_b[]</text>
+    <g font-family="monospace" font-size="11">
+      <text x="720" y="82">mem_b[0x15000] = 8'h78</text>
+      <text x="720" y="99">mem_b[0x15001] = 8'h56</text>
+      <text x="720" y="116">mem_b[0x15002] = 8'h34</text>
+      <text x="720" y="133">mem_b[0x15003] = 8'h12</text>
+    </g>
+    <text x="480" y="200" text-anchor="middle" font-size="11" fill="#65708a">A load (lw) uses the same signals with data_we = 0; tb_top returns read_word(addr) on data_rdata one clock later.</text>
+    <text x="480" y="218" text-anchor="middle" font-size="11" fill="#65708a">Byte 0x78 sits at the lowest address: RISC-V is little-endian.</text>
+  </svg>
+  <figcaption>Figure 3 — One C store, end to end. Probe <code>u_if.data_*</code> in SimVision to see exactly this.</figcaption>
+  </figure>
+
+  <div class="note warn"><strong>Always use <code>volatile</code> for these pointers.</strong> Without it the compiler
+  may keep the value in a register, merge two stores into one, or delete a read whose result it
+  thinks it already knows. Then the test never touches the bus and checks nothing. <code>volatile</code>
+  means: perform every access exactly as written.</div>
+
+  <h3>Pointer type decides the access size (byte lanes)</h3>
+  <p>The same address can be accessed as a byte, a halfword or a word. The pointer type picks the
+  instruction (<code>sb</code> / <code>sh</code> / <code>sw</code>), and that sets the <code>data_be</code>
+  byte enables, which control which bytes of the word are written.</p>
+
+  <figure>
+  <svg viewBox="0 0 960 250" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="12">
+    <text x="300" y="24" text-anchor="middle" font-weight="700">word at 0x15010 (as uint32_t)</text>
+    <g font-family="monospace" font-size="12">
+      <rect x="100" y="36" width="100" height="40" fill="#fff" stroke="#4a5568"/><text x="150" y="61" text-anchor="middle">lane 3</text>
+      <rect x="200" y="36" width="100" height="40" fill="#fff" stroke="#4a5568"/><text x="250" y="61" text-anchor="middle">lane 2</text>
+      <rect x="300" y="36" width="100" height="40" fill="#fff" stroke="#4a5568"/><text x="350" y="61" text-anchor="middle">lane 1</text>
+      <rect x="400" y="36" width="100" height="40" fill="#fff" stroke="#4a5568"/><text x="450" y="61" text-anchor="middle">lane 0</text>
+      <text x="150" y="94" text-anchor="middle" font-size="10" fill="#65708a">0x15013</text>
+      <text x="250" y="94" text-anchor="middle" font-size="10" fill="#65708a">0x15012</text>
+      <text x="350" y="94" text-anchor="middle" font-size="10" fill="#65708a">0x15011</text>
+      <text x="450" y="94" text-anchor="middle" font-size="10" fill="#65708a">0x15010</text>
+      <!-- bytes -->
+      <rect x="100" y="110" width="100" height="26" fill="#fdf1e3" stroke="#d98324"/><text x="150" y="128" text-anchor="middle" font-size="11">b[3] be=1000</text>
+      <rect x="200" y="110" width="100" height="26" fill="#fdf1e3" stroke="#d98324"/><text x="250" y="128" text-anchor="middle" font-size="11">b[2] be=0100</text>
+      <rect x="300" y="110" width="100" height="26" fill="#fdf1e3" stroke="#d98324"/><text x="350" y="128" text-anchor="middle" font-size="11">b[1] be=0010</text>
+      <rect x="400" y="110" width="100" height="26" fill="#fdf1e3" stroke="#d98324"/><text x="450" y="128" text-anchor="middle" font-size="11">b[0] be=0001</text>
+      <!-- halves -->
+      <rect x="100" y="146" width="200" height="26" fill="#f1edfc" stroke="#6b3fc9"/><text x="200" y="164" text-anchor="middle" font-size="11">h[1]  be=1100</text>
+      <rect x="300" y="146" width="200" height="26" fill="#f1edfc" stroke="#6b3fc9"/><text x="400" y="164" text-anchor="middle" font-size="11">h[0]  be=0011</text>
+      <!-- word -->
+      <rect x="100" y="182" width="400" height="26" fill="#eaf2fe" stroke="#1a73e8"/><text x="300" y="200" text-anchor="middle" font-size="11">*w   be=1111</text>
+    </g>
+    <g font-size="11">
+      <text x="530" y="124" fill="#a1600f">volatile uint8_t  *b  → sb</text>
+      <text x="530" y="160" fill="#6b3fc9">volatile uint16_t *h  → sh</text>
+      <text x="530" y="196" fill="#1a73e8">volatile uint32_t *w  → sw</text>
+      <text x="530" y="40" font-weight="700">mem_rw_basic.c step 4 checks:</text>
+      <text x="530" y="58" font-family="monospace" font-size="11">b[0..3] = 11,22,33,44  → *w == 0x44332211</text>
+      <text x="530" y="75" font-family="monospace" font-size="11">*w = ~0; b[1] = 0     → *w == 0xFFFF00FF</text>
+      <text x="530" y="92" font-family="monospace" font-size="11">h[0]=BEEF; h[1]=CAFE  → *w == 0xCAFEBEEF</text>
+    </g>
+    <text x="480" y="238" text-anchor="middle" font-size="11" fill="#65708a">A byte store must change only its own lane. "*w = ~0; b[1] = 0" proves the other three lanes survive.</text>
+  </svg>
+  <figcaption>Figure 4 — Byte enables. RISC-V is little-endian: <code>b[0]</code> is the least significant byte of the word.</figcaption>
+  </figure>
+
+  <h3>Example test: <code>sw/tests/mem_rw_basic.c</code></h3>
+  <div class="card"><table>
+    <thead><tr><th style="width:8%">Step</th><th style="width:28%">What</th><th>Why it matters</th></tr></thead>
+    <tbody>
+      <tr><td class="name">1</td><td class="desc">One word at literal <code>0x00015000</code></td><td class="desc">Simplest possible write → read → compare.</td></tr>
+      <tr><td class="name">2</td><td class="desc">Patterns 0, FFFFFFFF, A5A5A5A5, 5A5A5A5A, DEADBEEF</td><td class="desc">All-0 / all-1 / alternating bits catch stuck or shorted data bits.</td></tr>
+      <tr><td class="name">3</td><td class="desc">Walking-1 across bits 0..31</td><td class="desc">Each data bit toggles on its own.</td></tr>
+      <tr><td class="name">4</td><td class="desc">Byte / halfword stores, word read-back</td><td class="desc">Byte enables, lane order and little-endian layout (Figure 4).</td></tr>
+      <tr><td class="name">5</td><td class="desc">Fill 64 words with their own address, <em>then</em> verify all</td><td class="desc">Finds address aliasing: a later write wrongly landing on an earlier location.</td></tr>
+      <tr><td class="name">6</td><td class="desc">Read an initialised global</td><td class="desc">Globals are memory too; proves crt0 copied <code>.data</code> (§6).</td></tr>
+    </tbody>
+  </table></div>
+  <p>The core of the test is a compare helper that counts mismatches and keeps going, so one run reports
+  every bad location:</p>
+<pre><code>static uint32_t errors;
+
+static void check(const char *what, uint32_t addr, uint32_t exp, uint32_t got) {
+  if (got != exp) {
+    errors++;
+    printf("  MISMATCH %s addr=%x exp=%x got=%x\n", what, addr, exp, got);
+  }
+}
+
+  volatile uint32_t *p = (volatile uint32_t *)0x00015000;
+  *p = 0x12345678u;
+  uint32_t rd = *p;
+  check("word", (uint32_t)p, 0x12345678u, rd);
+  ...
+  if (errors) test_fail(errors);   /* fail code = number of mismatches */
+  test_pass();</code></pre>
+  <p>The same access written three ways (all three are identical on the bus):</p>
+<pre><code>*(volatile uint32_t *)0x00015000 = v;          /* raw cast, fine for one-offs   */
+REG32(SCRATCH_BASE) = v;                         /* memmap.h macro: readable      */
+volatile uint32_t *p = (volatile uint32_t *)SCRATCH_BASE;  p[4] = v;   /* p[4] is 0x15010 */</code></pre>
+  <div class="note"><strong>Pointer arithmetic counts elements, not bytes.</strong> With
+  <code>uint32_t *p = 0x15000</code>, <code>p + 1</code> is <code>0x15004</code>. With a <code>uint8_t *</code>
+  it would be <code>0x15001</code>. This is why step 5 writes <code>blk[i] = (uint32_t)&amp;blk[i]</code>:
+  printing <code>&amp;blk[i]</code> shows the real byte address.</div>
+  <p>Log of a passing run (<code>make sim TEST=mem_rw_basic</code>):</p>
+<pre><code>[C_PRINT] mem_rw_basic: start
+[C_PRINT] [1] wrote 0x12345678 to 0x00015000, read back 0x12345678
+[C_PRINT] [2] patterns done
+[C_PRINT] [3] walking-1 done
+[C_PRINT] [4] byte/halfword lanes done, word now 0xcafebeef
+[C_PRINT] [5] block 0x00015100..0x000151fc verified
+[C_PRINT] [6] init_global at 0x00010008 = 0xc0ffee11
+[C_PRINT] mem_rw_basic: PASS
+[SB] TEST PASSED (tohost=1)</code></pre>
+</section>
+
+<!-- ================================================================== -->
+<section id="print">
+  <h2><span class="num">3</span> C Prints</h2>
+  <p>There is no UART model and no libc. A "print" is just <strong>one store per character to
+  <code>CONSOLE_TX</code> (0x30000)</strong>. The <code>ibex_console</code> component watches the bus for
+  those stores, collects the characters into a line, and on <code>'\n'</code> prints the line through
+  <code>uvm_info</code>. That puts C output in the same log, with the same timestamps, as the SV messages.</p>
+
+  <figure>
+  <svg viewBox="0 0 960 200" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="12">
+    <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#4a5568"/></marker></defs>
+    <rect x="10" y="50" width="160" height="70" rx="8" fill="#eaf2fe" stroke="#1a73e8"/>
+    <text x="90" y="78" text-anchor="middle" font-family="monospace" font-size="11">printf("x=%d\n",5)</text>
+    <text x="90" y="100" text-anchor="middle" font-size="10" fill="#65708a">print.h formats</text>
+    <line x1="170" y1="85" x2="208" y2="85" stroke="#4a5568" stroke-width="2" marker-end="url(#a3)"/>
+    <rect x="210" y="50" width="170" height="70" rx="8" fill="#fff" stroke="#4a5568"/>
+    <text x="295" y="74" text-anchor="middle" font-family="monospace" font-size="11">print_char(c)</text>
+    <text x="295" y="92" text-anchor="middle" font-family="monospace" font-size="10">REG32(0x30000) = c</text>
+    <text x="295" y="110" text-anchor="middle" font-size="10" fill="#65708a">'x' '=' '5' '\n' = 4 stores</text>
+    <line x1="380" y1="85" x2="418" y2="85" stroke="#4a5568" stroke-width="2" marker-end="url(#a3)"/>
+    <rect x="420" y="50" width="150" height="70" rx="8" fill="#fff" stroke="#4a5568"/>
+    <text x="495" y="78" text-anchor="middle" font-weight="700">data bus</text>
+    <text x="495" y="98" text-anchor="middle" font-family="monospace" font-size="10">addr=0x30000 we=1</text>
+    <text x="495" y="112" text-anchor="middle" font-family="monospace" font-size="10">wdata[7:0]=char</text>
+    <line x1="570" y1="85" x2="608" y2="85" stroke="#d98324" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#a3)"/>
+    <rect x="610" y="40" width="170" height="90" rx="8" fill="#fdf1e3" stroke="#d98324"/>
+    <text x="695" y="62" text-anchor="middle" font-weight="700">ibex_console</text>
+    <text x="695" y="82" text-anchor="middle" font-size="10">@(vif.mon_cb) sample</text>
+    <text x="695" y="98" text-anchor="middle" font-size="10">line = {line, c}</text>
+    <text x="695" y="114" text-anchor="middle" font-size="10">on '\n' → print, clear</text>
+    <line x1="780" y1="85" x2="808" y2="85" stroke="#4a5568" stroke-width="2" marker-end="url(#a3)"/>
+    <rect x="810" y="55" width="140" height="60" rx="8" fill="#e9f8ee" stroke="#1a7a3c"/>
+    <text x="880" y="80" text-anchor="middle" font-family="monospace" font-size="11">[C_PRINT] x=5</text>
+    <text x="880" y="100" text-anchor="middle" font-size="10" fill="#65708a">xrun.log</text>
+    <text x="480" y="170" text-anchor="middle" font-size="11" fill="#65708a">The 0x30000 store never reaches mem_b: tb_top skips memory writes in the TB I/O page.</text>
+  </svg>
+  <figcaption>Figure 5 — Print path. The C side is tb-agnostic: it only does stores.</figcaption>
+  </figure>
+
+  <h3>API — <code>sw/common/print.h</code></h3>
+  <div class="card"><table>
+    <thead><tr><th style="width:32%">Call</th><th style="width:30%">Example output</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="name">print_str("text\n")</td><td class="desc"><code>text</code></td><td class="desc">Cheapest call: one store per character.</td></tr>
+      <tr><td class="name">print_hex(0x15000)</td><td class="desc"><code>0x00015000</code></td><td class="desc">Always 8 digits: addresses and registers line up.</td></tr>
+      <tr><td class="name">print_dec(-42)</td><td class="desc"><code>-42</code></td><td class="desc">Signed. <code>print_udec()</code> for unsigned.</td></tr>
+      <tr><td class="name">print_char('A')</td><td class="desc"><code>A</code></td><td class="desc">The single primitive everything else is built on.</td></tr>
+      <tr><td class="name">printf(fmt, ...)</td><td class="desc"><code>addr=0x00015000 n=3</code></td><td class="desc">Supports <code>%d %u %x %s %c %%</code>. No widths or flags. <code>%x</code> = <code>print_hex</code>.</td></tr>
+    </tbody>
+  </table></div>
+<pre><code>#include "../common/print.h"
+
+print_str("step 1 done\n");
+printf("addr=%x data=%x errors=%d\n", (uint32_t)p, *p, errors);</code></pre>
+  <div class="note warn"><strong>Rules.</strong> (1) <strong>End every message with <code>\n</code></strong>.
+  The console only prints complete lines, so text without a newline stays buffered and may never appear.
+  (2) <strong>Prints cost simulation time.</strong> Each character is a store plus formatting code, about
+  90 ns (9 clocks) of sim time per character with <code>print_str</code> in this TB, more with <code>printf</code>. Inside long loops, print a summary instead of every
+  iteration. (3) <code>printf</code> here is our function, not libc's. The build uses
+  <code>-ffreestanding</code>, so GCC treats it as a normal function.</div>
+  <p>The SV side is short enough to read in full (<code>tb/env/ibex_console.sv</code>):</p>
+<pre><code>forever begin
+  @(vif.mon_cb);
+  if (vif.mon_cb.data_req &amp;&amp; vif.mon_cb.data_we &amp;&amp;
+      {vif.mon_cb.data_addr[31:2], 2'b00} == CONSOLE_TX) begin
+    c = vif.mon_cb.data_wdata[7:0];
+    if (c == "\n") begin
+      `uvm_info("C_PRINT", line, UVM_NONE)
+      line = "";
+    end else if (c != 8'h0D) begin      // drop CR (SV has no "\r" escape)
+      line = {line, string'(c)};
+    end
+  end
+end</code></pre>
+</section>
+
+<!-- ================================================================== -->
+<section id="c2sv">
+  <h2><span class="num">4</span> C ↔ SV Handshake</h2>
+  <p>Many tests need the C program and the SV testbench to take turns. For example: C sets up a
+  peripheral, SV drives some stimulus, then C checks the result. <code>sv_sync(cmd, arg)</code> provides
+  this. <strong>C pauses at that line, SV runs its code for <code>cmd</code>, and C resumes on the next line
+  with SV's return value.</strong></p>
+
+  <h3>Mailbox registers (TB I/O page)</h3>
+  <div class="card"><table>
+    <thead><tr><th style="width:16%">Register</th><th style="width:12%">Address</th><th style="width:10%">C does</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="name">C2SV_ARG</td><td class="name">0x30014</td><td class="desc">store</td><td class="desc">Argument for the next command. Must be written <em>before</em> CMD.</td></tr>
+      <tr><td class="name">C2SV_CMD</td><td class="name">0x30010</td><td class="desc">store</td><td class="desc">Command id (non-zero). <strong>This store wakes SV.</strong> SV clears ACK at once.</td></tr>
+      <tr><td class="name">SV2C_ACK</td><td class="name">0x30018</td><td class="desc">load</td><td class="desc">0 while SV is busy; equals the command id when SV has finished.</td></tr>
+      <tr><td class="name">SV2C_DATA</td><td class="name">0x3001C</td><td class="desc">load</td><td class="desc">Result returned by SV. Valid once ACK == cmd.</td></tr>
+    </tbody>
+  </table></div>
+
+  <figure>
+  <svg viewBox="0 0 960 560" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="12">
+    <defs>
+      <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#4a5568"/></marker>
+      <marker id="a4p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b3fc9"/></marker>
+    </defs>
+    <!-- lifeline heads -->
+    <rect x="40"  y="10" width="180" height="40" rx="8" fill="#eaf2fe" stroke="#1a73e8"/><text x="130" y="35" text-anchor="middle" font-weight="700" fill="#1a73e8">C program</text>
+    <rect x="300" y="10" width="160" height="40" rx="8" fill="#fdf1e3" stroke="#d98324"/><text x="380" y="28" text-anchor="middle" font-weight="700" fill="#a1600f">TB I/O page</text><text x="380" y="43" text-anchor="middle" font-size="10" fill="#a1600f">tb_top + ibex_if</text>
+    <rect x="520" y="10" width="180" height="40" rx="8" fill="#f1edfc" stroke="#6b3fc9"/><text x="610" y="35" text-anchor="middle" font-weight="700" fill="#6b3fc9">ibex_c2sv_mbox</text>
+    <rect x="760" y="10" width="180" height="40" rx="8" fill="#f1edfc" stroke="#6b3fc9"/><text x="850" y="28" text-anchor="middle" font-weight="700" fill="#6b3fc9">test</text><text x="850" y="43" text-anchor="middle" font-size="10" fill="#6b3fc9">serve_c_cmds / handle_c_cmd</text>
+    <g stroke="#b7bfcc" stroke-dasharray="4 4"><line x1="130" y1="50" x2="130" y2="545"/><line x1="380" y1="50" x2="380" y2="545"/><line x1="610" y1="50" x2="610" y2="545"/><line x1="850" y1="50" x2="850" y2="545"/></g>
+
+    <!-- C running part 1 -->
+    <rect x="122" y="60" width="16" height="50" fill="#1a73e8" opacity="0.8"/>
+    <text x="115" y="88" text-anchor="end" font-size="11">C part 1 runs</text>
+    <rect x="842" y="60" width="16" height="70" fill="#e1e4ea"/>
+    <text x="866" y="84" font-size="10" fill="#65708a">blocked in</text>
+    <text x="866" y="98" font-size="10" fill="#65708a">get_cmd()</text>
+
+    <!-- store ARG -->
+    <line x1="138" y1="125" x2="378" y2="125" stroke="#4a5568" stroke-width="1.6" marker-end="url(#a4)"/>
+    <text x="258" y="119" text-anchor="middle" font-family="monospace" font-size="11">sw arg → C2SV_ARG</text>
+    <line x1="380" y1="133" x2="608" y2="133" stroke="#6b3fc9" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#a4p)"/>
+    <text x="494" y="147" text-anchor="middle" font-size="10" fill="#6b3fc9">last_arg = wdata</text>
+    <!-- store CMD -->
+    <line x1="138" y1="165" x2="378" y2="165" stroke="#4a5568" stroke-width="1.6" marker-end="url(#a4)"/>
+    <text x="258" y="159" text-anchor="middle" font-family="monospace" font-size="11">sw cmd → C2SV_CMD</text>
+    <line x1="380" y1="173" x2="608" y2="173" stroke="#6b3fc9" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#a4p)"/>
+    <text x="494" y="187" text-anchor="middle" font-size="10" fill="#6b3fc9">ACK &lt;= 0 · req_q.put({cmd,arg})</text>
+    <line x1="612" y1="200" x2="848" y2="200" stroke="#6b3fc9" stroke-width="1.6" marker-end="url(#a4p)"/>
+    <text x="730" y="194" text-anchor="middle" font-size="10" fill="#6b3fc9">get_cmd() returns</text>
+
+    <!-- C spinning -->
+    <rect x="122" y="180" width="16" height="225" fill="#e1e4ea"/>
+    <g font-family="monospace" font-size="10">
+      <line x1="138" y1="230" x2="378" y2="230" stroke="#9aa3b5" stroke-width="1.2" marker-end="url(#a4)"/>
+      <text x="258" y="225" text-anchor="middle" fill="#65708a">lw SV2C_ACK → 0</text>
+      <line x1="138" y1="270" x2="378" y2="270" stroke="#9aa3b5" stroke-width="1.2" marker-end="url(#a4)"/>
+      <text x="258" y="265" text-anchor="middle" fill="#65708a">lw SV2C_ACK → 0</text>
+      <text x="258" y="300" text-anchor="middle" fill="#65708a">… spinning …</text>
+    </g>
+    <text x="115" y="290" text-anchor="end" font-size="11" fill="#65708a">C paused in</text>
+    <text x="115" y="305" text-anchor="end" font-size="11" fill="#65708a">sv_sync()</text>
+
+    <!-- SV running -->
+    <rect x="842" y="205" width="16" height="140" fill="#6b3fc9" opacity="0.8"/>
+    <g text-anchor="end">
+    <text x="832" y="232" font-size="11" font-weight="700" fill="#6b3fc9">handle_c_cmd(cmd, arg)</text>
+    <text x="832" y="252" font-size="10">SV part runs:</text>
+    <text x="832" y="268" font-size="10">wait N clocks</text>
+    <text x="832" y="284" font-size="10">drive pins / sequences</text>
+    <text x="832" y="300" font-size="10">compute result</text>
+    <text x="832" y="318" font-size="10" fill="#65708a">(any duration)</text>
+    </g>
+
+    <!-- reply -->
+    <line x1="848" y1="350" x2="612" y2="350" stroke="#6b3fc9" stroke-width="1.6" marker-end="url(#a4p)"/>
+    <text x="730" y="344" text-anchor="middle" font-size="10" fill="#6b3fc9">reply(cmd, result)</text>
+    <line x1="608" y1="365" x2="382" y2="365" stroke="#6b3fc9" stroke-width="1.6" marker-end="url(#a4p)"/>
+    <text x="494" y="359" text-anchor="middle" font-size="10" fill="#6b3fc9">sv2c_data &lt;= result · sv2c_ack &lt;= cmd</text>
+
+    <!-- C sees ack -->
+    <line x1="138" y1="390" x2="378" y2="390" stroke="#4a5568" stroke-width="1.6" marker-end="url(#a4)"/>
+    <text x="258" y="384" text-anchor="middle" font-family="monospace" font-size="10">lw SV2C_ACK → cmd ✓</text>
+    <line x1="138" y1="420" x2="378" y2="420" stroke="#4a5568" stroke-width="1.6" marker-end="url(#a4)"/>
+    <text x="258" y="414" text-anchor="middle" font-family="monospace" font-size="10">lw SV2C_DATA → result</text>
+    <rect x="842" y="360" width="16" height="70" fill="#e1e4ea"/>
+    <text x="866" y="395" font-size="10" fill="#65708a">back to get_cmd()</text>
+
+    <!-- C continues -->
+    <rect x="122" y="430" width="16" height="60" fill="#1a73e8" opacity="0.8"/>
+    <text x="115" y="458" text-anchor="end" font-size="11">C part 2 runs</text>
+    <text x="115" y="474" text-anchor="end" font-size="10" fill="#65708a">r = result</text>
+
+    <text x="480" y="530" text-anchor="middle" font-size="11" fill="#65708a">Only one side is "running the test" at any time: C is paused (grey) while SV works (purple), and the other way round.</text>
+  </svg>
+  <figcaption>Figure 6 — One <code>sv_sync()</code> round trip. Repeat it as many times as the test needs.</figcaption>
+  </figure>
+
+  <h3>C side — <code>sw/common/c2sv.h</code></h3>
+<pre><code>static inline uint32_t sv_sync(uint32_t cmd, uint32_t arg) {
+  REG32(C2SV_ARG) = arg;
+  REG32(C2SV_CMD) = cmd;
+  while (REG32(SV2C_ACK) != cmd) { }    /* SV is running its part */
+  return REG32(SV2C_DATA);
+}
+
+/* compiles to (c_sv_handshake.dis):
+     2fe: lui  a5,0x30          # a5 = 0x30000 (TB I/O page)
+     302: sw   a1,20(a5)        # C2SV_ARG  @ 0x30014
+     304: sw   a0,16(a5)        # C2SV_CMD  @ 0x30010   &lt;- SV wakes here
+     308: lw   a4,0(a5)         # SV2C_ACK  @ 0x30018   (a5 += 24 first)
+     30a: bne  a4,a0,308        # spin until ACK == cmd
+     312: lw   a0,28(a5)        # SV2C_DATA @ 0x3001C   -> return value */</code></pre>
+
+  <h3>SV side — the base test serves every command</h3>
+  <p><code>ibex_base_test</code> runs this loop in the background for every test. You never edit it.
+  You only decide what each command does, by overriding <code>handle_c_cmd()</code>:</p>
+<pre><code>// tb/tests/ibex_base_test.sv
+task serve_c_cmds();
+  logic [31:0] cmd, arg, result;
+  forever begin
+    env.c2sv.get_cmd(cmd, arg);        // blocks until C stores C2SV_CMD
+    result = '0;
+    handle_c_cmd(cmd, arg, result);    // the test's SV code for this step
+    env.c2sv.reply(cmd, result);       // releases C
+  end
+endtask</code></pre>
+<pre><code>// tb/tests/ibex_c_sv_sync_test.sv
+virtual task handle_c_cmd(logic [31:0] cmd, logic [31:0] arg,
+                          output logic [31:0] result);
+  case (cmd)
+    CMD_SV_WAIT: begin
+      `uvm_info("SV", $sformatf("part 1: C is paused, SV runs for %0d clocks", arg), UVM_NONE)
+      repeat (arg) @(posedge vif.clk);
+      result = arg;
+    end
+    CMD_SV_COMPUTE: result = arg * 2 + 1;
+    CMD_IRQ_ON:     env.agent.drv.poke_irq(IRQ_LINE_EXTERNAL, 1);
+    CMD_IRQ_OFF:    env.agent.drv.poke_irq(IRQ_LINE_EXTERNAL, 0);
+    default:        super.handle_c_cmd(cmd, arg, result);   // warn + ack
+  endcase
+endtask</code></pre>
+
+  <h3>Example test: <code>sw/tests/c_sv_handshake.c</code></h3>
+<pre><code>#define CMD_SV_WAIT     1u   /* SV waits `arg` clocks, returns arg        */
+#define CMD_SV_COMPUTE  2u   /* SV returns arg * 2 + 1                    */
+#define CMD_IRQ_ON      3u   /* SV asserts irq_external_i                 */
+#define CMD_IRQ_OFF     4u   /* SV deasserts irq_external_i               */
+
+  print_str("C : part 1 running, handing over to SV\n");
+  r = sv_sync(CMD_SV_WAIT, 50);                       /* pure hand-off       */
+  printf("C : back from SV (it ran %d clocks), continuing\n", r);
+
+  r = sv_sync(CMD_SV_COMPUTE, 20);                    /* data both ways      */
+  if (r != 41) test_fail(1);
+
+  sv_sync(CMD_IRQ_ON, 0);                             /* SV drives the DUT   */
+  if (!(read_csr(mip) &amp; MIE_MEIE)) test_fail(3);      /* C sees the effect   */
+  sv_sync(CMD_IRQ_OFF, 0);
+  ...
+  test_pass();</code></pre>
+  <p>The log shows the two sides taking turns. <code>[C_PRINT]</code> lines come from C and <code>[SV]</code>
+  lines from the test (times in ps):</p>
+<pre><code>@ 4795000  [C_PRINT] C : part 1 running, handing over to SV
+@ 4975000  [SV]      part 1: C is paused, SV runs for 50 clocks
+@ 5475000  [SV]      part 1: done, releasing C                       &lt;- exactly 50 x 10 ns later
+@14675000  [C_PRINT] C : back from SV (it ran 50 clocks), continuing
+@15055000  [SV]      part 2: got 20 from C, returning 41
+@23455000  [C_PRINT] C : sent 20, SV returned 41
+@23965000  [SV]      part 3: driving irq_external_i = 1
+@29515000  [C_PRINT] C : sees mip.MEIP=1 after SV raised irq_external
+@29695000  [SV]      part 3: driving irq_external_i = 0
+@34255000  [C_PRINT] C : sees mip.MEIP=0 after SV dropped it
+@36455000  [C_PRINT] C : all steps done
+@36565000  [SB]      TEST PASSED (tohost=1)</code></pre>
+
+  <div class="note"><strong>Adding your own step</strong> takes four edits:
+  (1) pick a new non-zero id and <code>#define</code> it in the C test;
+  (2) add the matching <code>localparam</code> in your SV test class;
+  (3) add a <code>case</code> branch in <code>handle_c_cmd()</code>;
+  (4) call <code>sv_sync(ID, arg)</code> from C where SV should take over.
+  Run with <code>TEST_NAME=&lt;your SV test&gt;</code>. Under plain <code>ibex_base_test</code> an unknown
+  command is acknowledged with a <code>UVM_WARNING</code>, so C never hangs.</div>
+  <div class="note warn"><strong>Things to know.</strong>
+  <br>• <strong>C always starts the exchange.</strong> SV cannot interrupt C through this mailbox. If SV must
+  get C's attention on its own, use an interrupt (<code>poke_irq</code>) and a trap handler.
+  <br>• <strong>Command 0 is reserved</strong>: ACK = 0 means "busy".
+  <br>• SV clears ACK the moment it sees the CMD store, so reusing the same id for two consecutive steps is safe.
+  <br>• While C spins in <code>sv_sync()</code> it keeps reading <code>SV2C_ACK</code>. That is normal bus
+  traffic in the waveform, not a hang.</div>
+</section>
+
+<!-- ================================================================== -->
+<section id="end">
+  <h2><span class="num">5</span> How a C Test Ends</h2>
+  <p>Every test ends with <strong>exactly one store to <code>tohost</code> (0x10000)</strong>. The value
+  stored is the verdict. <code>ibex_monitor</code> catches the store, <code>ibex_scoreboard</code> decodes it,
+  and <code>tb_top</code> calls <code>$finish</code> 100 ns later, so the final log lines get written.
+  If tohost is never written, the base-test watchdog ends the run as a TIMEOUT.</p>
+
+  <figure>
+  <svg viewBox="0 0 960 360" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="12">
+    <defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#4a5568"/></marker></defs>
+    <!-- sources -->
+    <g font-size="11">
+      <rect x="10" y="20"  width="210" height="46" rx="7" fill="#e9f8ee" stroke="#1a7a3c"/>
+      <text x="115" y="40" text-anchor="middle" font-family="monospace">test_pass() / return 0</text>
+      <text x="115" y="56" text-anchor="middle" font-size="10" fill="#65708a">tohost = 0x0000_0001</text>
+      <rect x="10" y="80"  width="210" height="46" rx="7" fill="#fdeef0" stroke="#c23a5a"/>
+      <text x="115" y="100" text-anchor="middle" font-family="monospace">test_fail(n) / return n</text>
+      <text x="115" y="116" text-anchor="middle" font-size="10" fill="#65708a">tohost = 0xFA11_0000 | n</text>
+      <rect x="10" y="140" width="210" height="46" rx="7" fill="#fdf1e3" stroke="#d98324"/>
+      <text x="115" y="160" text-anchor="middle">unexpected trap</text>
+      <text x="115" y="176" text-anchor="middle" font-size="10" fill="#65708a">default handler: tohost = mcause</text>
+      <rect x="10" y="230" width="210" height="46" rx="7" fill="#f7f8fa" stroke="#9aa3b5"/>
+      <text x="115" y="250" text-anchor="middle">C hangs / never ends</text>
+      <text x="115" y="266" text-anchor="middle" font-size="10" fill="#65708a">no tohost store at all</text>
+    </g>
+    <line x1="220" y1="43"  x2="298" y2="95" stroke="#4a5568" stroke-width="1.5" marker-end="url(#a5)"/>
+    <line x1="220" y1="103" x2="298" y2="103" stroke="#4a5568" stroke-width="1.5" marker-end="url(#a5)"/>
+    <line x1="220" y1="163" x2="298" y2="111" stroke="#4a5568" stroke-width="1.5" marker-end="url(#a5)"/>
+    <rect x="300" y="75" width="170" height="56" rx="8" fill="#fff" stroke="#4a5568"/>
+    <text x="385" y="98" text-anchor="middle" font-weight="700">sw → 0x10000</text>
+    <text x="385" y="116" text-anchor="middle" font-size="10" fill="#65708a">one store on the bus</text>
+    <line x1="470" y1="95" x2="528" y2="95" stroke="#1a7a3c" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#a5)"/>
+    <rect x="530" y="70" width="140" height="50" rx="8" fill="#fff" stroke="#4a5568"/>
+    <text x="600" y="92" text-anchor="middle" font-weight="700">ibex_monitor</text>
+    <text x="600" y="108" text-anchor="middle" font-size="10" fill="#65708a">analysis port</text>
+    <path d="M385,131 L385,172 L528,172" fill="none" stroke="#4a5568" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#a5)"/>
+    <rect x="530" y="154" width="140" height="38" rx="7" fill="#fff" stroke="#9aa3b5"/>
+    <text x="600" y="170" text-anchor="middle" font-size="10" font-weight="700">tb_top</text>
+    <text x="600" y="184" text-anchor="middle" font-size="10" fill="#65708a">$finish after 100 ns</text>
+    <line x1="670" y1="95" x2="708" y2="95" stroke="#4a5568" stroke-width="1.5" marker-end="url(#a5)"/>
+    <!-- scoreboard decode -->
+    <rect x="710" y="20" width="240" height="190" rx="8" fill="#f7f8fa" stroke="#4a5568"/>
+    <text x="830" y="42" text-anchor="middle" font-weight="700">ibex_scoreboard::write()</text>
+    <g font-size="11">
+      <rect x="724" y="54" width="212" height="40" rx="5" fill="#e9f8ee"/>
+      <text x="734" y="71" font-family="monospace">== 1</text><text x="734" y="86" fill="#1a7a3c" font-weight="700">TEST PASSED</text>
+      <rect x="724" y="100" width="212" height="44" rx="5" fill="#fdeef0"/>
+      <text x="734" y="117" font-family="monospace">[31:16] == 16'hFA11</text><text x="734" y="134" fill="#c23a5a" font-weight="700">FAILED — C fail code n</text>
+      <rect x="724" y="150" width="212" height="50" rx="5" fill="#fdf1e3"/>
+      <text x="734" y="167" font-family="monospace">anything else</text><text x="734" y="184" fill="#a1600f" font-weight="700">FAILED — unexpected trap</text>
+      <text x="734" y="196" font-size="9" fill="#65708a">(value decoded as mcause)</text>
+    </g>
+    <!-- timeout -->
+    <line x1="220" y1="253" x2="298" y2="253" stroke="#4a5568" stroke-width="1.5" marker-end="url(#a5)"/>
+    <rect x="300" y="228" width="200" height="50" rx="8" fill="#fff" stroke="#4a5568"/>
+    <text x="400" y="249" text-anchor="middle" font-weight="700">ibex_base_test watchdog</text>
+    <text x="400" y="266" text-anchor="middle" font-size="10" fill="#65708a">#timeout_ns (1 ms, +TIMEOUT_NS=)</text>
+    <line x1="500" y1="253" x2="708" y2="253" stroke="#4a5568" stroke-width="1.5" marker-end="url(#a5)"/>
+    <text x="600" y="246" text-anchor="middle" font-size="10" fill="#65708a">objection dropped → check_phase</text>
+    <rect x="710" y="228" width="240" height="50" rx="8" fill="#fdeef0" stroke="#c23a5a"/>
+    <text x="830" y="249" text-anchor="middle" font-weight="700" fill="#c23a5a">FAILED — TIMEOUT</text>
+    <text x="830" y="266" text-anchor="middle" font-size="10" fill="#65708a">scoreboard: tohost_seen == 0</text>
+    <text x="480" y="320" text-anchor="middle" font-size="11" fill="#65708a">The first tohost store ends the test. Anything the C program does after it is not simulated, so print before you end.</text>
+  </svg>
+  <figcaption>Figure 7 — The four ways a test can end, and where each one is decided.</figcaption>
+  </figure>
+
+  <div class="card"><table>
+    <thead><tr><th style="width:24%">C test does</th><th style="width:20%">tohost</th><th>Log line (tb/env/ibex_scoreboard.sv)</th></tr></thead>
+    <tbody>
+      <tr><td class="name">test_pass() · return 0</td><td class="name">0x0000_0001</td><td class="desc"><code>[SB] TEST PASSED (tohost=1)</code></td></tr>
+      <tr><td class="name">test_fail(7) · return 7</td><td class="name">0xFA11_0007</td><td class="desc"><code>[SB] TEST FAILED - C test reported fail code 7 (0x0007)</code></td></tr>
+      <tr><td class="name">illegal instruction</td><td class="name">0x0000_0002</td><td class="desc"><code>[SB] TEST FAILED - tohost=0x00000002: unexpected trap (exception cause=2) or legacy fail code</code></td></tr>
+      <tr><td class="name">for (;;) { }</td><td class="name">—</td><td class="desc"><code>[SB] TEST FAILED - TIMEOUT: C test never wrote tohost</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>All four rows were checked with throwaway tests during this bring-up.</p>
+
+<pre><code>// sw/common/test_end.h
+#define TOHOST_PASS       0x00000001u
+#define TOHOST_FAIL_TAG   0xFA110000u   /* upper 16 bits mark a C-reported fail */
+
+static inline void __attribute__((noreturn)) test_pass(void) {
+  tohost = TOHOST_PASS;
+  for (;;) { }
+}
+
+static inline void __attribute__((noreturn)) test_fail(uint32_t code) {
+  tohost = TOHOST_FAIL_TAG | (code &amp; 0xFFFFu);
+  for (;;) { }
+}</code></pre>
+  <p>Returning from <code>main()</code> works too: <code>crt0.S</code> applies the same encoding to the return
+  value. Use whichever reads better. <code>test_fail()</code> can be called from anywhere, including deep
+  inside a helper function.</p>
+<pre><code>  # sw/crt0.S, after "call main"
+  la   t0, tohost
+  li   t1, 1
+  beqz a0, write_tohost      # return 0      -> 1           (PASS)
+  slli a0, a0, 16
+  srli a0, a0, 16
+  li   t1, 0xFA110000
+  or   t1, t1, a0            # return code   -> 0xFA11_code (FAIL)
+write_tohost:
+  sw   t1, 0(t0)</code></pre>
+  <div class="note"><strong>Why the <code>0xFA11</code> tag?</strong> The default trap handler also writes
+  tohost, with the raw <code>mcause</code>. Interrupt mcause values have bit 31 set and causes ≤ 31, and
+  exception codes are small numbers, so none of them can look like <code>0xFA11_xxxx</code>. The tag keeps
+  "my check failed" separate from "the core trapped". Older tests that still write small raw codes
+  (<code>tohost = 2</code>) are reported as "unexpected trap … or legacy fail code".</div>
+  <div class="note warn"><strong>Pick a distinct fail code per check</strong> (1, 2, 3 …) or report a count,
+  as <code>mem_rw_basic</code> does. Then the one-line verdict tells you which check failed without
+  opening waves. Print the details first (<code>printf</code>), then call <code>test_fail()</code>.</div>
+</section>
+
+<!-- ================================================================== -->
+<section id="boot">
+  <h2><span class="num">6</span> Before <code>main()</code> — What crt0.S Does</h2>
+  <p>You can write tests without reading <code>crt0.S</code>. But knowing what runs before <code>main()</code>
+  explains why globals, stack and traps behave the way they do.</p>
+  <figure>
+  <svg viewBox="0 0 960 150" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="11">
+    <defs><marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#4a5568"/></marker></defs>
+    <g>
+      <rect x="5"   y="40" width="100" height="62" rx="7" fill="#f7f8fa" stroke="#9aa3b5"/><text x="55" y="64" text-anchor="middle" font-weight="700">reset</text><text x="55" y="82" text-anchor="middle" font-size="10">fetch 0x80</text><text x="55" y="95" text-anchor="middle" font-size="10">j _start</text>
+      <rect x="125" y="40" width="100" height="62" rx="7" fill="#fff" stroke="#4a5568"/><text x="175" y="64" text-anchor="middle" font-weight="700">mtvec</text><text x="175" y="82" text-anchor="middle" font-size="10">= trap_vectors</text><text x="175" y="95" text-anchor="middle" font-size="10">(0x100)</text>
+      <rect x="245" y="40" width="100" height="62" rx="7" fill="#fff" stroke="#4a5568"/><text x="295" y="64" text-anchor="middle" font-weight="700">sp</text><text x="295" y="82" text-anchor="middle" font-size="10">= _stack_top</text><text x="295" y="95" text-anchor="middle" font-size="10">(0x30000)</text>
+      <rect x="365" y="40" width="110" height="62" rx="7" fill="#eaf2fe" stroke="#1a73e8"/><text x="420" y="64" text-anchor="middle" font-weight="700">copy .data</text><text x="420" y="82" text-anchor="middle" font-size="10">ROM image →</text><text x="420" y="95" text-anchor="middle" font-size="10">RAM</text>
+      <rect x="495" y="40" width="100" height="62" rx="7" fill="#eaf2fe" stroke="#1a73e8"/><text x="545" y="64" text-anchor="middle" font-weight="700">zero .bss</text><text x="545" y="82" text-anchor="middle" font-size="10">uninitialised</text><text x="545" y="95" text-anchor="middle" font-size="10">globals = 0</text>
+      <rect x="615" y="40" width="90" height="62" rx="7" fill="#fff" stroke="#4a5568"/><text x="660" y="64" text-anchor="middle" font-weight="700">mie = 0</text><text x="660" y="82" text-anchor="middle" font-size="10">no IRQ until</text><text x="660" y="95" text-anchor="middle" font-size="10">you enable</text>
+      <rect x="725" y="40" width="90" height="62" rx="7" fill="#e9f8ee" stroke="#1a7a3c"/><text x="770" y="70" text-anchor="middle" font-weight="700">main()</text><text x="770" y="88" text-anchor="middle" font-size="10">your test</text>
+      <rect x="835" y="40" width="120" height="62" rx="7" fill="#f1edfc" stroke="#6b3fc9"/><text x="895" y="64" text-anchor="middle" font-weight="700">tohost</text><text x="895" y="82" text-anchor="middle" font-size="10">from return value</text><text x="895" y="95" text-anchor="middle" font-size="10">then spin</text>
+    </g>
+    <g stroke="#4a5568" stroke-width="1.5" marker-end="url(#a6)"><line x1="105" y1="71" x2="123" y2="71"/><line x1="225" y1="71" x2="243" y2="71"/><line x1="345" y1="71" x2="363" y2="71"/><line x1="475" y1="71" x2="493" y2="71"/><line x1="595" y1="71" x2="613" y2="71"/><line x1="705" y1="71" x2="723" y2="71"/><line x1="815" y1="71" x2="833" y2="71"/></g>
+    <text x="480" y="135" text-anchor="middle" font-size="11" fill="#65708a">Blue steps make C globals work: "int x = 5;" reads 5 (copied), "static int y;" reads 0 (zeroed).</text>
+  </svg>
+  <figcaption>Figure 8 — Reset to end of test (sw/crt0.S).</figcaption>
+  </figure>
+  <div class="card"><table>
+    <thead><tr><th style="width:26%">C declaration</th><th style="width:16%">Section</th><th>Where it lives / who sets it</th></tr></thead>
+    <tbody>
+      <tr><td class="name">const uint32_t t[] = {…};</td><td class="name">.rodata</td><td class="desc">ROM. Read-only, never copied.</td></tr>
+      <tr><td class="name">uint32_t g = 0xC0FFEE11;</td><td class="name">.data</td><td class="desc">RAM (from 0x10008). Value copied from its ROM image by crt0.</td></tr>
+      <tr><td class="name">static uint32_t errors;</td><td class="name">.bss</td><td class="desc">RAM, after .data. Zeroed by crt0.</td></tr>
+      <tr><td class="name">uint32_t local; (in a function)</td><td class="name">stack</td><td class="desc">RAM, below 0x30000. <strong>Not</strong> initialised: always assign before use.</td></tr>
+      <tr><td class="name">*(uint32_t*)0x15000</td><td class="name">—</td><td class="desc">Scratch area. Nothing puts anything here; your test owns it.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Check where things landed with <code>riscv32-unknown-elf-nm runs/&lt;run&gt;/&lt;test&gt;.elf</code>, or by
+  printing <code>&amp;variable</code> as <code>mem_rw_basic</code> step 6 does.</p>
+</section>
+
+<!-- ================================================================== -->
+<section id="howto">
+  <h2><span class="num">7</span> Write &amp; Run Your Own Test</h2>
+  <h3>Template</h3>
+<pre><code>/*
+ * my_test - one line saying what this test proves.
+ */
+#include &lt;stdint.h&gt;
+#include "../common/memmap.h"     /* SCRATCH_BASE, REG32()        */
+#include "../common/print.h"      /* print_str, printf            */
+#include "../common/test_end.h"   /* test_pass, test_fail         */
+/* #include "../common/c2sv.h"       sv_sync - if SV takes part    */
+
+int main(void) {
+  print_str("my_test: start\n");
+
+  volatile uint32_t *buf = (volatile uint32_t *)SCRATCH_BASE;
+  buf[0] = 0xA5A5A5A5u;
+  if (buf[0] != 0xA5A5A5A5u) {
+    printf("my_test: readback %x\n", buf[0]);
+    test_fail(1);
+  }
+
+  print_str("my_test: PASS\n");
+  test_pass();
+}</code></pre>
+  <h3>Build &amp; run (from <code>sim/</code>)</h3>
+<pre><code>source ~/.cadence_env.bash                       # xrun on PATH
+
+make sim TEST=mem_rw_basic                       # C test + default ibex_base_test
+make sim TEST=c_sv_handshake TEST_NAME=ibex_c_sv_sync_test   # C test + its SV test
+make sim TEST=my_test WAVES=1 SEED=1             # waves into the run directory
+make sim TEST=my_test SIM_ARGS=+TIMEOUT_NS=5000000   # longer watchdog (5 ms)
+make sw  TEST=my_test                            # build only: .elf .vmem .dis .pdis</code></pre>
+  <p>Each run creates <code>runs/run_&lt;date&gt;_&lt;time&gt;_seed&lt;N&gt;/</code> with <code>xrun.log</code>, the
+  <code>.elf/.vmem/.dis/.pdis</code> of the test and, with <code>WAVES=1</code>, <code>waves.shm</code>.
+  Grep the log for <code>C_PRINT</code>, <code>\[SV\]</code> and <code>\[SB\]</code> to read the story of the run.</p>
+  <h3>Checklist</h3>
+  <div class="card"><table>
+    <tbody>
+      <tr><td class="name">volatile</td><td class="desc">Every pointer to memory or TB registers is <code>volatile</code>.</td></tr>
+      <tr><td class="name">scratch</td><td class="desc">Absolute-address data stays inside 0x15000–0x15FFF.</td></tr>
+      <tr><td class="name">\n</td><td class="desc">Every print ends with a newline.</td></tr>
+      <tr><td class="name">one end</td><td class="desc">Every path ends in <code>test_pass()</code> / <code>test_fail(n)</code> / <code>return</code>, with a distinct n per check.</td></tr>
+      <tr><td class="name">ids match</td><td class="desc">If you use <code>sv_sync</code>: C <code>#define</code>s and SV <code>localparam</code>s agree, and you ran with the right <code>TEST_NAME</code>.</td></tr>
+      <tr><td class="name">.dis</td><td class="desc">When in doubt, read <code>&lt;test&gt;.dis</code>: it shows each C line next to the instructions it became.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ================================================================== -->
+<section id="notes">
+  <h2><span class="num">8</span> Fixes Made Along the Way</h2>
+  <p>Building this infrastructure exposed several latent problems. They are recorded here because each
+  one is a classic bring-up trap.</p>
+  <div class="card"><table>
+    <thead><tr><th style="width:24%">Problem</th><th style="width:38%">Root cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td class="desc"><strong>Initialised globals read as 0</strong> (<code>int g = 5;</code> → 0)</td>
+          <td class="desc"><code>.data</code> was linked to run from RAM but its initial values are stored in ROM (the .vmem holds load addresses), and crt0 never copied them across. It went unnoticed because the only globals until then started at 0.</td>
+          <td class="desc">Copy loop in <code>crt0.S</code> using <code>_data_lma/_data_start/_data_end</code> from <code>link.ld</code>. Checked by <code>mem_rw_basic</code> step 6.</td></tr>
+      <tr><td class="desc"><strong>Copy loop would end every test</strong></td>
+          <td class="desc">tohost/irq_ctrl lived in <code>.data</code>. Copying <code>.data</code> stores 0 to 0x10000, and the TB treats <em>any</em> tohost store as the verdict.</td>
+          <td class="desc">Moved them to a <code>.tohost (NOLOAD)</code> section pinned at 0x10000 (with a linker <code>ASSERT</code>). They rely on the TB's zero-filled memory.</td></tr>
+      <tr><td class="desc"><strong><code>hello_world</code> printed nothing</strong></td>
+          <td class="desc"><code>uart_simple.h</code> wrote to 0x20000, but no SV component watched that address. The bytes went silently into RAM.</td>
+          <td class="desc"><code>ibex_console</code> + <code>print.h</code> on the TB I/O page. <code>uart_simple.h</code> removed.</td></tr>
+      <tr><td class="desc"><strong>Every 'r' missing from prints</strong> ("Hello fom Ibex!")</td>
+          <td class="desc">SystemVerilog string literals have no <code>\r</code> escape, so <code>"\r"</code> is just the letter <code>r</code>. The console's "skip CR" check was dropping every 'r'.</td>
+          <td class="desc">Compare against <code>8'h0D</code>. Lesson: check escape sequences when moving C habits into SV.</td></tr>
+      <tr><td class="desc"><strong>A C test could not report its own failure</strong></td>
+          <td class="desc">Any tohost ≠ 1 was decoded as a trap mcause, so "data mismatch, code 2" was logged as "illegal instruction". A hang produced no error at all.</td>
+          <td class="desc"><code>0xFA11</code> fail tag, scoreboard decode, TIMEOUT check in <code>check_phase</code>.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Regression after these changes: all 14 C tests (12 existing + <code>mem_rw_basic</code> +
+  <code>c_sv_handshake</code>) pass on Xcelium 25.03. The four failure modes in §5 were each confirmed
+  with a deliberately failing test.</p>
+</section>
+
+<footer>
+  Training-FE · Ibex C-test infrastructure guide · Related: <code>docs/ibex/ibex_testcase_dv_guide.html</code>
+  (CSR / interrupt curriculum), <code>docs/ibex_memory_csr_map.html</code>, <code>docs/ibex/ibex_verification_plan.html</code>.
+</footer>
+
+</div>
+</body>
+</html>

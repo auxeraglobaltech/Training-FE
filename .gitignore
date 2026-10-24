@@ -1,0 +1,18 @@
+# Editor swap files
+*.swp
+*.swo
+
+# Simulator outputs
+xcelium.d/
+runs/
+.simvision/
+*.shm/
+xrun.log
+xrun.history
+waves.*
+
+# Generated SW images
+sim/*.elf
+sim/*.vmem
+sim/*.dis
+sim/*.pdis

@@ -6,6 +6,8 @@
 ##    make sim WAVES=1            # run + dump waveforms
 ##    make sim SEED=12345         # fixed seed
 ##    make sim WAVES=1 SEED=42   # fixed seed + waves
+##    make sim SIM_ARGS=+TIMEOUT_NS=20000   # extra xrun plusargs
+##    make sim TEST=c_sv_handshake TEST_NAME=ibex_c_sv_sync_test
 ##    make sw                     # SW build only
 ##    make clean                  # remove build + run artefacts
 ## ============================================================
@@ -15,6 +17,7 @@ REPO_ABS := $(shell cd .. && pwd)
 TEST      = hello_world
 TEST_NAME = ibex_base_test
 WAVES    ?= 0
+SIM_ARGS ?=
 SEED     ?= $(shell shuf -i 1-999999 -n 1 2>/dev/null || echo 1)
 
 XRUN_OPTS = -sv \
@@ -60,6 +63,7 @@ sim: sw
 	  +UVM_TESTNAME=$(TEST_NAME) \
 	  +ntb_random_seed=$(SEED) \
 	  +VMEM_FILE=sim/$(TEST).vmem \
+	  $(SIM_ARGS) \
 	  -log $${RUN_DIR}/xrun.log \
 	  $${WAVE_OPTS}; \
 	SIM_RC=$$?; \

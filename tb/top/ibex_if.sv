@@ -30,4 +30,20 @@ interface ibex_if(input logic clk);
   // Debug
   logic        debug_req;
 
+  // SV -> C mailbox registers (TB I/O page, sw/common/memmap.h). Driven
+  // by ibex_c2sv_mbox; tb_top returns them on data-bus reads of
+  // SV2C_ACK (0x30018) / SV2C_DATA (0x3001C).
+  logic [31:0] sv2c_ack;
+  logic [31:0] sv2c_data;
+
+  // Sampling point for every passive bus tap in the env (monitor,
+  // console, c2sv mailbox, driver's irq_ctrl watcher). Inputs are
+  // sampled just before the clock edge (#1step), i.e. the values that
+  // were stable during the cycle - so a tap can never race with the DUT
+  // updating the bus in the same timestep as the edge it wakes on.
+  clocking mon_cb @(posedge clk);
+    default input #1step;
+    input data_req, data_gnt, data_we, data_be, data_addr, data_wdata;
+  endclocking
+
 endinterface

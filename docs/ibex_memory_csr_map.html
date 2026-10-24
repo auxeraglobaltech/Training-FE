@@ -229,12 +229,14 @@
   <div class="note">
     Modeled as one flat byte array <code>mem_b[0:262143]</code> in <code>tb_top.sv</code> (256&nbsp;KB total).
     Zero-wait-state grant, 1-cycle registered <code>rvalid</code>/<code>rdata</code> on both instruction and data buses.
-    There is <strong>no separate peripheral bus</strong> — ROM, RAM, and the UART alias all live in the same SRAM model.
+    There is <strong>no separate peripheral bus</strong> — ROM and RAM live in the same SRAM model; the TB I/O page at
+    <code>0x0003_0000</code> is decoded by <code>tb_top.sv</code> instead of memory. See
+    <code>docs/ibex/ibex_c_test_writing_guide.html</code> for how C tests use each region.
   </div>
   <div class="legend">
     <span><span class="tag rom">ROM</span> code / rodata — loaded from <code>hello_world.vmem</code></span>
     <span><span class="tag ram">RAM</span> data / bss / stack — read-write</span>
-    <span><span class="tag alias">Alias</span> mapped by convention only — no real HW behavior</span>
+    <span><span class="tag alias">TB I/O</span> testbench registers — not memory</span>
   </div>
 
   <div class="card">
@@ -243,11 +245,16 @@
   <tbody>
     <tr><td class="addr">0x0001_0000 – 0x0002_FFFF</td><td class="size">128 KB</td><td><span class="tag ram">RAM</span></td><td class="desc"><strong>Data memory</strong> — <code>MEMORY{ RAM: ORIGIN=0x10000, LENGTH=128K }</code></td></tr>
     <tr><td class="addr">0x0000_0000 – 0x0000_FFFF</td><td class="size">64 KB</td><td><span class="tag rom">ROM</span></td><td class="desc"><strong>Code memory</strong> — <code>MEMORY{ ROM: ORIGIN=0x0, LENGTH=64K }</code>, <code>boot_addr_i=0x0</code></td></tr>
-    <tr><td class="addr">0x0001_0000</td><td class="size">4 B</td><td><span class="tag ram">RAM</span></td><td class="desc"><code>tohost</code> — pass / fail / trap-cause handshake word, polled every cycle by <code>tb_top.sv</code></td></tr>
-    <tr><td class="addr">0x0001_0004</td><td class="size">4 B</td><td><span class="tag ram">RAM</span></td><td class="desc"><code>result_add</code> — scratch result written by the current test's <code>alu_add()</code></td></tr>
-    <tr><td class="addr">0x0002_0000</td><td class="size">4 B</td><td><span class="tag alias">Alias</span></td><td class="desc"><code>UART_TX_REG</code> (<code>sw/common/uart_simple.h</code>) — falls inside plain RAM; <strong>no monitor watches this address</strong>, so writes are inert stores, not console output</td></tr>
+    <tr><td class="addr">0x0001_0000</td><td class="size">4 B</td><td><span class="tag ram">RAM</span></td><td class="desc"><code>tohost</code> — end-of-test word (<code>sw/common/test_end.h</code>): <code>1</code> = PASS, <code>0xFA11_xxxx</code> = C fail code, other = trap mcause. NOLOAD <code>.tohost</code> section</td></tr>
+    <tr><td class="addr">0x0001_0004</td><td class="size">4 B</td><td><span class="tag ram">RAM</span></td><td class="desc"><code>irq_ctrl</code> — C→SV IRQ pin mailbox (<code>sw/common/irqmbox.h</code>), tapped by <code>ibex_driver.sv</code></td></tr>
+    <tr><td class="addr">0x0001_0008 – …</td><td class="size">—</td><td><span class="tag ram">RAM</span></td><td class="desc"><code>.data</code> (copied from ROM by <code>crt0.S</code>) then <code>.bss</code> (zeroed)</td></tr>
+    <tr><td class="addr">0x0001_5000 – 0x0001_5FFF</td><td class="size">4 KB</td><td><span class="tag ram">RAM</span></td><td class="desc"><strong>Test scratch area</strong> (<code>SCRATCH_BASE</code>, <code>sw/common/memmap.h</code>) — free for absolute-pointer accesses; <code>link.ld</code> ASSERTs globals never reach it</td></tr>
     <tr><td class="addr">0x0003_0000</td><td class="size">—</td><td><span class="tag ram">RAM</span></td><td class="desc"><code>_stack_top = ORIGIN(RAM) + LENGTH(RAM)</code> — stack grows down from here</td></tr>
-    <tr><td class="addr">0x0003_0000 – 0x0003_FFFF</td><td class="size">64 KB</td><td>—</td><td class="desc">Modeled in <code>mem_b[]</code> but outside both linker regions — unused padding up to the 256&nbsp;KB array bound</td></tr>
+    <tr><td class="addr">0x0003_0000</td><td class="size">4 B</td><td><span class="tag alias">TB I/O</span></td><td class="desc"><code>CONSOLE_TX</code> (W) — one character per store → <code>ibex_console</code> → <code>[C_PRINT]</code> log line (<code>sw/common/print.h</code>)</td></tr>
+    <tr><td class="addr">0x0003_0010 / 0x0003_0014</td><td class="size">4 B each</td><td><span class="tag alias">TB I/O</span></td><td class="desc"><code>C2SV_CMD</code> / <code>C2SV_ARG</code> (W) — C→SV handshake, watched by <code>ibex_c2sv_mbox</code> (<code>sw/common/c2sv.h</code>)</td></tr>
+    <tr><td class="addr">0x0003_0018 / 0x0003_001C</td><td class="size">4 B each</td><td><span class="tag alias">TB I/O</span></td><td class="desc"><code>SV2C_ACK</code> / <code>SV2C_DATA</code> (R) — returned by <code>tb_top</code> from <code>ibex_if.sv2c_*</code></td></tr>
+    <tr><td class="addr">0x0003_0020 – 0x0003_0FFF</td><td class="size">—</td><td><span class="tag alias">TB I/O</span></td><td class="desc">Unmapped: stores dropped, loads return 0</td></tr>
+    <tr><td class="addr">0x0003_1000 – 0x0003_FFFF</td><td class="size">60 KB</td><td>—</td><td class="desc">Modeled in <code>mem_b[]</code> but outside both linker regions — unused padding up to the 256&nbsp;KB array bound</td></tr>
   </tbody>
   </table>
   </div>
@@ -351,7 +358,7 @@
 <footer>
   Generated for Training-FE Ibex UVM verification environment.
   Sources: <code>tb/top/tb_top.sv</code>, <code>sw/link.ld</code>, <code>sw/crt0.S</code>,
-  <code>sw/common/uart_simple.h</code>, <code>RTL/ibex/rtl/ibex_pkg.sv</code> (CSR enum).
+  <code>sw/common/memmap.h</code>, <code>RTL/ibex/rtl/ibex_pkg.sv</code> (CSR enum).
   Core params (in <code>tb_top.sv</code>): RV32MFast, RV32BNone, ICache=0, SecureIbex=0, WritebackStage=0.
 </footer>
 
