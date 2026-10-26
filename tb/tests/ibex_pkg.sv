@@ -10,4 +10,5 @@ package ibex_test_pkg;
   `include "tb/env/ibex_env.sv"
   `include "tb/tests/ibex_base_test.sv"
   `include "tb/tests/ibex_c_sv_sync_test.sv"
+  `include "tb/tests/ibex_irq_csv_test.sv"
 endpackage
