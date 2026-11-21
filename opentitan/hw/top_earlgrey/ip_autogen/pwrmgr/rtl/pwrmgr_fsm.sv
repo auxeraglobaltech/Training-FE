@@ -293,7 +293,9 @@ module pwrmgr_fsm import pwrmgr_pkg::*; import pwrmgr_reg_pkg::*;(
           state_d = FastPwrStateReleaseLcRst;
         end
       end
+     
 
+      
       FastPwrStateReleaseLcRst: begin
         rst_lc_req_d = '0;  // release rst_lc_n for all power domains
         rst_sys_req_d = '0; // release rst_sys_n for all power domains
@@ -307,6 +309,7 @@ module pwrmgr_fsm import pwrmgr_pkg::*; import pwrmgr_reg_pkg::*;(
         otp_init = 1'b1;
 
         if (otp_done_i) begin
+	  rst_sys_req_d = {PowerDomains{1'b0}}; //rst_sys_n assigned prematurely
           state_d = FastPwrStateLcInit;
         end
       end
@@ -324,7 +327,7 @@ module pwrmgr_fsm import pwrmgr_pkg::*; import pwrmgr_reg_pkg::*;(
         // only ack the slow_fsm if we actually transitioned through it
         ack_pwrup_d = !reset_ongoing_q;
 
-        // wait for request power up to drop relative to ack
+        // wait for request power up to drop relative to acki
         if (!req_pwrup_i || reset_ongoing_q) begin
           ack_pwrup_d = 1'b0;
           clr_cfg_lock_o = 1'b1;
