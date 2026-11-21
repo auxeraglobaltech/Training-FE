@@ -1,0 +1,53 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_rust_bindgen//:defs.bzl", "rust_bindgen_library")
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+
+package(default_visibility = ["//visibility:public"])
+
+rust_bindgen_library(
+    name = "perso_tlv_objects",
+    bindgen_flags = [
+        "--allowlist-type=perso_tlv_object_type_t",
+        "--allowlist-type=perso_tlv_object_header_t",
+        "--allowlist-type=perso_tlv_object_header_v1_t",
+        "--allowlist-type=perso_tlv_cert_header_t",
+        "--allowlist-type=perso_tlv_cert_header_v1_t",
+        "--allowlist-type=perso_tlv_dev_seed_header_t",
+        "--allowlist-type=perso_tlv_blob_version_payload_t",
+        "--allowlist-type=perso_tlv_obj_header_fields_v0_t",
+        "--allowlist-type=perso_tlv_obj_header_fields_v1_t",
+        "--allowlist-type=perso_tlv_cert_header_fields_v0_t",
+        "--allowlist-type=perso_tlv_cert_header_fields_v1_t",
+    ],
+    cc_lib = "//sw/device/silicon_creator/manuf/base:perso_tlv_headers",
+    edition = "2024",
+    header = "//sw/device/silicon_creator/manuf/base:perso_tlv_data.h",
+    rustc_flags = [
+        "--allow=non_snake_case",
+        "--allow=non_upper_case_globals",
+        "--allow=non_camel_case_types",
+    ],
+)
+
+rust_library(
+    name = "perso_tlv_lib",
+    srcs = ["src/lib.rs"],
+    edition = "2024",
+    deps = [
+        "//sw/host/provisioning/perso_tlv_lib:perso_tlv_objects",
+        "//sw/host/provisioning/ujson_lib",
+        "@crate_index//:anyhow",
+        "@crate_index//:arrayvec",
+        "@crate_index//:log",
+    ],
+)
+
+rust_test(
+    name = "perso_tlv_lib_test",
+    timeout = "short",
+    crate = ":perso_tlv_lib",
+    edition = "2024",
+)

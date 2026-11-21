@@ -1,0 +1,860 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+#include "sw/device/lib/crypto/impl/rsa/rsa_padding.h"
+
+#include "sw/device/lib/base/hardened.h"
+#include "sw/device/lib/base/hardened_memory.h"
+#include "sw/device/lib/base/math.h"
+#include "sw/device/lib/base/random_order.h"
+#include "sw/device/lib/crypto/drivers/entropy.h"
+#include "sw/device/lib/crypto/drivers/rv_core_ibex.h"
+#include "sw/device/lib/crypto/impl/hash.h"
+#include "sw/device/lib/crypto/include/integrity.h"
+
+// Module ID for status codes.
+#define MODULE_ID MAKE_MODULE_ID('r', 'p', 'a')
+
+/**
+ * Get the length of the DER encoding for the given hash function's digests.
+ *
+ * See RFC 8017, Appendix B.1. The encoding consists of the digest algorithm
+ * identifier and then the digest itself.
+ *
+ * @param hash_mode Hash function to use.
+ * @param[out] len Byte-length of the DER encoding of the digest.
+ * @param OTCRYPTO_BAD_ARGS if the hash function is not valid, otherwise OK.
+ */
+OT_WARN_UNUSED_RESULT
+static status_t digest_info_length_get(
+    const otcrypto_hash_digest_t message_digest, size_t *len) {
+  *len = 0;
+  hash_info_t info;
+  HARDENED_TRY(hash_info_get(message_digest.mode, &info));
+  if (info.der_oid == NULL ||
+      (info.digest_wordlen != 0 && message_digest.len == 0)) {
+    // Unsupported or unrecognized hash function.
+    // COVERAGE (MISSING) We do not cover bad padding modes.
+    return OTCRYPTO_BAD_ARGS;
+  }
+  if (info.digest_wordlen == 0) {
+    *len = message_digest.len;
+  } else {
+    *len = info.der_oid_len + message_digest.len * sizeof(uint32_t);
+    HARDENED_CHECK_NE(*len, 0);
+  }
+
+  return OTCRYPTO_OK;
+}
+
+/**
+ * Get the DER encoding for the hash function's digests.
+ *
+ * See RFC 8017, Appendix B.1.
+ *
+ * The caller must ensure that enough space is allocated for the encoding; use
+ * `digest_info_length()` to check before calling this function. Only certain
+ * hash functions are supported.
+ *
+ * Writes the encoding in little-endian, which is reversed compared to the RFC.
+ *
+ * @param message_digest Message digest to encode.
+ * @param[out] encoding DER encoding of the digest.
+ * @return OTCRYPTO_BAD_ARGS if the hash function is not valid, otherwise OK.
+ */
+OT_WARN_UNUSED_RESULT
+static status_t digest_info_write(const otcrypto_hash_digest_t message_digest,
+                                  uint32_t *encoding) {
+  hash_info_t info;
+  HARDENED_TRY(hash_info_get(message_digest.mode, &info));
+  if (info.der_oid == NULL) {
+    // Unsupported or unrecognized hash function.
+    // COVERAGE (MISSING) We do not cover bad padding modes.
+    return OTCRYPTO_BAD_ARGS;
+  }
+  size_t digest_bytelen = message_digest.len;
+  if (info.digest_wordlen != 0) {
+    if (launderw(message_digest.len) != launderw(info.digest_wordlen)) {
+      // COVERAGE (MISSING) We do not cover bad digests.
+      return OTCRYPTO_BAD_ARGS;
+    }
+    HARDENED_CHECK_EQ(message_digest.len, info.digest_wordlen);
+    digest_bytelen = message_digest.len * sizeof(uint32_t);
+  }
+
+  uint8_t *encoding_bytes = (uint8_t *)encoding;
+  memcpy(encoding_bytes + digest_bytelen, info.der_oid, info.der_oid_len);
+
+  // Copy the digest into the encoding, reversing the order of bytes.
+  const uint8_t *digest_bytes = (const uint8_t *)message_digest.data;
+  size_t i;
+  for (i = 0; launder32(i) < digest_bytelen; i++) {
+    encoding_bytes[i] = digest_bytes[digest_bytelen - 1 - i];
+  }
+  HARDENED_CHECK_EQ(i, digest_bytelen);
+
+  return OTCRYPTO_OK;
+}
+
+status_t rsa_padding_pkcs1v15_encode(
+    const otcrypto_hash_digest_t message_digest, size_t encoded_message_len,
+    uint32_t *encoded_message) {
+  // Initialize all bits of the encoded message to 1.
+  size_t encoded_message_bytelen = encoded_message_len * sizeof(uint32_t);
+  memset(encoded_message, 0xff, encoded_message_bytelen);
+
+  // Get a byte-sized pointer to the encoded message data.
+  unsigned char *buf = (unsigned char *)encoded_message;
+
+  // Set the last byte to 0x00 and the second-to-last byte to 0x01.
+  buf[encoded_message_bytelen - 1] = 0x00;
+  buf[encoded_message_bytelen - 2] = 0x01;
+
+  // Get the length of the digest info (called T in the RFC).
+  size_t tlen;
+  HARDENED_TRY(digest_info_length_get(message_digest, &tlen));
+
+  if (encoded_message_bytelen < 11 || tlen > encoded_message_bytelen - 11) {
+    // Invalid encoded message length/hash function combination; the RFC
+    // specifies that the 0xff padding must be at least 8 octets.
+    // COVERAGE (SW ERR) This is an internal function which is given correct
+    // input lengths.
+    return OTCRYPTO_BAD_ARGS;
+  }
+  // Write the digest info to the start of the buffer.
+  HARDENED_TRY(digest_info_write(message_digest, encoded_message));
+
+  // Set one byte to 0 just after the digest info.
+  buf[tlen] = 0x00;
+
+  return OTCRYPTO_OK;
+}
+
+status_t rsa_padding_pkcs1v15_verify(
+    const otcrypto_hash_digest_t message_digest,
+    const uint32_t *encoded_message, const size_t encoded_message_len,
+    hardened_bool_t *result) {
+  // Re-encode the message.
+  uint32_t expected_encoded_message[encoded_message_len];
+  HARDENED_TRY(rsa_padding_pkcs1v15_encode(message_digest, encoded_message_len,
+                                           expected_encoded_message));
+
+  // Compare with the expected value.
+  *result = hardened_memeq(expected_encoded_message, encoded_message,
+                           ARRAYSIZE(expected_encoded_message));
+  // Clear the register file in order to ensure we clear any kHardenedBoolTrue
+  // value in there
+  ibex_clear_rf();
+  return OTCRYPTO_OK;
+}
+
+/**
+ * Get the output size in words for the given hash function.
+ *
+ * Returns an error if the hash mode is unsupported, unrecognized, or does not
+ * have a fixed length.
+ *
+ * @param hash_mode Hash function.
+ * @param[out] num_words Output length in 32-bit words.
+ * @return Result of the operation (OK or error).
+ */
+OT_WARN_UNUSED_RESULT
+static status_t digest_wordlen_get(otcrypto_hash_mode_t hash_mode,
+                                   size_t *num_words) {
+  hash_info_t info;
+  HARDENED_TRY(hash_info_get(hash_mode, &info));
+  if (info.der_oid == NULL || info.digest_wordlen == 0) {
+    // Unsupported or unrecognized hash function.
+    // COVERAGE (MISSING) We do not cover bad padding modes.
+    return OTCRYPTO_BAD_ARGS;
+  }
+  *num_words = info.digest_wordlen;
+  HARDENED_CHECK_GT(*num_words, 0);
+  return OTCRYPTO_OK;
+}
+
+/**
+ * Run an iteration of a hash function using the streaming hash interface.
+ *
+ * Only supports SHA-1 and SHA-2 hash functions, not SHA-3 or XOFs.
+ *
+ * It is the caller's responsibility to ensure there is enough space allocated
+ * at `digest` to hold the result.
+ *
+ * @param hash_mode Hash function to use.
+ * @param message Message data to hash.
+ * @param message_len Length of message data in bytes.
+ * @param[out] digest Destination buffer.
+ * @return OK or error.
+ */
+OT_WARN_UNUSED_RESULT
+static status_t hash(otcrypto_hash_mode_t hash_mode, const uint8_t *message,
+                     size_t message_len, uint32_t *digest) {
+  otcrypto_const_byte_buf_t message_buf =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_byte_buf_t, message, message_len);
+  otcrypto_hash_digest_t digest_buf;
+  return hash_message(hash_mode, &message_buf, digest, &digest_buf);
+}
+
+/**
+ * Mask generation function MGF1 (RFC 8017, appendix B.2.1).
+ *
+ * The `mask` parameter is 32-bit aligned because this makes it more secure and
+ * efficient to operate and compare with the mask. However, the mask length is
+ * not necessarily a multiple of the word size. This routine guarantees that
+ * any extra bytes at the end of the mask will be initialized, but does not
+ * make any guarantees about their values.
+ *
+ * @param hash_mode Hash function to use.
+ * @param seed Seed data.
+ * @param seed_len Length of seed data in bytes.
+ * @param mask_len Intended byte-length of the mask.
+ * @param[out] mask Destination buffer for mask.
+ * @return Result of the operation (OK or error).
+ */
+OT_WARN_UNUSED_RESULT
+static status_t mgf1(otcrypto_hash_mode_t hash_mode, const uint8_t *seed,
+                     size_t seed_len, size_t mask_len, uint32_t *mask) {
+  size_t digest_wordlen;
+  HARDENED_TRY(digest_wordlen_get(hash_mode, &digest_wordlen));
+  size_t digest_bytelen = digest_wordlen * sizeof(uint32_t);
+
+  uint8_t hash_input[seed_len + sizeof(uint32_t)];
+  memcpy(hash_input, seed, seed_len);
+  uint32_t i = 0;
+  while (0 < launderw(mask_len)) {
+    uint32_t ctr = __builtin_bswap32(i);
+    memcpy(hash_input + seed_len, &ctr, sizeof(uint32_t));
+    if (mask_len < digest_bytelen) {
+      // Digest won't fit in mask (last iteration). Use a temporary buffer.
+      uint32_t digest[digest_wordlen];
+      HARDENED_TRY(hash(hash_mode, hash_input, sizeof(hash_input), digest));
+      HARDENED_TRY(
+          hardened_memcpy(mask, digest, ceil_div(mask_len, sizeof(uint32_t))));
+      mask_len = 0;
+    } else {
+      HARDENED_TRY(hash(hash_mode, hash_input, sizeof(hash_input), mask));
+      mask_len -= digest_bytelen;
+    }
+    mask += digest_wordlen;
+    i++;
+  }
+  HARDENED_CHECK_EQ(mask_len, 0);
+
+  return OTCRYPTO_OK;
+}
+
+/**
+ * Reverse the byte-order of a word array in-place.
+ *
+ * @param input_len Length of input in 32-bit words.
+ * @param[in,out] input Input array, modified in-place.
+ * @return Result of the operation (OK or error).
+ */
+static status_t reverse_bytes(size_t input_len, uint32_t *input) {
+  const size_t num_idx = (input_len + 1) / 2;
+
+  // Randomize the access pattern during the reversal.
+  random_order_t order;
+  random_order_init(&order, num_idx);
+
+  size_t i = 0;
+  for (; launderw(i) < num_idx; i = launderw(i) + 1) {
+    size_t rnd_idx = launderw(random_order_advance(&order));
+    barrierw(rnd_idx);
+
+    size_t j = launderw(input_len - 1 - rnd_idx);
+    uint32_t tmp = input[j];
+    input[j] = __builtin_bswap32(input[rnd_idx]);
+    input[rnd_idx] = __builtin_bswap32(tmp);
+  }
+
+  RANDOM_ORDER_HARDENED_CHECK_DONE(order);
+  HARDENED_CHECK_EQ(i, num_idx);
+
+  return (status_t){.value = (int32_t)launder32((uint32_t)OTCRYPTO_OK.value)};
+}
+
+/**
+ * Helper function to construct the "H" value for PSS encoding.
+ *
+ * As described in RFC 8017, H = Hash(0x0000000000000000 || digest || salt).
+ * This value needs to be computed for both encryption and decryption. The hash
+ * function should match the hash function from the message digest, so the
+ * caller is responsible for ensuring that there is enough space in `h` to hold
+ * another digest of the same type.
+ *
+ * @param message_digest Message digest to encode.
+ * @param salt Salt value.
+ * @param salt_len Length of the salt in 32-bit words.
+ * @param[out] h Resulting digest, H.
+ */
+OT_WARN_UNUSED_RESULT
+static status_t pss_construct_h(const otcrypto_hash_digest_t message_digest,
+                                const uint32_t *salt, size_t salt_len,
+                                uint32_t *h) {
+  // Create a buffer for M' = (0x0000000000000000 || digest || salt).
+  size_t m_prime_wordlen = 2 + message_digest.len + salt_len;
+  uint32_t m_prime[m_prime_wordlen];
+  m_prime[0] = 0;
+  m_prime[1] = 0;
+  uint32_t *digest_dst = &m_prime[2];
+  uint32_t *salt_dst = digest_dst + message_digest.len;
+  HARDENED_TRY(
+      hardened_memcpy(digest_dst, message_digest.data, message_digest.len));
+  if (salt_len > 0) {
+    HARDENED_TRY(hardened_memcpy(salt_dst, salt, salt_len));
+  }
+
+  // Construct H = Hash(M').
+  return hash(message_digest.mode, (unsigned char *)m_prime, sizeof(m_prime),
+              h);
+}
+
+/**
+ * Helper function to check the OAEP padding and find the index of the start of
+ * the message.
+ *
+ * This function locates the start of the message in DB = lhash || 0x00..0x00 ||
+ * 0x01 || M by searching for the 0x01 byte in constant time. In case of a
+ * padding check failure this function returns an error.
+ *
+ * @param db A pointer to the data buffer.
+ * @param lhash A encoded message hash.
+ * @param digest_wordlen The length of the digest in number of words.
+ * @param digest_bytelen The length of the digest in number of bytes.
+ * @param encoded_message_bytes A pointer to a byte array containing the encoded
+ * message.
+ * @param db_bytelen The length of the data buffer in number of bytes.
+ * @param[out] message_start_idx The index of the start of the message.
+ */
+OT_WARN_UNUSED_RESULT
+static status_t oaep_check_padding_and_find_message_start(
+    uint32_t *db, uint32_t *lhash, uint32_t digest_wordlen,
+    size_t digest_bytelen, unsigned char *encoded_message_bytes,
+    size_t db_bytelen, volatile uint32_t *message_start_idx) {
+  unsigned char *db_bytes = (unsigned char *)db;
+  // Locate the start of the message in DB = lhash || 0x00..0x00 || 0x01 || M
+  // by searching for the 0x01 byte in constant time.
+  ct_bool32_t decode_failure = 0;
+  for (size_t i = digest_bytelen; i < db_bytelen; i++) {
+    uint32_t byte = db_bytes[i];
+    ct_bool32_t is_one = ct_seq32(byte, 0x01);
+    ct_bool32_t is_before_message = ct_seqz32(*message_start_idx);
+    ct_bool32_t is_message_start = is_one & is_before_message;
+    *message_start_idx = ct_cmov32(is_message_start, i + 1, *message_start_idx);
+    ct_bool32_t is_zero = ct_seqz32(byte);
+    ct_bool32_t padding_failure = is_before_message & (~is_zero) & (~is_one);
+    decode_failure |= padding_failure;
+  }
+  HARDENED_CHECK_LE(*message_start_idx, db_bytelen);
+
+  // If we never found a message start index, we should fail. However, don't
+  // fail yet to avoid leaking timing information.
+  ct_bool32_t message_start_not_found = ct_seqz32(*message_start_idx);
+  decode_failure |= message_start_not_found;
+
+  // Check that the first part of DB is equal to lhash.
+  hardened_bool_t lhash_matches = hardened_memeq(lhash, db, digest_wordlen);
+  ct_bool32_t lhash_match = ct_seq32(lhash_matches, kHardenedBoolTrue);
+  ct_bool32_t lhash_mismatch = ~lhash_match;
+  decode_failure |= lhash_mismatch;
+
+  // Check that the leading byte is 0.
+  uint32_t leading_byte = encoded_message_bytes[0];
+  ct_bool32_t leading_byte_nonzero = ~ct_seqz32(leading_byte);
+  decode_failure |= leading_byte_nonzero;
+
+  // Now, decode_failure is all-zero if the decode succeeded and all-one if the
+  // decode failed.
+  if (launder32(decode_failure) != 0) {
+    return OTCRYPTO_BAD_ARGS;
+  }
+  HARDENED_CHECK_EQ(decode_failure, 0);
+
+  return OTCRYPTO_OK;
+}
+
+status_t rsa_padding_pss_encode(const otcrypto_hash_digest_t message_digest,
+                                const uint32_t *salt, size_t salt_len,
+                                size_t encoded_message_len,
+                                uint32_t *encoded_message) {
+  // Check that the message length is long enough.
+  size_t digest_bytelen = message_digest.len * sizeof(uint32_t);
+  size_t salt_bytelen = salt_len * sizeof(uint32_t);
+  size_t encoded_message_bytelen = encoded_message_len * sizeof(uint32_t);
+  if (encoded_message_bytelen < salt_bytelen + digest_bytelen + 2) {
+    // COVERAGE (SW ERR) This is an internal function which is called with
+    // correct inputs that do not trigger this return.
+    return OTCRYPTO_BAD_ARGS;
+  }
+
+  // Construct H = Hash(0x0000000000000000 || digest || salt).
+  uint32_t h[message_digest.len];
+  HARDENED_TRY(pss_construct_h(message_digest, salt, salt_len, h));
+
+  // Construct DB = 00...00 || 0x01 || salt.
+  size_t db_bytelen = encoded_message_bytelen - digest_bytelen - 1;
+  uint32_t db[ceil_div(db_bytelen, sizeof(uint32_t))];
+  memset(db, 0, sizeof(db));
+  unsigned char *db_bytes = (unsigned char *)db;
+  db_bytes[db_bytelen - 1 - salt_bytelen] = 0x01;
+  if (salt_bytelen > 0) {
+    memcpy(db_bytes + (db_bytelen - salt_bytelen), salt, salt_bytelen);
+  }
+
+  // Compute the mask.
+  uint32_t mask[ARRAYSIZE(db)];
+  HARDENED_TRY(mgf1(message_digest.mode, (unsigned char *)h, sizeof(h),
+                    db_bytelen, mask));
+
+  // Compute maskedDB = DB ^ mask.
+  HARDENED_TRY(hardened_xor_in_place(db, mask, ARRAYSIZE(db)));
+
+  // Set the most significant bit of the first byte of maskedDB to 0. This
+  // ensures the encoded message is less than the modulus. Corresponds to RFC
+  // 8017, section 9.1.1, step 11 (where emBits is modLen - 1).
+  db_bytes[0] &= 0x7f;
+
+  // Compute the final encoded message and reverse the byte-order.
+  //   EM = maskedDB || H || 0xbc
+  unsigned char *encoded_message_bytes = (unsigned char *)encoded_message;
+  HARDENED_TRY(hardened_memcpy(encoded_message, db, ARRAYSIZE(db)));
+  HARDENED_TRY(
+      randomized_bytecopy(encoded_message_bytes + db_bytelen, h, sizeof(h)));
+  // Check whether a FI tampered copying the bytes.
+  HARDENED_CHECK_EQ(
+      consttime_memeq_byte(h, encoded_message_bytes + db_bytelen, sizeof(h)),
+      kHardenedBoolTrue);
+
+  encoded_message_bytes[encoded_message_bytelen - 1] = 0xbc;
+  HARDENED_TRY(reverse_bytes(encoded_message_len, encoded_message));
+  return OTCRYPTO_OK;
+}
+
+status_t rsa_padding_pss_verify(const otcrypto_hash_digest_t message_digest,
+                                uint32_t *encoded_message,
+                                size_t encoded_message_len,
+                                hardened_bool_t *result) {
+  // Initialize the result to false.
+  *result = kHardenedBoolFalse;
+
+  // Check that the message length is long enough.
+  size_t digest_bytelen = message_digest.len * sizeof(uint32_t);
+  size_t salt_bytelen = digest_bytelen;
+  size_t encoded_message_bytelen = encoded_message_len * sizeof(uint32_t);
+  if (encoded_message_bytelen < salt_bytelen + digest_bytelen + 2) {
+    // COVERAGE (SW ERR) This is an internal function which is called with
+    // correct inputs that do not trigger this return.
+    return OTCRYPTO_BAD_ARGS;
+  }
+
+  // Reverse the byte-order.
+  HARDENED_TRY(reverse_bytes(encoded_message_len, encoded_message));
+
+  // Check both Steps 4 and 6 of RFC 8017 Section 9.1.2:
+  //   4. The least significant byte of the encoded message must equal 0xbc.
+  //   6. The MSB of the encoded message must not be set.
+  unsigned char *encoded_message_bytes = (unsigned char *)encoded_message;
+  if ((encoded_message_bytes[encoded_message_bytelen - 1] != 0xbc) ||
+      (encoded_message_bytes[0] >> 7)) {
+    *result = kHardenedBoolFalse;
+    return OTCRYPTO_OK;
+  }
+
+  // Extract the masked "DB" value. Zero the last bytes if needed.
+  size_t db_bytelen = encoded_message_bytelen - digest_bytelen - 1;
+  uint32_t db[ceil_div(db_bytelen, sizeof(uint32_t))];
+  memcpy(db, encoded_message_bytes, db_bytelen);
+  if (sizeof(db) > db_bytelen) {
+    memset(((unsigned char *)db) + db_bytelen, 0, sizeof(db) - db_bytelen);
+  }
+
+  // Extract H.
+  uint32_t h[message_digest.len];
+  HARDENED_TRY(
+      randomized_bytecopy(h, encoded_message_bytes + db_bytelen, sizeof(h)));
+  // Check whether a FI tampered copying the bytes.
+  HARDENED_CHECK_EQ(
+      consttime_memeq_byte(encoded_message_bytes + db_bytelen, h, sizeof(h)),
+      kHardenedBoolTrue);
+
+  // Compute the mask = MFG(H, emLen - hLen - 1). Zero the last bytes if
+  // needed.
+  uint32_t mask[ARRAYSIZE(db)];
+  HARDENED_TRY(mgf1(message_digest.mode, (unsigned char *)h, sizeof(h),
+                    db_bytelen, mask));
+  if (sizeof(mask) > db_bytelen) {
+    memset(((unsigned char *)mask) + db_bytelen, 0, sizeof(mask) - db_bytelen);
+  }
+
+  // Unmask the "DB" value.
+  HARDENED_TRY(hardened_xor_in_place(db, mask, ARRAYSIZE(db)));
+
+  // Set the most significant bit of the first byte of maskedDB to 0.
+  // Corresponds to RFC 8017, section 9.1.2 step 9 (emBits is modLen - 1).
+  unsigned char *db_bytes = (unsigned char *)db;
+  db_bytes[0] &= 0x7f;
+
+  // Check that DB starts with all zeroes followed by a single 1 byte. Copy in
+  // enough trailing bytes to fill the last word, so that we can use
+  // `hardened_memeq` here.
+  size_t padding_bytelen = db_bytelen - salt_bytelen;
+  uint32_t exp_padding[ceil_div(padding_bytelen, sizeof(uint32_t))];
+  unsigned char *exp_padding_bytes = (unsigned char *)exp_padding;
+  memset(exp_padding, 0, padding_bytelen - 1);
+  exp_padding_bytes[padding_bytelen - 1] = 0x01;
+  HARDENED_TRY(randomized_bytecopy(exp_padding_bytes + padding_bytelen,
+                                   db_bytes + padding_bytelen,
+                                   sizeof(exp_padding) - padding_bytelen));
+  // Check whether a FI tampered copying the bytes.
+  HARDENED_CHECK_EQ(consttime_memeq_byte(db_bytes + padding_bytelen,
+                                         exp_padding_bytes + padding_bytelen,
+                                         sizeof(exp_padding) - padding_bytelen),
+                    kHardenedBoolTrue);
+
+  hardened_bool_t padding_eq =
+      hardened_memeq(db, exp_padding, ARRAYSIZE(exp_padding));
+  if (padding_eq != kHardenedBoolTrue) {
+    *result = kHardenedBoolFalse;
+    return OTCRYPTO_OK;
+  }
+
+  // Extract the salt.
+  uint32_t salt[message_digest.len];
+  HARDENED_TRY(randomized_bytecopy(salt, db_bytes + db_bytelen - salt_bytelen,
+                                   sizeof(salt)));
+  // Check whether a FI tampered copying the bytes.
+  HARDENED_CHECK_EQ(consttime_memeq_byte(db_bytes + db_bytelen - salt_bytelen,
+                                         salt, sizeof(salt)),
+                    kHardenedBoolTrue);
+
+  // Construct the expected value of H and compare.
+  uint32_t exp_h[message_digest.len];
+  HARDENED_TRY(pss_construct_h(message_digest, salt, ARRAYSIZE(salt), exp_h));
+  *result = hardened_memeq(h, exp_h, ARRAYSIZE(exp_h));
+  // Clear the register file in order to ensure we clear any kHardenedBoolTrue
+  // value in there
+  ibex_clear_rf();
+  return OTCRYPTO_OK;
+}
+
+status_t rsa_padding_oaep_max_message_bytelen(
+    const otcrypto_hash_mode_t hash_mode, size_t rsa_wordlen,
+    size_t *max_message_bytelen) {
+  // Get the hash digest length for the given hash function (and check that it
+  // is one of the supported hash functions).
+  size_t digest_wordlen = 0;
+  HARDENED_TRY(digest_wordlen_get(hash_mode, &digest_wordlen));
+
+  size_t digest_bytelen = digest_wordlen * sizeof(uint32_t);
+  size_t rsa_bytelen = rsa_wordlen * sizeof(uint32_t);
+  if (2 * digest_bytelen + 2 > rsa_bytelen) {
+    // This case would cause underflow if we continue; return an error.
+    // COVERAGE (SW ERR) This is an internal function which is called with
+    // correct inputs that do not trigger this return.
+    return OTCRYPTO_BAD_ARGS;
+  }
+
+  *max_message_bytelen = rsa_bytelen - 2 * digest_bytelen - 2;
+  return OTCRYPTO_OK;
+}
+
+status_t rsa_padding_oaep_encode(const otcrypto_hash_mode_t hash_mode,
+                                 const otcrypto_hash_mode_t mgf_hash_mode,
+                                 const uint8_t *message, size_t message_bytelen,
+                                 const uint8_t *label, size_t label_bytelen,
+                                 size_t encoded_message_len,
+                                 uint32_t *encoded_message) {
+  // Check that the message is not too long (RFC 8017, section 7.1.1, step 1a).
+  size_t max_message_bytelen = 0;
+  HARDENED_TRY(rsa_padding_oaep_max_message_bytelen(
+      hash_mode, encoded_message_len, &max_message_bytelen));
+  if (message_bytelen > max_message_bytelen) {
+    // COVERAGE (SW ERR) This is an internal function which is called with
+    // correct inputs that do not trigger this return.
+    return OTCRYPTO_BAD_ARGS;
+  }
+
+  // Get the hash digest length for the given hash function (and check that it
+  // is one of the supported hash functions).
+  size_t digest_wordlen = 0;
+  HARDENED_TRY(digest_wordlen_get(hash_mode, &digest_wordlen));
+
+  // Hash the label (step 2a).
+  uint32_t lhash[digest_wordlen];
+  HARDENED_TRY(hash(hash_mode, label, label_bytelen, lhash));
+
+  // Generate a random string the same length as a hash digest (step 2d).
+  uint32_t seed[digest_wordlen];
+  HARDENED_TRY(entropy_csrng_instantiate(
+      /*disable_trng_input=*/kHardenedBoolFalse, /*seed_material=*/NULL));
+  HARDENED_TRY(entropy_csrng_generate(/*seed_material=*/NULL, seed,
+                                      ARRAYSIZE(seed),
+                                      /*fips_check=*/kHardenedBoolTrue));
+
+  // Generate dbMask = MGF(seed, k - hLen - 1) (step 2e).
+  size_t digest_bytelen = digest_wordlen * sizeof(uint32_t);
+  size_t encoded_message_bytelen = encoded_message_len * sizeof(uint32_t);
+  size_t db_bytelen = encoded_message_bytelen - digest_bytelen - 1;
+  size_t db_wordlen = ceil_div(db_bytelen, sizeof(uint32_t));
+  uint32_t db[db_wordlen];
+  HARDENED_TRY(
+      mgf1(mgf_hash_mode, (unsigned char *)seed, sizeof(seed), db_bytelen, db));
+
+  // Construct maskedDB = dbMask XOR (lhash || PS || 0x01 || M), where PS is
+  // all-zero (step 2f). By computing the mask first, we can simply XOR with
+  // lhash, 0x01, and M, skipping PS because XOR with zero is the identity
+  // function.
+  HARDENED_TRY(hardened_xor_in_place(db, lhash, ARRAYSIZE(lhash)));
+
+  size_t message_start_idx = db_bytelen - message_bytelen;
+  unsigned char *db_bytes = (unsigned char *)db;
+  db_bytes[message_start_idx - 1] ^= 0x01;
+  HARDENED_TRY(randomized_bytexor_in_place(db_bytes + message_start_idx,
+                                           message, message_bytelen));
+
+  // Compute seedMask = MGF(maskedDB, hLen) (step 2g).
+  uint32_t seed_mask[digest_wordlen];
+  HARDENED_TRY(mgf1(mgf_hash_mode, (unsigned char *)db, db_bytelen,
+                    digest_bytelen, seed_mask));
+
+  // Construct maskedSeed = seed XOR seedMask (step 2h).
+  HARDENED_TRY(hardened_xor_in_place(seed, seed_mask, ARRAYSIZE(seed)));
+
+  // Construct EM = 0x00 || maskedSeed || maskedDB (step 2i).
+  unsigned char *encoded_message_bytes = (unsigned char *)encoded_message;
+  encoded_message_bytes[0] = 0x00;
+  HARDENED_TRY(
+      randomized_bytecopy(encoded_message_bytes + 1, seed, sizeof(seed)));
+  // Check whether a FI tampered copying the bytes.
+  HARDENED_CHECK_EQ(
+      consttime_memeq_byte(seed, encoded_message_bytes + 1, sizeof(seed)),
+      kHardenedBoolTrue);
+  HARDENED_TRY(randomized_bytecopy(encoded_message_bytes + 1 + sizeof(seed), db,
+                                   db_bytelen));
+  // Check whether a FI tampered copying the bytes.
+  HARDENED_CHECK_EQ(
+      consttime_memeq_byte(db, encoded_message_bytes + 1 + sizeof(seed),
+                           db_bytelen),
+      kHardenedBoolTrue);
+
+  // Reverse the byte-order.
+  HARDENED_TRY(reverse_bytes(encoded_message_len, encoded_message));
+  return OTCRYPTO_OK;
+}
+
+status_t rsa_padding_oaep_decode(const otcrypto_hash_mode_t hash_mode,
+                                 const otcrypto_hash_mode_t mgf_hash_mode,
+                                 const uint8_t *label, size_t label_bytelen,
+                                 uint32_t *encoded_message,
+                                 size_t encoded_message_len, uint8_t *message,
+                                 size_t *message_bytelen) {
+  // Reverse the byte-order.
+  HARDENED_TRY(reverse_bytes(encoded_message_len, encoded_message));
+  *message_bytelen = 0;
+
+  // Get the hash digest length for the given hash function (and check that it
+  // is one of the supported hash functions).
+  size_t digest_wordlen = 0;
+  HARDENED_TRY(digest_wordlen_get(hash_mode, &digest_wordlen));
+
+  // Extract maskedSeed from the encoded message (RFC 8017, section 7.1.2, step
+  // 3b).
+  uint32_t seed[digest_wordlen];
+  unsigned char *encoded_message_bytes = (unsigned char *)encoded_message;
+  HARDENED_TRY(
+      randomized_bytecopy(seed, encoded_message_bytes + 1, sizeof(seed)));
+  // Check whether a FI tampered copying the bytes.
+  HARDENED_CHECK_EQ(
+      consttime_memeq_byte(encoded_message_bytes + 1, seed, sizeof(seed)),
+      kHardenedBoolTrue);
+
+  // Extract maskedDB from the encoded message (RFC 8017, section 7.1.2, step
+  // 3b).
+  size_t digest_bytelen = digest_wordlen * sizeof(uint32_t);
+  size_t encoded_message_bytelen = encoded_message_len * sizeof(uint32_t);
+  size_t db_bytelen = encoded_message_bytelen - digest_bytelen - 1;
+  size_t db_wordlen = ceil_div(db_bytelen, sizeof(uint32_t));
+  uint32_t db[db_wordlen];
+  HARDENED_TRY(randomized_bytecopy(db, encoded_message_bytes + 1 + sizeof(seed),
+                                   db_bytelen));
+  // Check whether a FI tampered copying the bytes.
+  HARDENED_CHECK_EQ(
+      consttime_memeq_byte(encoded_message_bytes + 1 + sizeof(seed), db,
+                           db_bytelen),
+      kHardenedBoolTrue);
+
+  // Compute seedMask = MGF(maskedDB, hLen) (step 3c).
+  uint32_t seed_mask[digest_wordlen];
+  HARDENED_TRY(mgf1(mgf_hash_mode, (unsigned char *)db, db_bytelen,
+                    digest_bytelen, seed_mask));
+
+  // Construct seed = maskedSeed XOR seedMask (step 3d).
+  HARDENED_TRY(hardened_xor_in_place(seed, seed_mask, ARRAYSIZE(seed)));
+
+  // Generate dbMask = MGF(seed, k - hLen - 1) (step 3e).
+  uint32_t db_mask[db_wordlen];
+  HARDENED_TRY(mgf1(mgf_hash_mode, (unsigned char *)seed, sizeof(seed),
+                    db_bytelen, db_mask));
+
+  // Zero trailing bytes of DB and dbMask if needed.
+  size_t num_trailing_bytes = sizeof(db) - db_bytelen;
+  if (num_trailing_bytes > 0) {
+    memset(((unsigned char *)db) + db_bytelen, 0, num_trailing_bytes);
+    memset(((unsigned char *)db_mask) + db_bytelen, 0, num_trailing_bytes);
+  }
+
+  // Construct DB = dbMask XOR maskedDB.
+  HARDENED_TRY(hardened_xor_in_place(db, db_mask, ARRAYSIZE(db)));
+
+  // Hash the label (step 3a).
+  uint32_t lhash[digest_wordlen];
+  HARDENED_TRY(hash(hash_mode, label, label_bytelen, lhash));
+
+  // Note: as we compare parts of the encoded message to their expected values,
+  // we must be careful that the attacker cannot differentiate error codes or
+  // get partial information about the encoded message. See the note in RFC
+  // 8017, section 7.1.2. This implementation currently protects against
+  // revealing this information through error codes or timing, but does not yet
+  // defend against power side channels.
+
+  // Locate the start of the message in DB = lhash || 0x00..0x00 || 0x01 || M
+  // by searching for the 0x01 byte in constant time.
+  volatile uint32_t message_start_idx0 = 0;
+  volatile uint32_t message_start_idx1 = 0;
+  if (!status_ok(oaep_check_padding_and_find_message_start(
+          db, lhash, digest_wordlen, digest_bytelen, encoded_message_bytes,
+          db_bytelen, &message_start_idx0))) {
+    return OTCRYPTO_BAD_ARGS;
+  }
+  // Re-check the padding as an FI hardening measure.
+  if (!status_ok(oaep_check_padding_and_find_message_start(
+          db, lhash, digest_wordlen, digest_bytelen, encoded_message_bytes,
+          db_bytelen, &message_start_idx1))) {
+    // COVERAGE (FI CM) This is coded as an FI hardening countermeasure.
+    return OTCRYPTO_BAD_ARGS;
+  }
+  HARDENED_CHECK_EQ(message_start_idx0, message_start_idx1);
+
+  // If we get here, then the encoded message has a proper format and it is
+  // safe to copy the message into the output buffer.
+  *message_bytelen = db_bytelen - message_start_idx0;
+  if (*message_bytelen > 0) {
+    HARDENED_TRY(randomized_bytecopy(message, (char *)db + message_start_idx0,
+                                     *message_bytelen));
+    // Check whether a FI tampered copying the bytes.
+    HARDENED_CHECK_EQ(consttime_memeq_byte((char *)db + message_start_idx0,
+                                           message, *message_bytelen),
+                      kHardenedBoolTrue);
+  }
+  // Shred the stale memory after copying out the plaintext.
+  hardened_memshred(db, db_wordlen);
+  return OTCRYPTO_OK;
+}
+
+status_t rsa_padding_pkcs1v15_encrypt_encode(const uint8_t *message,
+                                             size_t message_bytelen,
+                                             size_t encoded_message_len,
+                                             uint32_t *encoded_message) {
+  size_t encoded_message_bytelen = encoded_message_len * sizeof(uint32_t);
+  if (encoded_message_bytelen < 11 ||
+      message_bytelen > encoded_message_bytelen - 11) {
+    return OTCRYPTO_BAD_ARGS;
+  }
+
+  // Fill the buffer with random bytes, then construct
+  // EM = 0x00 || 0x02 || PS || 0x00 || M (RFC 8017, section 7.2.1).
+  HARDENED_TRY(entropy_csrng_instantiate(
+      /*disable_trng_input=*/kHardenedBoolFalse, /*seed_material=*/NULL));
+  HARDENED_TRY(entropy_csrng_generate(/*seed_material=*/NULL, encoded_message,
+                                      encoded_message_len,
+                                      /*fips_check=*/kHardenedBoolTrue));
+
+  unsigned char *buf = (unsigned char *)encoded_message;
+  buf[0] = 0x00;
+  buf[1] = 0x02;
+  size_t ps_end = encoded_message_bytelen - message_bytelen - 1;
+  for (size_t i = 2; i < ps_end; ++i) {
+    while (buf[i] == 0) {
+      uint32_t rnd;
+      HARDENED_TRY(entropy_csrng_generate(
+          /*seed_material=*/NULL, &rnd, 1, /*fips_check=*/kHardenedBoolTrue));
+      buf[i] = (unsigned char)rnd;
+    }
+    HARDENED_CHECK_NE(buf[i], 0);
+  }
+  buf[ps_end] = 0x00;
+
+  HARDENED_TRY(randomized_bytecopy(buf + ps_end + 1, message, message_bytelen));
+  HARDENED_CHECK_EQ(
+      consttime_memeq_byte(message, buf + ps_end + 1, message_bytelen),
+      kHardenedBoolTrue);
+
+  return reverse_bytes(encoded_message_len, encoded_message);
+}
+
+OT_WARN_UNUSED_RESULT
+static status_t pkcs1v15_check_padding_and_find_message_start(
+    const unsigned char *encoded_message_bytes, size_t encoded_message_bytelen,
+    volatile uint32_t *message_start_idx) {
+  *message_start_idx = 0;
+  for (size_t i = 2; i < encoded_message_bytelen; i++) {
+    ct_bool32_t is_zero = ct_seqz32(encoded_message_bytes[i]);
+    ct_bool32_t is_before_message = ct_seqz32(*message_start_idx);
+    *message_start_idx =
+        ct_cmov32(is_zero & is_before_message, i + 1, *message_start_idx);
+  }
+  HARDENED_CHECK_LE(*message_start_idx, encoded_message_bytelen);
+
+  // Check that EM starts with 0x00 || 0x02 and that the 0x00 separator was
+  // found after at least 8 nonzero PS bytes (*message_start_idx >= 11).
+  ct_bool32_t decode_failure = ~ct_seqz32(encoded_message_bytes[0]) |
+                               ~ct_seq32(encoded_message_bytes[1], 0x02) |
+                               ct_sltu32(*message_start_idx, 11);
+  if (launder32(decode_failure) != 0) {
+    return OTCRYPTO_BAD_ARGS;
+  }
+  HARDENED_CHECK_EQ(decode_failure, 0);
+  HARDENED_CHECK_GE(*message_start_idx, 11);
+  return OTCRYPTO_OK;
+}
+
+status_t rsa_padding_pkcs1v15_decrypt_decode(uint32_t *encoded_message,
+                                             size_t encoded_message_len,
+                                             size_t max_message_bytelen,
+                                             uint8_t *message,
+                                             size_t *message_bytelen) {
+  HARDENED_TRY(reverse_bytes(encoded_message_len, encoded_message));
+  *message_bytelen = 0;
+
+  size_t encoded_message_bytelen = encoded_message_len * sizeof(uint32_t);
+  unsigned char *encoded_message_bytes = (unsigned char *)encoded_message;
+
+  volatile uint32_t message_start_idx0 = 0;
+  volatile uint32_t message_start_idx1 = 0;
+  if (!status_ok(pkcs1v15_check_padding_and_find_message_start(
+          encoded_message_bytes, encoded_message_bytelen,
+          &message_start_idx0)) ||
+      !status_ok(pkcs1v15_check_padding_and_find_message_start(
+          encoded_message_bytes, encoded_message_bytelen,
+          &message_start_idx1))) {
+    return OTCRYPTO_BAD_ARGS;
+  }
+  HARDENED_CHECK_EQ(message_start_idx0, message_start_idx1);
+
+  *message_bytelen = encoded_message_bytelen - message_start_idx0;
+  if (*message_bytelen > max_message_bytelen) {
+    hardened_memshred(encoded_message, encoded_message_len);
+    return OTCRYPTO_BAD_ARGS;
+  }
+  HARDENED_TRY(randomized_bytecopy(
+      message, encoded_message_bytes + message_start_idx0, *message_bytelen));
+  HARDENED_CHECK_EQ(
+      consttime_memeq_byte(encoded_message_bytes + message_start_idx0, message,
+                           *message_bytelen),
+      kHardenedBoolTrue);
+  hardened_memshred(encoded_message, encoded_message_len);
+  return OTCRYPTO_OK;
+}

@@ -1,0 +1,155 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+#ifndef OPENTITAN_SW_DEVICE_SILICON_CREATOR_LIB_CERT_DICE_H_
+#define OPENTITAN_SW_DEVICE_SILICON_CREATOR_LIB_CERT_DICE_H_
+
+#include <stdint.h>
+
+#include "sw/device/silicon_creator/lib/attestation.h"
+#include "sw/device/silicon_creator/lib/cert/cert.h"
+#include "sw/device/silicon_creator/lib/drivers/hmac.h"
+#include "sw/device/silicon_creator/lib/drivers/keymgr.h"
+#include "sw/device/silicon_creator/lib/error.h"
+#include "sw/device/silicon_creator/lib/keymgr_binding_value.h"
+#include "sw/device/silicon_creator/lib/manifest.h"
+#include "sw/device/silicon_creator/lib/ownership/datatypes.h"
+#include "sw/device/silicon_creator/lib/sigverify/ecdsa_p256_key.h"
+#include "sw/device/silicon_creator/manuf/base/perso_tlv_data.h"
+
+enum {
+  /**
+   * DICE attestation measurement sizes, comprised of a SHA256 digest.
+   */
+  kDiceMeasurementSizeInBits = 256,
+  kDiceMeasurementSizeInBytes = kDiceMeasurementSizeInBits / 8,
+  /**
+   * Upper bounds on any UDS certificate that a UDS builder library
+   * might produce. These are the largest sizes that fit in the
+   * personalization blob (13 KiB) alongside other personalization
+   * data, and hence can likely be lowered if needed.
+   */
+  kDiceUdsMaxTbsSizeBytes = 4 * 1024,
+  kDiceUdsMaxCertSizeBytes = 8 * 1024,
+};
+
+// Algorithms used for keygen using UDS seed for certificate generation. See
+// `creator_pub_key_alg` in `sw/device/silicon_creator/lib/cert/uds.hjson`
+typedef enum uds_cert_keygen_alg {
+  kUdsKeygenAlgEcdsaP256 = 0,
+  kUdsKeygenAlgMldsa44 = 1,
+  kUdsKeygenAlgMldsa87 = 2,
+} uds_cert_keygen_alg_t;
+
+// Algorithms used for signing UDS certificate. See `signature_alg` in
+// `sw/device/silicon_creator/lib/cert/uds.hjson`
+typedef enum uds_cert_signature_alg {
+  kUdsSignatureAlgEcdsaP256 = 0,
+  kUdsSignatureAlgMldsa87 = 1,
+} uds_cert_signature_alg_t;
+
+extern const dice_cert_format_t kDiceCertFormat;
+/**
+ * DICE ECC key descriptors.
+ */
+extern const sc_keymgr_ecc_key_t kDiceKeyUds;
+extern const sc_keymgr_ecc_key_t kDiceKeyCdi0;
+extern const sc_keymgr_ecc_key_t kDiceKeyCdi1;
+
+/**
+ * Generates the UDS attestation keypair and (unendorsed) X.509 TBS certificate.
+ *
+ * @param otp_creator_sw_cfg_measurement Pointer to the CreatorSwCfg
+ * measurement.
+ * @param otp_owner_sw_cfg_measurement Pointer to the OwnerSwCfg measurement.
+ * @param otp_rot_creator_auth_codesign_measurement Pointer to the
+ * RotCreatorAuthCodesign measurement.
+ * @param otp_rot_creator_auth_state_measurement Pointer to the
+ * RotCreatorAuthState measurement.
+ * @param key_ids Pointer to the (current and endorsement) public key IDs.
+ * @param uds_pubkey Pointer to the (current stage) public key in big endian.
+ * @param[out] cert Buffer to hold the generated UDS certificate.
+ * @param[in,out] cert_size Size of the UDS certificate (input value is the size
+ *                          of the allocated cert_buf, output value final
+ *                          computed size of the certificate).
+ * @return The result of the operation.
+ */
+OT_WARN_UNUSED_RESULT
+rom_error_t dice_uds_tbs_cert_build(
+    const hmac_digest_t *otp_creator_sw_cfg_measurement,
+    const hmac_digest_t *otp_owner_sw_cfg_measurement,
+    const hmac_digest_t *otp_rot_creator_auth_codesign_measurement,
+    const hmac_digest_t *otp_rot_creator_auth_state_measurement,
+    const cert_key_id_pair_t *key_ids,
+    const ecdsa_p256_public_key_t *uds_pubkey, uint8_t *tbs_cert,
+    size_t *tbs_cert_size);
+
+/**
+ * Generates the CDI_0 attestation keypair and X.509 certificate.
+ *
+ * @param rom_ext_measurement Pointer to the ROM_EXT measurement.
+ * @param rom_ext_security_version ROM_EXT security version.
+ * @param key_ids Pointer to the (current and endorsement) public key IDs.
+ * @param uds_pubkey Pointer to the UDS (issuer) public key in big endian.
+ * @param cdi_0_pubkey Pointer to the (current stage) public key in big endian.
+ * @param[out] cert Buffer to hold the generated CDI_0 certificate.
+ * @param[in,out] cert_size Size of the CDI_0 certificate (input value is the
+ *                          size of the allocated cert_buf, output value final
+ *                          computed size of the certificate).
+ * @return The result of the operation.
+ */
+OT_WARN_UNUSED_RESULT
+rom_error_t dice_cdi_0_cert_build(const hmac_digest_t *rom_ext_measurement,
+                                  uint32_t rom_ext_security_version,
+                                  const cert_key_id_pair_t *key_ids,
+                                  const ecdsa_p256_public_key_t *uds_pubkey,
+                                  const ecdsa_p256_public_key_t *cdi_0_pubkey,
+                                  uint8_t *cert, size_t *cert_size);
+
+/**
+ * Generates the CDI_1 attestation keypair and X.509 certificate.
+ *
+ * @param owner_measurement Pointer to the owner firmware measurement.
+ * @param owner_manifest_measurement Pointer to the owner manifest measurement.
+ * @param owner_history_hash Pointer to the owner history hash.
+ * @param owner_security_version Owner firmware security version.
+ * @param key_domain Domain of the Owner SW signing key.
+ * @param key_ids Pointer to the (current and endorsement) public key IDs.
+ * @param cdi_0_pubkey Pointer to the CDI_0 (issuer) public key in big endian.
+ * @param cdi_1_pubkey Pointer to the (current stage) public key in big endian.
+ * @param[out] cert Buffer to hold the generated CDI_1 certificate.
+ * @param[in,out] cert_size Size of the CDI_1 certificate (input value is the
+ *                          size of the allocated cert_buf, output value final
+ *                          computed size of the certificate).
+ * @return The result of the operation.
+ */
+OT_WARN_UNUSED_RESULT
+rom_error_t dice_cdi_1_cert_build(
+    const hmac_digest_t *owner_measurement,
+    const hmac_digest_t *owner_manifest_measurement,
+    const hmac_digest_t *owner_history_hash, uint32_t owner_security_version,
+    owner_app_domain_t key_domain, const cert_key_id_pair_t *key_ids,
+    const ecdsa_p256_public_key_t *cdi_0_pubkey,
+    const ecdsa_p256_public_key_t *cdi_1_pubkey, uint8_t *cert,
+    size_t *cert_size);
+
+/**
+ * Perform attestation for CDI_0.
+ */
+OT_WARN_UNUSED_RESULT
+rom_error_t dice_attest_cdi_0(keymgr_binding_value_t *rom_ext_measurement,
+                              const manifest_t *rom_ext_manifest);
+
+/**
+ * Perform attestation for CDI_1.
+ */
+OT_WARN_UNUSED_RESULT
+rom_error_t dice_attest_cdi_1(const manifest_t *owner_manifest,
+                              keymgr_binding_value_t *bl0_measurement,
+                              hmac_digest_t *owner_measurement,
+                              hmac_digest_t *owner_history_hash,
+                              keymgr_binding_value_t *sealing_binding,
+                              owner_app_domain_t key_domain);
+
+#endif  // OPENTITAN_SW_DEVICE_SILICON_CREATOR_LIB_CERT_DICE_H_

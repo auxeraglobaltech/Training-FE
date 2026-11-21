@@ -1,0 +1,394 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
+use std::time::{Duration, Instant};
+
+use anyhow::{Context, Result, bail};
+use arrayvec::ArrayVec;
+use base64ct::{Base64, Encoding};
+use cert_lib::RawKeyType::{EcdsaKey, MldsaSeed};
+use clap::{Args, Parser};
+use elliptic_curve::SecretKey;
+use indexmap::IndexMap;
+use p256::NistP256;
+use pkcs8::DecodePrivateKey;
+
+use cert_lib::{CaConfig, CaKey, CaKeyType, TokenKeyType};
+use ft_lib::{
+    DICE_MLDSA_CA_NAME, check_slot_b_boot_up, run_ft_personalize, run_sram_ft_individualize,
+    test_exit, test_unlock,
+};
+use opentitanlib::backend;
+use opentitanlib::console::spi::SpiConsoleDevice;
+use opentitanlib::dif::lc_ctrl::DifLcCtrlState;
+use opentitanlib::io::gpio::{PinMode, PullMode};
+use opentitanlib::test_utils::init::InitializeTest;
+use opentitanlib::test_utils::lc::{read_device_id, read_lc_state};
+use opentitanlib::test_utils::load_sram_program::SramProgramParams;
+use ujson_lib::UjsonPayloads;
+use ujson_lib::provisioning_data::{ManufCertgenInputs, ManufFtIndividualizeData};
+use util_lib::response::PersonalizeResponse;
+use util_lib::{
+    encrypt_token, hex_string_to_u8_arrayvec, hex_string_to_u32_arrayvec, load_rsa_public_key,
+    random_token,
+};
+
+/// Provisioning data command-line parameters.
+#[derive(Debug, Args, Clone)]
+pub struct ManufFtProvisioningDataInput {
+    /// FT Device ID to provision.
+    ///
+    /// Contains the SKU-specific portion of the device ID.
+    #[arg(long, default_value = "")]
+    pub ft_device_id: String,
+
+    /// Wafer Authentication Secret to verify from device.
+    #[arg(long)]
+    pub wafer_auth_secret: String,
+
+    /// TestUnlock token; a 128-bit hex string.
+    #[arg(long)]
+    pub test_unlock_token: String,
+
+    /// TestExit token; a 128-bit hex string.
+    #[arg(long)]
+    pub test_exit_token: String,
+
+    /// RMA unlock token; a 128-bit hex string.
+    #[arg(long)]
+    pub rma_unlock_token: Option<String>,
+
+    /// LC state to transition to from TEST_UNLOCKED*.
+    #[arg(long, value_parser = DifLcCtrlState::parse_lc_state_str)]
+    target_mission_mode_lc_state: DifLcCtrlState,
+
+    /// Token Encryption public key (RSA) DER file path.
+    #[arg(long)]
+    token_encrypt_key_der_file: PathBuf,
+
+    /// Pretty-print the provisioning data output.
+    #[arg(long, default_value = "false")]
+    pretty: bool,
+
+    /// DICE ML-DSA TBS certificates to expect from device when provisioning with ML-DSA support is
+    /// requested. All of these TBS certificates will be endorsed
+    #[arg(long)]
+    pub dice_mldsa_certs_from_device: Option<Vec<String>>,
+
+    /// DICE ML-DSA endorsed certificates to send to device when provisioning with ML-DSA support is
+    /// requested
+    #[arg(long)]
+    pub dice_mldsa_certs_to_device: Option<Vec<String>>,
+}
+
+#[derive(Debug, Parser)]
+struct Opts {
+    #[command(flatten)]
+    init: InitializeTest,
+
+    #[command(flatten)]
+    sram_program: SramProgramParams,
+
+    #[command(flatten)]
+    provisioning_data: ManufFtProvisioningDataInput,
+
+    /// CA HJSON configuration file.
+    #[arg(long)]
+    ca_config: PathBuf,
+
+    /// Second image (perso FW + ROM_EXT/Owner FW bundle) to bootstrap.
+    #[arg(long)]
+    second_bootstrap: PathBuf,
+
+    /// Console receive timeout.
+    #[arg(long, value_parser = humantime::parse_duration, default_value = "30s")]
+    timeout: Duration,
+
+    /// Name of the SPI interface to connect to the OTTF console.
+    #[arg(long, default_value = "BOOTSTRAP")]
+    console_spi: String,
+
+    /// Name of the SPI interface to connect to the OTTF console.
+    #[arg(long, default_value = "IOA5")]
+    console_tx_indicator_pin: String,
+
+    /// Owner's firmware string indicating successful start up.
+    #[arg(long)]
+    owner_success_text: Option<String>,
+
+    /// UJSON payload logging.
+    #[arg(long)]
+    log_ujson_payloads: bool,
+}
+
+fn main() -> Result<()> {
+    let opts = Opts::parse();
+    opts.init.init_logging();
+
+    let mut ujson_payloads = UjsonPayloads {
+        dut_in: IndexMap::<String, String>::new(),
+    };
+    let mut response = PersonalizeResponse::default();
+
+    // We call the below functions, instead of calling `opts.init.init_target()` since we do not
+    // want to perform bootstrap yet.
+    let transport = backend::create(&opts.init.backend_opts)?;
+    transport.apply_default_configuration(None)?;
+    let spi = transport.spi(&opts.console_spi)?;
+    let device_console_tx_ready_pin = &transport.gpio_pin(&opts.console_tx_indicator_pin)?;
+    device_console_tx_ready_pin.set_mode(PinMode::Input)?;
+    device_console_tx_ready_pin.set_pull_mode(PullMode::None)?;
+    let spi_console = SpiConsoleDevice::new(
+        &*spi,
+        Some(device_console_tx_ready_pin),
+        /*ignore_frame_num=*/ false,
+        Some(opts.init.backend_opts.interface.as_str()),
+    )?;
+    InitializeTest::print_result("load_bitstream", opts.init.load_bitstream.init(&transport))?;
+
+    // Parse and format tokens.
+    let wafer_auth_secret =
+        hex_string_to_u8_arrayvec::<32>(opts.provisioning_data.wafer_auth_secret.as_str())?;
+    let _test_unlock_token =
+        hex_string_to_u32_arrayvec::<4>(opts.provisioning_data.test_unlock_token.as_str())?;
+    let _test_exit_token =
+        hex_string_to_u32_arrayvec::<4>(opts.provisioning_data.test_exit_token.as_str())?;
+    let rma_unlock_token = if let Some(token) = &opts.provisioning_data.rma_unlock_token {
+        hex_string_to_u32_arrayvec::<4>(token.as_str())?
+    } else {
+        random_token::<4>()?
+    };
+    let token_encrypt_key =
+        load_rsa_public_key(&opts.provisioning_data.token_encrypt_key_der_file)?;
+    let encrypted_rma_unlock_token = encrypt_token(&token_encrypt_key, &rma_unlock_token)?;
+    response.rma_unlock_token = Base64::encode_string(&encrypted_rma_unlock_token);
+    log::info!("Encrypted rma_unlock_token = {}", response.rma_unlock_token);
+
+    // Parse and prepare individualization ujson data payload.
+    let mut ft_device_id = ArrayVec::<u32, 4>::from([0; 4]);
+    if !opts.provisioning_data.ft_device_id.is_empty() {
+        ft_device_id =
+            hex_string_to_u32_arrayvec::<4>(opts.provisioning_data.ft_device_id.as_str())?;
+        ft_device_id.reverse();
+    }
+    // The FT device ID is sent to the DUT in little endian order.
+    let ft_individualize_data_in = ManufFtIndividualizeData { ft_device_id };
+
+    // Parse and prepare CA key.
+    let mut ca_cfgs: HashMap<String, CaConfig> = serde_annotate::from_str(
+        &std::fs::read_to_string(opts.ca_config)
+            .with_context(|| "Failed to open CA config JSON.")?,
+    )?;
+    let mut ca_keys = HashMap::<String, CaKey>::new();
+    for (ca, cfg) in &mut ca_cfgs {
+        ca_keys.insert(
+            ca.to_string(),
+            match cfg.key_type {
+                CaKeyType::Raw => {
+                    log::info!("Using raw key for {ca} cert endorsement.");
+                    if ca == DICE_MLDSA_CA_NAME {
+                        CaKey::RawKey(MldsaSeed(cert_lib::MlDsaSeed::read_pkcs8_der_file(
+                            cfg.key.as_str(),
+                        )?))
+                    } else {
+                        CaKey::RawKey(EcdsaKey(SecretKey::<NistP256>::read_pkcs8_der_file(
+                            cfg.key.as_str(),
+                        )?))
+                    }
+                }
+                CaKeyType::Token => {
+                    if ca == DICE_MLDSA_CA_NAME {
+                        log::info!("Using PKCS#11 token key for {ca} cert endorsement.");
+                        CaKey::TokenKey(TokenKeyType::MldsaKey(cfg.key.clone()))
+                    } else {
+                        log::info!("Using PKCS#11 token key for cert endorsement.");
+                        CaKey::TokenKey(TokenKeyType::EcdsaKey(cfg.key.clone()))
+                    }
+                }
+            },
+        );
+    }
+
+    // Parse and prepare personalization ujson data payload.
+    let dice_ca_key_id = hex_string_to_u8_arrayvec::<20>(ca_cfgs["dice"].key_id.as_str())?;
+    let (dice_mldsa_ca_key_id, dice_mldsa_certs_from_device, dice_mldsa_certs_to_device) =
+        if let Some(dice_mldsa_certs_from_device) =
+            opts.provisioning_data.dice_mldsa_certs_from_device
+        {
+            if dice_mldsa_certs_from_device.is_empty() {
+                (None, HashSet::new(), Vec::new())
+            } else {
+                let dice_mldsa_ca = ca_cfgs.get(DICE_MLDSA_CA_NAME).ok_or(anyhow::anyhow!("Expect DICE ML-DSA CA configuration to be present when DICE ML-DSA certificates from device need to be endorsed"))?;
+                let dice_mldsa_certs_from_device: HashSet<String> =
+                    dice_mldsa_certs_from_device.into_iter().collect();
+                let dice_mldsa_certs_to_device: HashSet<String> = opts
+                    .provisioning_data
+                    .dice_mldsa_certs_to_device
+                    .clone()
+                    .unwrap_or(Vec::new())
+                    .into_iter()
+                    .collect();
+                if !dice_mldsa_certs_to_device.is_subset(&dice_mldsa_certs_from_device) {
+                    bail!(
+                        "List of ML-DSA endorsed certificates to send to the device contains certificate names which are not present in the list of TBS certificates expected from device during provisioning. Difference: {:?}",
+                        dice_mldsa_certs_to_device.difference(&dice_mldsa_certs_from_device)
+                    );
+                }
+
+                log::info!("Will request UDS ML-DSA certificate generation from device");
+                (
+                    Some(hex_string_to_u8_arrayvec::<20>(
+                        dice_mldsa_ca.key_id.as_str(),
+                    )?),
+                    dice_mldsa_certs_from_device,
+                    opts.provisioning_data
+                        .dice_mldsa_certs_to_device
+                        .unwrap_or(Vec::new()),
+                )
+            }
+        } else {
+            (None, HashSet::new(), Vec::new())
+        };
+
+    let ext_ca_key_id = if let Some(ext) = ca_cfgs.get("ext") {
+        hex_string_to_u8_arrayvec::<20>(ext.key_id.as_str())?
+    } else {
+        ArrayVec::<u8, 20>::new()
+    };
+    let perso_certgen_inputs = ManufCertgenInputs {
+        dice_auth_key_key_id: dice_ca_key_id.clone(),
+        ext_auth_key_key_id: ext_ca_key_id.clone(),
+        dice_mldsa_auth_key_key_id: dice_mldsa_ca_key_id,
+    };
+
+    // Only run test unlock operation if we are in a locked LC state.
+    response.lc_state.initial = read_lc_state(&transport, &opts.init.jtag_params)?;
+    match response.lc_state.initial {
+        DifLcCtrlState::TestLocked0
+        | DifLcCtrlState::TestLocked1
+        | DifLcCtrlState::TestLocked2
+        | DifLcCtrlState::TestLocked3
+        | DifLcCtrlState::TestLocked4
+        | DifLcCtrlState::TestLocked5
+        | DifLcCtrlState::TestLocked6 => {
+            let t0 = Instant::now();
+            test_unlock(&transport, &opts.init.jtag_params, &_test_unlock_token)?;
+            response.stats.log_elapsed_time("test-unlock", t0);
+        }
+        _ => {
+            log::info!("Skipping test unlock operation. Device is already unlocked.");
+        }
+    };
+
+    // Only run the SRAM individualize program in a test unlocked state. If we have transitioned to
+    // a mission state already, then we can skip this step.
+    response.lc_state.unlocked = read_lc_state(&transport, &opts.init.jtag_params)?;
+    match response.lc_state.unlocked {
+        DifLcCtrlState::TestUnlocked0 => {
+            bail!("FT stage cannot be run from test unlocked 0. Run CP stage first.");
+        }
+        DifLcCtrlState::TestUnlocked1
+        | DifLcCtrlState::TestUnlocked2
+        | DifLcCtrlState::TestUnlocked3
+        | DifLcCtrlState::TestUnlocked4
+        | DifLcCtrlState::TestUnlocked5
+        | DifLcCtrlState::TestUnlocked6
+        | DifLcCtrlState::TestUnlocked7 => {
+            // Run FT individualize.
+            response.lc_state.individualize = Some(response.lc_state.unlocked);
+            let t0 = Instant::now();
+            run_sram_ft_individualize(
+                &transport,
+                &opts.init.jtag_params,
+                &opts.sram_program,
+                &ft_individualize_data_in,
+                &spi_console,
+                opts.timeout,
+                &mut ujson_payloads,
+            )?;
+            response.stats.log_elapsed_time("ft-individualize", t0);
+
+            // Perform test exit.
+            let t0 = Instant::now();
+            test_exit(
+                &transport,
+                &opts.init.jtag_params,
+                &_test_exit_token,
+                opts.provisioning_data.target_mission_mode_lc_state,
+            )?;
+            response.lc_state.mission_mode =
+                Some(opts.provisioning_data.target_mission_mode_lc_state);
+            response.stats.log_elapsed_time("test-exit", t0);
+        }
+        _ => {
+            log::info!("Skipping individualize operation. Device is already in a mission mode.");
+        }
+    };
+
+    // Once we are in a mission mode, we no longer need to provide a DFT strapping sequence on
+    // every reset, as DFT is no longer enabled in mission modes.
+    transport.ignore_dft_straps_on_reset()?;
+
+    run_ft_personalize(
+        &transport,
+        &opts.init,
+        &wafer_auth_secret,
+        &rma_unlock_token,
+        ca_cfgs,
+        ca_keys,
+        &perso_certgen_inputs,
+        opts.second_bootstrap,
+        &spi_console,
+        &mut ujson_payloads,
+        opts.timeout,
+        &mut response,
+        dice_mldsa_certs_from_device,
+        dice_mldsa_certs_to_device,
+    )?;
+
+    check_slot_b_boot_up(
+        &transport,
+        opts.timeout,
+        &mut response,
+        opts.owner_success_text,
+    )?;
+    log::info!("Provisioning Done");
+
+    // Extract final device ID.
+    let mut final_device_id = read_device_id(&transport, &opts.init.jtag_params)?;
+
+    // Convert final device ID to a big-endian string.
+    final_device_id.reverse();
+    response.device_id = final_device_id
+        .iter()
+        .map(|v| format!("{v:08X}"))
+        .collect::<Vec<String>>()
+        .join("");
+
+    // Log JSON data to console.
+    let doc = if opts.provisioning_data.pretty {
+        serde_json::to_string_pretty(&response)?
+    } else {
+        serde_json::to_string(&response)?
+    };
+    println!("PROVISIONING_DATA: {doc}");
+
+    // Log UJSON payloads.
+    if opts.log_ujson_payloads {
+        println!();
+        println!("UJSON Payloads:");
+        for (name, payload) in ujson_payloads.dut_in.into_iter() {
+            print!("{:}: ", name);
+            for byte in payload.clone().into_bytes() {
+                print!("{:02x}", byte);
+            }
+            println!();
+        }
+        println!();
+    }
+
+    Ok(())
+}

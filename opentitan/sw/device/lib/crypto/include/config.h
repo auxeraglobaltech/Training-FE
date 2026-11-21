@@ -1,0 +1,164 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+#ifndef OPENTITAN_SW_DEVICE_LIB_CRYPTO_INCLUDE_CONFIG_H_
+#define OPENTITAN_SW_DEVICE_LIB_CRYPTO_INCLUDE_CONFIG_H_
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include "datatypes.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif  // __cplusplus
+
+/**
+ * Check if the chip is in a secure configuration state.
+ *
+ * Returns OK if the jittery clock, the dummy instructions, and the data
+ * independent timing is enabled.
+ *
+ * @param security_level Security level of the used key.
+ * @return Result of the security configuration check. Returns
+ * `kOtcryptoStatusValueOk` when the security check passes, or
+ * `kOtcryptoStatusValueFatalError` if the security configuration check fails.
+ */
+OT_WARN_UNUSED_RESULT
+otcrypto_status_t otcrypto_security_config_check(
+    otcrypto_key_security_level_t security_level);
+
+/**
+ * Set the chip in a secure configuration state.
+ *
+ * On non-low security level, enables the jittery clock, the dummy instructions,
+ * and the data independent timing. On low security level, leaves the chip as it
+ * is.
+ *
+ * This function writes to Ibex registers. Hence, it is only usable in M mode.
+ *
+ * @param security_level Security level of the used key.
+ * @return Result of setting the security configuration. Returns
+ * `kOtcryptoStatusValueOk` when the configuration is correctly set, or
+ * `kOtcryptoStatusValueFatalError` if an internal hardware or state check
+ * fails.
+ */
+OT_WARN_UNUSED_RESULT
+otcrypto_status_t otcrypto_set_security_config(
+    otcrypto_key_security_level_t security_level);
+
+/**
+ * Disable the Ibex Instruction Cache if it is enabled.
+ *
+ * Reads out the current state of the instruction cache. If it is enabled,
+ * disable it for the crypto lib.
+ * It is only usable in M mode.
+ *
+ * @param[out] icache_enabled kHardenedBoolTrue if the iCache was enabled before
+ * we disabled it.
+ * @return Error status. Returns `kOtcryptoStatusValueOk` on success,
+ * `kOtcryptoStatusValueBadArgs` if arguments are invalid, or
+ * `kOtcryptoStatusValueFatalError` if an internal hardware or state check
+ * fails.
+ */
+OT_WARN_UNUSED_RESULT
+otcrypto_status_t otcrypto_disable_icache(hardened_bool_t *icache_enabled);
+
+/**
+ * Enables the Ibex Instruction Cache if icache_enabled is set.
+ *
+ * If icache_enabled == kHardenedBoolTrue, this function enables the iCache by
+ * writing to CPUCTRL.
+ * It is only usable in M mode.
+ *
+ * @param icache_enabled kHardenedBoolTrue to enable the iCache.
+ * @return Error status. Returns `kOtcryptoStatusValueOk` on success, or
+ * `kOtcryptoStatusValueFatalError` if an internal state check fails.
+ */
+OT_WARN_UNUSED_RESULT
+otcrypto_status_t otcrypto_restore_icache(hardened_bool_t icache_enabled);
+
+/**
+ * Clear the alerts including local alerts and sensors.
+ *
+ * The cryptolib locks itself when there is a class (A,B,C,D) acumulation count
+ * higher than zero or when a local alert or sensor is triggered. This function
+ * reset these registers to continue crypto operations. Note that it writes to
+ * the registers in the alert manager.
+ *
+ * @param icache_enabled kHardenedBoolTrue to enable the iCache.
+ * @return Error status. Returns `kOtcryptoStatusValueOk` on success, or
+ * `kOtcryptoStatusValueFatalError` if an internal hardware check fails.
+ */
+OT_WARN_UNUSED_RESULT
+otcrypto_status_t otcrypto_clear_alerts(void);
+
+/**
+ * Initializes the cryptographic library for use.
+ *
+ * This function prepares the cryptolib for secure operation by performing the
+ * following initialization sequence:
+ * - Validates the system security configuration.
+ * - Configures alert management and Ibex registers.
+ * - Initializes the entropy complex for random number generation.
+ * - Executes baseline Power-On Self-Tests (POSTs) and initial Known Answer
+ *   Tests (KATs) required for FIPS compliance.
+ *
+ * To support lazy evaluation of subsequent KATs without violating memory
+ * constraints, this function stashes the provided `state` pointer into the
+ * hardware entropy complex.
+ *
+ * The given security level (abusin the key security structure) determines the
+ * security level the library will use. Non-low security level will set the ibex
+ * CSRs to enable a jittery clock and dummy instructions; manually verify alerts
+ * from the HW and sensors after every cryptographic operation; and verify
+ * whether the entropy source is not tampered with.
+ *
+ * @note Because this function writes directly to alert manager and Ibex
+ *       registers, it can only be executed in Machine mode (M mode).
+ *
+ * @param security_level Minimum security level targeted for the environment
+ * (this abuses the key security structure).
+ * @param state          Pointer to a stable 32-bit memory location (e.g., in
+ * `.bss` or Retention SRAM) used to continuously track KAT execution.
+ * @return Result of the initialization operation. Returns
+ * `kOtcryptoStatusValueOk` on success, `kOtcryptoStatusValueBadArgs` if
+ * arguments are invalid, or `kOtcryptoStatusValueFatalError` if any
+ * initialization step, hardware check, or self-test fails.
+ */
+OT_WARN_UNUSED_RESULT
+otcrypto_status_t otcrypto_init(otcrypto_key_security_level_t security_level,
+                                otcrypto_state_t *state);
+
+/**
+ * Function used to return to the user, the last function call of every crypto
+ * API. Only to be used when OTCRYPTO_OK can be returned.
+ *
+ * This function checks whether any alert or sensor was fired.
+ *
+ * @param status The status returned by the cryptolib operation.
+ * @return Result of the exit evaluation. Returns the input `status` (such as
+ * `kOtcryptoStatusValueOk`) when the security check passes, or
+ * `kOtcryptoStatusValueFatalError` if an alert, sensor, or entropy health
+ * check fails.
+ */
+OT_WARN_UNUSED_RESULT
+otcrypto_status_t otcrypto_eval_exit(otcrypto_status_t status);
+
+/**
+ * Show the locked status of the cryptographic library.
+ *
+ * @param state The crypto library state.
+ * @return The lock state magic value (`kHardenedByteBoolFalse` when unlocked,
+ * `kHardenedByteBoolTrue` when hard-locked, or `kOtcryptoLockStateEntropy`
+ * when locked due to an entropy health test failure).
+ */
+OT_WARN_UNUSED_RESULT
+uint8_t otcrypto_show_status(const otcrypto_state_t *state);
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif  // __cplusplus
+
+#endif  // OPENTITAN_SW_DEVICE_LIB_CRYPTO_INCLUDE_CONFIG_H_

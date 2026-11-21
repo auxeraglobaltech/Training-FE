@@ -1,0 +1,41 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+load("//rules:ujson.bzl", "ujson_rust")
+
+package(default_visibility = ["//visibility:public"])
+
+ujson_rust(
+    name = "provisioning_data",
+    srcs = ["//sw/device/lib/testing/json:provisioning_data"],
+)
+
+rust_library(
+    name = "ujson_lib",
+    srcs = [
+        ":src/lib.rs",
+        ":src/provisioning_data.rs",
+    ],
+    compile_data = [":provisioning_data"],
+    edition = "2024",
+    rustc_env = {
+        "provisioning_data": "$(location :provisioning_data)",
+    },
+    deps = [
+        "//sw/host/opentitanlib",
+        "@crate_index//:arrayvec",
+        "@crate_index//:indexmap",
+        "@crate_index//:serde",
+    ],
+)
+
+rust_test(
+    name = "ujson_lib_test",
+    crate = ":ujson_lib",
+    edition = "2024",
+    deps = [
+        "@crate_index//:serde_json",
+    ],
+)

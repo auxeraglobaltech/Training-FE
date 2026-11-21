@@ -1,0 +1,906 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+from pathlib import Path
+from subprocess import PIPE, Popen, TimeoutExpired
+import select
+import os
+import time
+import re
+import signal
+import socket
+
+from sw.host.penetrationtests.python.util.qemu import get_qemu_monitor, is_qemu_available
+
+
+class GDBController:
+    """Enhanced GDB and OpenOCD controller for high-speed hardware fault injection.
+
+    Provides direct OpenOCD Jim Tcl socket control (:6666) for sub-millisecond
+    hardware breakpoints and register modification, with automatic fallback to
+    standard GDB MI pipes (:3333).
+    """
+
+    def __init__(
+        self,
+        gdb_path,
+        gdb_port=3333,
+        remote_host="localhost",
+        elf_file=None,
+        ocd_tcl_port=6666,
+    ):
+        if isinstance(gdb_port, str) and (not gdb_port.isdigit()):
+            elf_file = gdb_port
+            gdb_port = 3333
+        self.remote_host = remote_host
+        self.gdb_port = int(gdb_port)
+        self.ocd_tcl_port = int(ocd_tcl_port)
+        self.gdb_path = gdb_path
+        self.elf_file = elf_file
+        self.n_brkp = 1
+        self.last_bp_num = 1
+        self.last_bp_pc = None
+        self.cmd_seq = 0
+        self._output_buffer = ""
+        self._skip_hit = False
+        self._bp_pc_val = None
+        self._observations = {}
+        self._ocd_sock = None
+        self.gdb_process = None
+        self._target_running = False
+
+        # Standard GDB connection to OpenOCD gdb_port (3333)
+        self.use_ocd_direct = False
+
+        if self.use_ocd_direct:
+            print(
+                f"[GDBController] Fast OpenOCD active on {remote_host}:{self.ocd_tcl_port}"
+            )
+            gdb_cmd = [gdb_path, "-q", "-ex", "set pagination off", "-ex", "set confirm off"]
+            if elf_file:
+                gdb_cmd.extend(["-ex", f"file {elf_file}"])
+            self.gdb_process = Popen(
+                gdb_cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE, bufsize=0
+            )
+            try:
+                self._ocd_cmd("adapter speed 10000")
+                self._ocd_cmd("poll_period 1")
+                self._ocd_cmd("riscv set_mem_access progbuf sysbus")
+                self._ocd_cmd("catch {rbp all}")
+                self._ocd_cmd("riscv.tap.0 configure -event halted {}")
+            except Exception as e:
+                print(f"[GDBController] OpenOCD direct init warning: {e}")
+        else:
+            gdb_command = [
+                gdb_path,
+                "-q",
+                "-ex",
+                "set pagination off",
+                "-ex",
+                "set confirm off",
+                "-ex",
+                "set print frame-info location",
+            ]
+            if elf_file and not is_qemu_available():
+                gdb_command.extend(["-ex", f"file {elf_file}"])
+            if is_qemu_available():
+                gdb_target = os.environ.get("QEMU_GDB", "qemu-gdb.sock")
+            else:
+                gdb_target = f"{remote_host}:{gdb_port}"
+            gdb_command.extend(["-ex", f"target remote {gdb_target}"])
+
+            gdb_env = os.environ.copy()
+            if "XDG_CACHE_HOME" not in gdb_env:
+                gdb_env["XDG_CACHE_HOME"] = gdb_env.get("TEST_TMPDIR", "/tmp")
+
+            try:
+                self._prefetched_output = ""
+                self.gdb_process = Popen(
+                    gdb_command,
+                    stdin=PIPE,
+                    stdout=PIPE,
+                    stderr=PIPE,
+                    bufsize=0,
+                    env=gdb_env,
+                )
+
+                # Wait for GDB startup, symbol loading, and connection to target
+                init_output = ""
+                start_time = time.time()
+                poll_timeout = 0.005 if is_qemu_available() else 0.1
+                while time.time() - start_time < 10.0:
+                    out = self.read_output(timeout=poll_timeout)
+                    init_output += out
+                    if init_output.strip().endswith("(gdb)"):
+                        break
+
+                if not is_qemu_available():
+                    time.sleep(0.5)
+                    self.dump_output(timeout=0.1)
+                else:
+                    self.dump_output(timeout=0.0)
+
+                # Start clean
+                self.send_command("delete breakpoints", timeout=5.0)
+
+                # Configure memory access on Ibex core (OpenOCD only)
+                if not is_qemu_available():
+                    try:
+                        self.send_command(
+                            "monitor riscv set_mem_access progbuf sysbus", timeout=2.0
+                        )
+                    except Exception:
+                        pass
+            except Exception:
+                self.close_gdb()
+                raise
+
+    def _check_ocd_tcl(self) -> bool:
+        """Tests whether the OpenOCD Jim Tcl server port is accessible."""
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.5)
+            s.connect((self.remote_host, self.ocd_tcl_port))
+            s.sendall(b"version\x1a")
+            data = s.recv(256)
+            s.close()
+            return b"Open On-Chip Debugger" in data
+        except Exception:
+            return False
+
+    def _get_ocd_sock(self):
+        """Maintains a persistent socket connection to OpenOCD Jim Tcl."""
+        if self._ocd_sock is None:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(2.0)
+            s.connect((self.remote_host, self.ocd_tcl_port))
+            self._ocd_sock = s
+        return self._ocd_sock
+
+    def _ocd_cmd(self, cmd: str, timeout: float = 3.0) -> str:
+        """Sends a command to OpenOCD over persistent Jim Tcl socket interface."""
+        for attempt in range(2):
+            try:
+                s = self._get_ocd_sock()
+                s.settimeout(timeout)
+                s.sendall((cmd + "\x1a").encode("utf-8"))
+                resp = b""
+                while True:
+                    data = s.recv(1024)
+                    if not data:
+                        break
+                    resp += data
+                    if b"\x1a" in resp:
+                        break
+                return resp.decode("utf-8", errors="ignore").replace("\x1a", "")
+            except Exception:
+                if self._ocd_sock:
+                    try:
+                        self._ocd_sock.close()
+                    except Exception:
+                        pass
+                    self._ocd_sock = None
+                if attempt == 1:
+                    raise
+
+    def has_crash_detected(self) -> bool:
+        """Non-blockingly checks if GDB has already hit the crash observation breakpoint."""
+        if not self.gdb_process or not self.gdb_process.stdout:
+            return False
+        try:
+            fd = self.gdb_process.stdout.fileno()
+            while True:
+                readable, _, _ = select.select([fd], [], [], 0.0)
+                if not readable:
+                    break
+                data = os.read(fd, 4096).decode("utf-8", errors="ignore")
+                if not data:
+                    break
+                self._prefetched_output = getattr(self, "_prefetched_output", "") + data
+                if data.strip().endswith("(gdb)"):
+                    self._target_running = False
+        except Exception:
+            pass
+        return "crash detected" in getattr(self, "_prefetched_output", "")
+
+    def read_output(self, print_errors=True, timeout=0.005):
+        """Reads output from GDB or OpenOCD."""
+        if self.use_ocd_direct:
+            output = self._output_buffer
+            self._output_buffer = ""
+            if (not self._skip_hit) and (self._bp_pc_val is not None):
+                try:
+                    hit = self._ocd_cmd("set hit_count").strip()
+                    if hit and int(hit) > 0:
+                        self._skip_hit = True
+                        output += "Breakpoint 1, instruction skip applied\n"
+                except Exception:
+                    pass
+            if self._observations:
+                try:
+                    pc_resp = self._ocd_cmd("reg pc")
+                    for obs_addr, obs_msg in self._observations.items():
+                        addr_int = (
+                            int(obs_addr, 16)
+                            if isinstance(obs_addr, str)
+                            else int(obs_addr)
+                        )
+                        if (
+                            f"0x{addr_int:x}" in pc_resp.lower() or
+                            f"{addr_int:x}" in pc_resp.lower()
+                        ):
+                            output += f"fisim_result: {obs_msg}\n"
+                except Exception:
+                    pass
+            time.sleep(timeout)
+            return output
+
+        if not self.gdb_process:
+            return ""
+
+        output = getattr(self, "_prefetched_output", "")
+        self._prefetched_output = ""
+        readable_pipes = []
+        if self.gdb_process.stdout:
+            readable_pipes.append(self.gdb_process.stdout.fileno())
+        if self.gdb_process.stderr:
+            readable_pipes.append(self.gdb_process.stderr.fileno())
+
+        try:
+            eff_timeout = 0.0 if output else timeout
+            readable, _, _ = select.select(readable_pipes, [], [], eff_timeout)
+
+            for fd in readable:
+                if fd == self.gdb_process.stdout.fileno():
+                    data = os.read(fd, 4096).decode("utf-8", errors="ignore")
+                    output += data
+                    if output.strip().endswith("(gdb)"):
+                        self._target_running = False
+                elif fd == self.gdb_process.stderr.fileno():
+                    err_data = os.read(fd, 4096).decode("utf-8", errors="ignore")
+                    if err_data.strip() and print_errors:
+                        print(f"[GDB Stderr]: {repr(err_data)}")
+        except Exception as e:
+            print(f"Error reading GDB output: {e}")
+
+        trace_state = getattr(self, "_qemu_trace_state", None)
+        if trace_state is not None:
+            trace_state["buf"] += output
+            buf = trace_state["buf"]
+            if trace_state["stage"] == "wait_start":
+                if (
+                    "__QEMU_TRACE_START__" in buf and
+                    'printf "__QEMU_TRACE_START__' not in buf and
+                    buf.rstrip().endswith("(gdb)")
+                ):
+                    trace_state["stage"] = "wait_end"
+                    trace_state["buf"] = ""
+                    get_qemu_monitor().start_pc_trace(trace_state["file"])
+                    self.send_command("c", check_response=False)
+                    return "Breakpoint 1, trace start\n"
+                return ""
+            if (
+                "__QEMU_TRACE_END__" in buf and
+                'printf "__QEMU_TRACE_END__' not in buf and
+                buf.rstrip().endswith("(gdb)")
+            ):
+                self._qemu_trace_state = None
+                get_qemu_monitor().stop_pc_trace()
+                return "PC trace complete.\n"
+            return ""
+
+        if (
+            "instruction skip applied" in output and
+            'printf "instruction skip applied' not in output
+        ):
+            self._skip_hit_this_arm = True
+            try:
+                from sw.host.penetrationtests.python.util import utils
+                utils.mark_skip_hit()
+            except Exception:
+                pass
+
+        return output
+
+    def dump_output(self, timeout=0.05):
+        """Flushes pending output."""
+        if self.use_ocd_direct:
+            self._output_buffer = ""
+        else:
+            while True:
+                out = self.read_output(timeout=timeout)
+                if not out:
+                    break
+
+    def send_command(self, mi_command, timeout=2.0, check_response=True):
+        """Sends a command to the target debugger."""
+        if self.use_ocd_direct:
+            cmd = mi_command.strip()
+            if cmd in ("c", "continue"):
+                self._ocd_cmd("catch {resume}")
+                return "Continuing.\n"
+            elif cmd.startswith("delete") or cmd == "d":
+                self.cleanup_skip()
+                return "Deleted breakpoints.\n"
+            elif cmd.startswith("set $pc="):
+                new_pc = cmd.split("=")[1].strip()
+                self._ocd_cmd(f"reg pc {new_pc}")
+                return f"pc: {new_pc}\n"
+            elif cmd.startswith("monitor "):
+                mon_body = cmd[8:].strip()
+                return self._ocd_cmd(mon_body)
+            elif (
+                cmd.startswith("thbreak") or
+                cmd.startswith("hbreak") or
+                cmd.startswith("tb ") or
+                cmd.startswith("b ")
+            ):
+                m = re.search(r"0x[0-9a-fA-F]+", cmd)
+                if m:
+                    addr = int(m.group(0), 16)
+                    return self._ocd_cmd(f"bp 0x{addr:x} 2 hw")
+                return ""
+            else:
+                try:
+                    return self._ocd_cmd(cmd)
+                except Exception:
+                    return ""
+
+        if not self.gdb_process or not self.gdb_process.stdin:
+            raise RuntimeError("GDB process not started or stdin not available.")
+
+        cmd_body = mi_command.strip()
+        if check_response:
+            self._qemu_trace_state = None
+            self.dump_output(timeout=0.0)
+            self.cmd_seq = getattr(self, "cmd_seq", 0) + 1
+            token = f"__SENTINEL_{self.cmd_seq}__"
+            command_line = f'{cmd_body}\nprintf "{token}\\n"\n'
+        else:
+            command_line = cmd_body + "\n"
+            if cmd_body in ("c", "continue"):
+                self._target_running = True
+
+        self.gdb_process.stdin.write(command_line.encode("utf-8"))
+        self.gdb_process.stdin.flush()
+
+        if check_response:
+            start_time = time.time()
+            response = ""
+            while True:
+                chunk = self.read_output(timeout=0.005)
+                if chunk:
+                    response += chunk
+                    if token in response and response.strip().endswith("(gdb)"):
+                        break
+
+                if time.time() - start_time > timeout:
+                    raise TimeoutError(
+                        f"GDB timed out after {timeout}s. Output: {repr(response)}, {mi_command}"
+                    )
+
+            self._target_running = False
+            cleaned_response = response.split(token)[0]
+            return cleaned_response
+        else:
+            return None
+
+    def reset_target(self, halt=True, reset_delay=0.005):
+        """Resets the target device."""
+        if is_qemu_available():
+            self.interrupt(timeout=1.0)
+            try:
+                self.send_command("delete breakpoints", timeout=1.0)
+            except Exception:
+                pass
+            get_qemu_monitor().reset(halt=halt)
+            if halt:
+                try:
+                    self.send_command("flushregs", timeout=1.0)
+                except Exception:
+                    pass
+            time.sleep(reset_delay)
+            self.dump_output()
+            return
+
+        if self.use_ocd_direct:
+            if halt:
+                self._ocd_cmd("reset halt")
+            else:
+                self._ocd_cmd("reset run")
+            time.sleep(reset_delay)
+        else:
+            if halt:
+                self.send_command("monitor reset halt", check_response=False)
+            else:
+                self.send_command("monitor reset run", check_response=False)
+            time.sleep(reset_delay)
+            self.dump_output()
+
+    def close_gdb(self, timeout=1):
+        """Gracefully closes debugger and OpenOCD sockets."""
+        if self.use_ocd_direct:
+            try:
+                self._ocd_cmd("catch {rbp all}")
+                self._ocd_cmd("riscv.tap.0 configure -event halted {}")
+                self._ocd_cmd("catch {resume}")
+            except Exception:
+                pass
+            if hasattr(self, "_ocd_sock") and self._ocd_sock:
+                try:
+                    self._ocd_sock.close()
+                except Exception:
+                    pass
+                self._ocd_sock = None
+            if self.gdb_process:
+                try:
+                    self.gdb_process.kill()
+                    self.gdb_process.communicate()
+                except Exception:
+                    pass
+                self.gdb_process = None
+            return
+
+        self._prefetched_output = ""
+        if is_qemu_available():
+            get_qemu_monitor()._active_gdb = None
+        if not self.gdb_process or self.gdb_process.poll() is not None:
+            return
+
+        self.dump_output()
+        self.gdb_process.send_signal(signal.SIGINT)
+        try:
+            self.gdb_process.communicate(timeout=timeout)
+        except TimeoutExpired:
+            self.gdb_process.kill()
+            self.gdb_process.communicate()
+        finally:
+            self.gdb_process = None
+
+    def __del__(self):
+        try:
+            self.close_gdb(timeout=0.2)
+        except Exception:
+            pass
+
+    def get_program_counter(self):
+        """Reads current Program Counter (PC)."""
+        if self.use_ocd_direct:
+            try:
+                resp = self._ocd_cmd("reg pc")
+                match = re.search(r"0x([0-9a-fA-F]+)", resp)
+                if match:
+                    return "0x" + match.group(1).strip()
+            except Exception:
+                pass
+            return None
+
+        gdb_command = "p $pc"
+        try:
+            response = self.send_command(gdb_command, timeout=0.5)
+            pc_pattern = re.compile(r"0x([0-9a-fA-F]+)")
+            match = pc_pattern.search(response)
+            if match:
+                return "0x" + match.group(1).strip()
+            if "No symbol " in response or "Undefined command" in response:
+                raise RuntimeError(f"GDB returned an error: {response}")
+        except Exception:
+            return None
+
+    _active_marker_bounds = None
+    _qemu_trace_meta = {}
+
+    def setup_pc_trace(
+        self, file_name, trace_start_addr, trace_end_addr, skip_addrs=None
+    ):
+        """Configures instruction tracing between trace_start_addr and trace_end_addr."""
+        GDBController._active_marker_bounds = None
+        self.n_brkp = 1
+        self._qemu_trace_state = None
+        abs_file = os.path.abspath(file_name)
+        start_int = (
+            None
+            if trace_start_addr is None
+            else (
+                int(trace_start_addr, 16)
+                if isinstance(trace_start_addr, str)
+                else int(trace_start_addr)
+            )
+        )
+        end_int = (
+            None
+            if trace_end_addr is None
+            else (
+                int(trace_end_addr, 16)
+                if isinstance(trace_end_addr, str)
+                else int(trace_end_addr)
+            )
+        )
+        skip_set = {
+            int(a, 16) if isinstance(a, str) else int(a)
+            for a in (skip_addrs or [])
+            if a
+        }
+        GDBController._qemu_trace_meta[abs_file] = (start_int, end_int, skip_set)
+
+        if is_qemu_available() and start_int is not None and end_int is not None:
+            if os.path.exists(abs_file):
+                os.remove(abs_file)
+            bp_re = r"(?:Temporary breakpoint|Breakpoint|Hardware assisted breakpoint)\s+(\d+)"
+            m1 = re.search(bp_re, self.send_command(f"tb *({trace_start_addr})") or "")
+            brk1 = int(m1.group(1)) if m1 else self.n_brkp
+            m2 = re.search(bp_re, self.send_command(f"tb *({trace_end_addr})") or "")
+            brk2 = int(m2.group(1)) if m2 else (brk1 + 1)
+            self.n_brkp = brk2 + 1
+            self.send_command(f"disable {brk2}")
+            self.send_command(
+                f'commands {brk1}\nenable {brk2}\nprintf "__QEMU_TRACE_START__\\n"\nend'
+            )
+            self.send_command(
+                f'commands {brk2}\nprintf "__QEMU_TRACE_END__\\n"\nend'
+            )
+            self._qemu_trace_state = {
+                "file": abs_file,
+                "stage": "wait_start",
+                "buf": "",
+            }
+            get_qemu_monitor()._pc_tracing = True
+            return
+        try:
+            self.send_command("set logging enabled off")
+        except Exception:
+            try:
+                self.send_command("set logging off")
+            except Exception:
+                pass
+        self.send_command(f"set logging file {file_name}")
+        self.send_command("set logging overwrite on")
+        self.send_command("set pagination off")
+        try:
+            self.send_command("set logging enabled on")
+        except Exception:
+            self.send_command("set logging on")
+
+        step_logic = "stepi"
+        if skip_addrs:
+            for addr in skip_addrs:
+                if not addr:
+                    continue
+                step_logic = f"""
+                if $pc == {addr}
+                    tbreak *$ra
+                    c
+                else
+                    {step_logic}
+                end
+                """
+
+        traceloop_definition = f"""\
+        define traceloop
+            printf "Breakpoint 1, trace start\\n"
+            while $pc != {trace_end_addr}
+                printf "PC: 0x%x\\n", $pc
+                {step_logic}
+            end
+            printf "PC trace complete.\\n"
+        end
+        """
+
+        self.send_command(traceloop_definition)
+        bp_resp = self.send_command(f"tb *({trace_start_addr})")
+        m = re.search(
+            r"(?:Temporary breakpoint|Breakpoint|Hardware assisted breakpoint)\s+(\d+)",
+            bp_resp or "",
+        )
+        brk_num = int(m.group(1)) if m else self.n_brkp
+        commands_definition = f"commands {brk_num}\ntraceloop\nend"
+        self.send_command(commands_definition)
+        self.n_brkp = brk_num + 1
+
+    def parse_pc_trace_file(self, file_path):
+        """Parses program counters recorded during trace."""
+        self._qemu_trace_state = None
+        if is_qemu_available():
+            get_qemu_monitor().stop_pc_trace()
+        pc_list = []
+        meta = GDBController._qemu_trace_meta.get(os.path.abspath(file_path))
+        start_int, end_int, skip_set = meta if meta else (None, None, set())
+        if start_int is not None:
+            prev = GDBController._active_marker_bounds
+            start_s = prev[0] if (prev and prev[0]) else f"0x{start_int:x}"
+            end_s = f"0x{end_int:x}" if end_int is not None else None
+            GDBController._active_marker_bounds = (start_s, end_s)
+        call_ret_map = {}
+        if skip_set:
+            from sw.host.penetrationtests.python.util.dis_parser import DisParser
+
+            for inst in DisParser._instances:
+                if inst._instructions is None:
+                    inst.parse_all_instructions()
+            call_ret_map = DisParser._call_return_map
+        pc_pattern = re.compile(r"PC: (0x[0-9a-fA-F]+)")
+        qemu_re = re.compile(
+            r"Trace\s+\d+:\s+0x[0-9a-fA-F]+\s+\[[0-9a-fA-F]+/([0-9a-fA-F]+)/"
+        )
+        started, resume_targets, ra_stack, prev_pc = (start_int is None), None, [], None
+        try:
+            with open(file_path, "r", errors="replace") as f:
+                for line in f:
+                    qm = qemu_re.search(line)
+                    if qm:
+                        pc_int = int(qm.group(1), 16)
+                        if not started:
+                            if pc_int != start_int:
+                                continue
+                            started = True
+                        if end_int is not None and pc_int == end_int:
+                            break
+                        if resume_targets is not None:
+                            if pc_int not in resume_targets:
+                                continue
+                            resume_targets = None
+                        if ra_stack and ra_stack[-1] == pc_int:
+                            ra_stack.pop()
+                        pc_list.append(f"0x{pc_int:x}")
+                        if skip_set:
+                            if pc_int in skip_set:
+                                resume_targets = (
+                                    {ra_stack[-1]}
+                                    if ra_stack
+                                    else {prev_pc + 2, prev_pc + 4}
+                                )
+                            elif pc_int in call_ret_map:
+                                ra_stack.append(call_ret_map[pc_int])
+                        prev_pc = pc_int
+                    else:
+                        match = pc_pattern.search(line)
+                        if match:
+                            pc_list.append(match.group(1))
+        except FileNotFoundError:
+            print(f"Error: Trace file not found at {file_path}")
+        except Exception as e:
+            print(f"Error reading or parsing trace file: {e}")
+
+        if pc_list and self.elf_file:
+            from sw.host.penetrationtests.python.util.dis_parser import DisParser
+
+            dis_path = re.sub(r"\.elf$", ".dis", str(self.elf_file))
+            if os.path.exists(dis_path):
+                dis_abs = os.path.abspath(dis_path)
+                dis_parser = next(
+                    (
+                        inst
+                        for inst in DisParser._instances
+                        if os.path.abspath(inst.dis_file_path) == dis_abs
+                    ),
+                    None,
+                )
+                if dis_parser is None:
+                    dis_parser = DisParser(dis_path)
+                pc_list = dis_parser.expand_pc_list(pc_list)
+
+        shard_status_file = os.environ.get("TEST_SHARD_STATUS_FILE")
+        if shard_status_file:
+            Path(shard_status_file).touch()
+
+        total_shards = int(os.environ.get("TEST_TOTAL_SHARDS", "1"))
+        shard_index = int(os.environ.get("TEST_SHARD_INDEX", "0"))
+        if total_shards > 1 and pc_list:
+            unique_pcs = list(dict.fromkeys(pc_list))
+            shard_pcs = unique_pcs[shard_index::total_shards]
+            if not shard_pcs:
+                shard_pcs = [unique_pcs[shard_index % len(unique_pcs)]]
+            my_pcs = set(shard_pcs)
+            pc_list = [pc for pc in pc_list if pc in my_pcs]
+            print(
+                f"[Shard {shard_index + 1}/{total_shards}] Selected {len(shard_pcs)}/"
+                f"{len(unique_pcs)} unique PCs from {file_path}",
+                flush=True,
+            )
+
+        return pc_list
+
+    def interrupt(self, timeout=2.0):
+        """Interrupts running target."""
+        if self.use_ocd_direct:
+            self._ocd_cmd("catch {halt}")
+            time.sleep(0.01)
+            return
+
+        if not self.gdb_process or self.gdb_process.poll() is not None:
+            return
+        if not self._target_running:
+            return
+        self.gdb_process.send_signal(signal.SIGINT)
+        start_t = time.time()
+        buf = ""
+        while time.time() - start_t < timeout:
+            chunk = self.read_output(timeout=0.005)
+            if chunk:
+                buf += chunk
+                if buf.strip().endswith("(gdb)"):
+                    break
+        self._target_running = False
+        self.dump_output(timeout=0.0)
+
+    def apply_instruction_skip(self, pc_address, next_pc_address, count=1):
+        """Arms an instruction skip or fetch fault at pc_address redirecting to next_pc_address."""
+        if isinstance(pc_address, str) and "->" in pc_address:
+            bp_pc, explicit_target = pc_address.split("->", 1)
+            pc_address = bp_pc.strip()
+            if not next_pc_address:
+                next_pc_address = explicit_target.strip()
+        self._armed_count = count
+        self._skip_hit_this_arm = False
+        self._prefetched_output = ""
+        if is_qemu_available():
+            get_qemu_monitor()._active_gdb = self
+        if self.use_ocd_direct:
+            pc_val = (
+                int(pc_address, 16) if isinstance(pc_address, str) else int(pc_address)
+            )
+            next_pc_val = (
+                int(next_pc_address, 16)
+                if isinstance(next_pc_address, str)
+                else int(next_pc_address)
+            )
+            self.last_bp_pc = pc_address
+            self._skip_hit = False
+
+            self._ocd_cmd("catch {halt}")
+            time.sleep(0.01)
+            self._ocd_cmd("catch {rbp all}")
+            self._ocd_cmd("riscv set_mem_access progbuf sysbus")
+
+            tcl_script = f"""
+            set hit_count 0
+            riscv.tap.0 configure -event halted {{
+                set pc_line [reg pc]
+                if {{[string match "*0x{pc_val:x}*" $pc_line]}} {{
+                    reg pc 0x{next_pc_val:x}
+                    catch {{rbp 0x{pc_val:x}}}
+                    set hit_count 1
+                    catch {{resume}}
+                }}
+            }}
+            """
+            self._ocd_cmd(tcl_script)
+            self._ocd_cmd(f"bp 0x{pc_val:x} 2 hw")
+            for obs_addr in self._observations.keys():
+                obs_val = (
+                    int(obs_addr, 16) if isinstance(obs_addr, str) else int(obs_addr)
+                )
+                self._ocd_cmd(f"catch {{bp 0x{obs_val:x} 2 hw}}")
+            self._bp_pc_val = pc_val
+            self.last_bp_num = self.n_brkp
+            self.n_brkp += 1
+            return
+
+        bp_resp = self.send_command(f"hbreak *({pc_address})")
+        m = re.search(
+            r"(?:Temporary breakpoint|Breakpoint|Hardware assisted breakpoint)\s+(\d+)",
+            bp_resp or "",
+        )
+        brk_num = int(m.group(1)) if m else self.n_brkp
+
+        skip_commands = f"commands {brk_num}\n"
+        skip_commands += f"disable {brk_num}\n"
+        skip_commands += f"set $pc={next_pc_address}\n"
+        skip_commands += 'printf "instruction skip applied\\n"\n'
+        skip_commands += "c\n"
+        skip_commands += "end"
+
+        if count > 1:
+            ignore_amount = count - 1
+            self.send_command(f"ignore {brk_num} {ignore_amount}")
+        self.send_command(skip_commands)
+        self.last_bp_num = brk_num
+        self.last_bp_pc = pc_address
+        self.n_brkp = brk_num + 1
+
+        bounds = getattr(GDBController, "_active_marker_bounds", None)
+        if bounds and bounds[0]:
+            start_addr, end_addr = bounds
+            pc_int = int(pc_address, 16) if isinstance(pc_address, str) else int(pc_address)
+            start_int = int(start_addr, 16) if isinstance(start_addr, str) else int(start_addr)
+            if pc_int != start_int:
+                self.send_command(f"disable {brk_num}")
+                tb_cmd = "tb" if is_qemu_available() else "thbreak"
+                start_resp = self.send_command(f"{tb_cmd} *({start_addr})")
+                m_start = re.search(
+                    r"(?:Temporary breakpoint|Breakpoint|Hardware assisted breakpoint)\s+(\d+)",
+                    start_resp or "",
+                )
+                start_brk = int(m_start.group(1)) if m_start else self.n_brkp
+                self.send_command(
+                    f"commands {start_brk}\nsilent\nenable {brk_num}\nc\nend"
+                )
+                self.n_brkp = start_brk + 1
+                if end_addr and is_qemu_available():
+                    end_int = int(end_addr, 16) if isinstance(end_addr, str) else int(end_addr)
+                    if pc_int != end_int:
+                        end_resp = self.send_command(f"tb *({end_addr})")
+                        m_end = re.search(
+                            r"(?:Temporary breakpoint|Breakpoint|"
+                            r"Hardware assisted breakpoint)\s+(\d+)",
+                            end_resp or "",
+                        )
+                        end_brk = int(m_end.group(1)) if m_end else self.n_brkp
+                        self.send_command(
+                            f"commands {end_brk}\nsilent\ndisable {brk_num}\nc\nend"
+                        )
+                        self.n_brkp = end_brk + 1
+
+    def add_observation(self, observations):
+        """Registers observation breakpoints (e.g. exception handler detection)."""
+        self._observations.update(observations)
+        if self.use_ocd_direct:
+            for addr in observations.keys():
+                obs_val = int(addr, 16) if isinstance(addr, str) else int(addr)
+                self._ocd_cmd(f"catch {{bp 0x{obs_val:x} 2 hw}}")
+            return
+
+        for addr, log_message in observations.items():
+            bp_resp = self.send_command(f"thbreak *({addr})")
+            m = re.search(
+                r"(?:Temporary breakpoint|Breakpoint|Hardware assisted breakpoint)\s+(\d+)",
+                bp_resp or "",
+            )
+            brk_num = int(m.group(1)) if m else self.n_brkp
+
+            obs_command = f"commands {brk_num}\n"
+            obs_command += f'printf "fisim_result: {log_message} \\n"\n'
+            obs_command += "c\n"
+            obs_command += "end"
+
+            self.send_command(obs_command)
+            self.n_brkp = brk_num + 1
+
+    def cleanup_skip(self):
+        """Cleans up armed skip breakpoint and event hook without closing connection."""
+        if is_qemu_available():
+            get_qemu_monitor()._pc_tracing = False
+            get_qemu_monitor()._active_gdb = None
+        self._prefetched_output = ""
+        if self.use_ocd_direct:
+            try:
+                self._ocd_cmd("catch {rbp all}")
+                self._ocd_cmd("riscv.tap.0 configure -event halted {}")
+            except Exception:
+                pass
+            self._skip_hit = False
+            self._bp_pc_val = None
+            self._observations = {}
+        else:
+            try:
+                self.interrupt(timeout=1.0)
+                self.send_command("delete breakpoints", timeout=1.0)
+            except Exception:
+                pass
+            self._observations = {}
+        self._armed_count = 1
+        self._skip_hit_this_arm = False
+
+    def is_skip_hit(self) -> bool:
+        """Returns True if the armed instruction skip was executed."""
+        if self.use_ocd_direct:
+            if not self._skip_hit and self._bp_pc_val is not None:
+                try:
+                    hit = self._ocd_cmd("set hit_count").strip()
+                    if hit and int(hit) > 0:
+                        self._skip_hit = True
+                except Exception:
+                    pass
+            return self._skip_hit
+        else:
+            return "instruction skip applied" in self.read_output()
+
+    def wait_for_skip_applied(self, timeout=0.1) -> bool:
+        """Waits up to timeout seconds for skip execution."""
+        start_t = time.time()
+        while time.time() - start_t < timeout:
+            if self.is_skip_hit():
+                return True
+            time.sleep(0.005)
+        return False

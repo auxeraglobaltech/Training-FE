@@ -1,0 +1,163 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+#include "sw/device/lib/crypto/include/config.h"
+
+#include "sw/device/lib/base/abs_mmio.h"
+#include "sw/device/lib/base/hardened.h"
+#include "sw/device/lib/crypto/drivers/alert.h"
+#include "sw/device/lib/crypto/drivers/entropy.h"
+#include "sw/device/lib/crypto/drivers/keymgr.h"
+#include "sw/device/lib/crypto/drivers/kmac.h"
+#include "sw/device/lib/crypto/drivers/otbn.h"
+#include "sw/device/lib/crypto/drivers/rv_core_ibex.h"
+#include "sw/device/lib/crypto/impl/cmvp.h"
+#include "sw/device/lib/crypto/impl/state.h"
+#include "sw/device/lib/crypto/include/entropy_src.h"
+#include "sw/device/lib/crypto/include/self_integrity.h"
+
+#include "clkmgr_regs.h"
+#include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"
+
+otcrypto_status_t otcrypto_security_config_check(
+    otcrypto_key_security_level_t security_level) {
+  if (launder32(security_level) != kOtcryptoKeySecurityLevelLow) {
+#if defined(OT_DISABLE_HARDENING)
+    return OTCRYPTO_FATAL_ERR;
+#else
+    // Check if the jittery clock is enabled.
+    uint32_t jittery_clk_en = abs_mmio_read32(
+        TOP_EARLGREY_CLKMGR_AON_BASE_ADDR + CLKMGR_JITTER_ENABLE_REG_OFFSET);
+    if (launder32(jittery_clk_en) != kMultiBitBool4True) {
+      return OTCRYPTO_FATAL_ERR;
+    }
+    HARDENED_CHECK_EQ(jittery_clk_en, kMultiBitBool4True);
+
+    // Check if the dummy instructions and the data independent timing is
+    // enabled in ibex.
+    hardened_bool_t ibex_secure_config = ibex_check_security_config();
+    if (launder32(ibex_secure_config) == kHardenedBoolFalse) {
+      // COVERAGE (MISSING) Mismatched Ibex security configuration is not
+      // covered.
+      return OTCRYPTO_FATAL_ERR;
+    }
+    HARDENED_CHECK_EQ(ibex_secure_config, kHardenedBoolTrue);
+#endif
+  } else {
+    // Do not check the device config when security level is low.
+    HARDENED_CHECK_EQ(security_level, kOtcryptoKeySecurityLevelLow);
+  }
+  return OTCRYPTO_OK;
+}
+
+static status_t set_security_config_internal(
+    otcrypto_key_security_level_t security_level) {
+  if (launder32(security_level) != kOtcryptoKeySecurityLevelLow) {
+    // Enable the jittery clock.
+    abs_mmio_write32(
+        TOP_EARLGREY_CLKMGR_AON_BASE_ADDR + CLKMGR_JITTER_ENABLE_REG_OFFSET,
+        kMultiBitBool4True);
+
+    // Enable the dummy instructions and the data independent timing in ibex.
+    HARDENED_TRY(ibex_set_security_config());
+  } else {
+    // Do not check the device config when security level is low.
+    HARDENED_CHECK_EQ(security_level, kOtcryptoKeySecurityLevelLow);
+  }
+  return OTCRYPTO_OK;
+}
+
+otcrypto_status_t otcrypto_set_security_config(
+    otcrypto_key_security_level_t security_level) {
+  OTCRYPTO_LOCKED_STATE_CHECK();
+  return set_security_config_internal(security_level);
+}
+
+otcrypto_status_t otcrypto_disable_icache(hardened_bool_t *icache_enabled) {
+  OTCRYPTO_LOCKED_STATE_CHECK();
+  HARDENED_TRY(ibex_disable_icache(icache_enabled));
+  return OTCRYPTO_OK;
+}
+
+otcrypto_status_t otcrypto_restore_icache(hardened_bool_t icache_enabled) {
+  OTCRYPTO_LOCKED_STATE_CHECK();
+  ibex_restore_icache(icache_enabled);
+  return LAUNDERED_OTCRYPTO_OK;
+}
+
+otcrypto_status_t otcrypto_clear_alerts(void) {
+  HARDENED_TRY(init_alert_registers());
+  return OTCRYPTO_OK;
+}
+
+otcrypto_status_t otcrypto_init(otcrypto_key_security_level_t security_level,
+                                otcrypto_state_t *state) {
+  HARDENED_TRY(set_security_config_internal(security_level));
+
+  HARDENED_TRY(init_alert_registers());
+
+  // Instantiate the state.
+  HARDENED_TRY(init_state(state, security_level));
+
+  // The state can only be written with a disabled entropy source.
+  entropy_complex_stop_all();
+
+  HARDENED_TRY(store_state(state));
+
+  // Instantiate the entropy source in FIPS mode.
+  HARDENED_TRY(otcrypto_entropy_init());
+  HARDENED_TRY(kmac_hwip_default_configure());
+
+#ifdef FIPS_MODE
+  OTCRYPTO_HEALTH_CHECK(kTestRngBit);
+  OTCRYPTO_HEALTH_CHECK(kTestHashSha512Bit);
+  HARDENED_TRY(otcrypto_integrity_check());
+  ((crypto_state_t *)state)->cmvp_service_indicator = kOtcryptoCmvpNoService;
+  ((crypto_state_t *)state)->cmvp_call_depth = 0;
+#endif
+
+  // The OTBN is still left with DMEM from the boot.
+  HARDENED_TRY(otbn_dmem_sec_wipe());
+  // Also clear the sideloaded keys for kmac and otbn.
+  HARDENED_TRY(keymgr_sideload_clear_otbn());
+  HARDENED_TRY(keymgr_sideload_clear_kmac());
+
+  return OTCRYPTO_OK;
+}
+
+otcrypto_status_t otcrypto_eval_exit(otcrypto_status_t status) {
+  crypto_state_t *state = NULL;
+
+  HARDENED_TRY(read_state_pointer(&state));
+
+  // Verify the entropy source before leaving.
+  HARDENED_TRY(otcrypto_entropy_health_test_config_check());
+
+  if (state->security_level != kOtcryptoKeySecurityLevelLow) {
+    if (read_alert_registers()) {
+      return OTCRYPTO_FATAL_ERR;
+    }
+  }
+
+#ifdef FIPS_MODE
+  if (state != NULL) {
+    if (!status_ok(status)) {
+      state->cmvp_service_indicator = kOtcryptoCmvpNotApprovedService;
+    }
+    if (state->cmvp_call_depth > 0) {
+      state->cmvp_call_depth--;
+    }
+  }
+#endif
+
+  return status;
+}
+
+uint8_t otcrypto_show_status(const otcrypto_state_t *state) {
+  if (state == NULL) {
+    return kHardenedByteBoolTrue;
+  }
+  const crypto_state_t *internal_state = (const crypto_state_t *)state;
+  return internal_state->locked_state;
+}

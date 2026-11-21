@@ -1,0 +1,207 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+#include "sw/device/lib/crypto/include/integrity.h"
+
+#include <array>
+#include <cstring>
+
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
+#include "sw/device/lib/base/mock_abs_mmio.h"
+#include "sw/device/lib/crypto/include/cryptolib_build_info.h"
+#include "sw/device/lib/crypto/include/datatypes.h"
+
+#include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"
+#include "rom_ctrl_regs.h"
+
+namespace integrity_unittest {
+namespace {
+
+const otcrypto_key_config_t kValidConfig = {
+    .version = otcrypto_lib_version(),
+    .key_mode = kOtcryptoKeyModeAesCtr,
+    .key_length = 128 / 8,
+    .hw_backed = kHardenedBoolFalse,
+    .exportable = kHardenedBoolTrue,
+    .security_level = kOtcryptoKeySecurityLevelLow,
+};
+
+TEST(IntegrityTest, UnblindedKeyValid) {
+  std::array<uint32_t, 4> key_data = {0x01020304, 0x05060708, 0x090a0b0c,
+                                      0x0d0e0f00};
+  otcrypto_unblinded_key_t key = {
+      .key_mode = kOtcryptoKeyModeAesCtr,
+      .key_length = static_cast<uint32_t>(key_data.size() * sizeof(uint32_t)),
+      .key = key_data.data(),
+  };
+  key.checksum = otcrypto_integrity_unblinded_checksum(&key);
+
+  EXPECT_EQ(otcrypto_integrity_unblinded_key_check(&key), kHardenedBoolTrue);
+}
+
+TEST(IntegrityTest, UnblindedKeyCorruptedData) {
+  std::array<uint32_t, 4> key_data = {0x01020304, 0x05060708, 0x090a0b0c,
+                                      0x0d0e0f00};
+  otcrypto_unblinded_key_t key = {
+      .key_mode = kOtcryptoKeyModeAesCtr,
+      .key_length = static_cast<uint32_t>(key_data.size() * sizeof(uint32_t)),
+      .key = key_data.data(),
+  };
+  key.checksum = otcrypto_integrity_unblinded_checksum(&key);
+
+  key_data[0] ^= 0xFFFFFFFF;
+  EXPECT_EQ(otcrypto_integrity_unblinded_key_check(&key), kHardenedBoolFalse);
+}
+
+TEST(IntegrityTest, BlindedKeyValid) {
+  std::array<uint32_t, 8> keyblob = {0x11111111, 0x22222222, 0x33333333,
+                                     0x44444444};
+  otcrypto_blinded_key_t key = {
+      .config = kValidConfig,
+      .keyblob_length =
+          static_cast<uint32_t>(keyblob.size() * sizeof(uint32_t)),
+      .keyblob = keyblob.data(),
+  };
+
+  key.checksum = otcrypto_integrity_blinded_checksum(&key);
+
+  EXPECT_EQ(otcrypto_integrity_blinded_key_check(&key), kHardenedBoolTrue);
+}
+
+TEST(IntegrityTest, BlindedKeyCorruptedConfig) {
+  std::array<uint32_t, 8> keyblob = {0x11111111, 0x22222222, 0x33333333,
+                                     0x44444444};
+
+  otcrypto_blinded_key_t valid_key = {
+      .config = kValidConfig,
+      .keyblob_length =
+          static_cast<uint32_t>(keyblob.size() * sizeof(uint32_t)),
+      .keyblob = keyblob.data(),
+  };
+  uint32_t original_checksum = otcrypto_integrity_blinded_checksum(&valid_key);
+
+  otcrypto_key_config_t bad_config = kValidConfig;
+  bad_config.security_level = kOtcryptoKeySecurityLevelHigh;
+
+  otcrypto_blinded_key_t bad_key = {
+      .config = bad_config,
+      .keyblob_length = valid_key.keyblob_length,
+      .keyblob = keyblob.data(),
+  };
+  bad_key.checksum = original_checksum;
+
+  EXPECT_EQ(otcrypto_integrity_blinded_key_check(&bad_key), kHardenedBoolFalse);
+}
+
+TEST(IntegrityTest, BufferCreationAndCheck) {
+  std::array<uint8_t, 16> data = {0};
+
+  otcrypto_byte_buf_t buf = otcrypto_make_byte_buf(data.data(), data.size());
+
+  EXPECT_EQ(otcrypto_check_byte_buf(&buf), kHardenedBoolTrue);
+
+  buf.len = data.size() + 1;
+
+  EXPECT_EQ(otcrypto_check_byte_buf(&buf), kHardenedBoolFalse);
+
+  otcrypto_const_byte_buf_t const_byte_buf =
+      otcrypto_make_const_byte_buf(data.data(), data.size());
+  EXPECT_EQ(otcrypto_check_const_byte_buf(&const_byte_buf), kHardenedBoolTrue);
+  const_byte_buf.ptr_checksum ^= 1;
+  EXPECT_EQ(otcrypto_check_const_byte_buf(&const_byte_buf), kHardenedBoolFalse);
+
+  std::array<uint32_t, 4> word_data = {0};
+  otcrypto_word32_buf_t word_buf =
+      otcrypto_make_word32_buf(word_data.data(), word_data.size());
+  EXPECT_EQ(otcrypto_check_word32_buf(&word_buf), kHardenedBoolTrue);
+  word_buf.len = word_data.size() + 1;
+  EXPECT_EQ(otcrypto_check_word32_buf(&word_buf), kHardenedBoolFalse);
+
+  otcrypto_const_word32_buf_t const_word_buf =
+      otcrypto_make_const_word32_buf(word_data.data(), word_data.size());
+  EXPECT_EQ(otcrypto_check_const_word32_buf(&const_word_buf),
+            kHardenedBoolTrue);
+  const_word_buf.ptr_checksum ^= 1;
+  EXPECT_EQ(otcrypto_check_const_word32_buf(&const_word_buf),
+            kHardenedBoolFalse);
+}
+
+TEST(IntegrityTest, BlindedKeyBadVersion) {
+  std::array<uint32_t, 8> keyblob = {0x11111111, 0x22222222, 0x33333333,
+                                     0x44444444};
+  otcrypto_key_config_t bad_version_config = kValidConfig;
+  bad_version_config.version = static_cast<otcrypto_lib_version_t>(0);
+  otcrypto_blinded_key_t key = {
+      .config = bad_version_config,
+      .keyblob_length =
+          static_cast<uint32_t>(keyblob.size() * sizeof(uint32_t)),
+      .keyblob = keyblob.data(),
+  };
+  key.checksum = otcrypto_integrity_blinded_checksum(&key);
+
+  EXPECT_EQ(otcrypto_integrity_blinded_key_check(&key), kHardenedBoolFalse);
+}
+
+TEST(IntegrityTest, BuildInfoAndVersionDecode) {
+  uint32_t version = 0;
+  bool released = false;
+  uint32_t hash_low = 0;
+  uint32_t hash_high = 0;
+  EXPECT_EQ(
+      otcrypto_build_info(&version, &released, &hash_low, &hash_high).value,
+      kOtcryptoStatusValueOk);
+  EXPECT_EQ(version, static_cast<uint32_t>(otcrypto_lib_version()));
+
+  uint32_t major = 0, minor = 0, patch = 0;
+  otcrypto_version_decode(version, &major, &minor, &patch);
+  EXPECT_GT(major + minor + patch, 0u);
+}
+
+TEST(IntegrityTest, ModuleName) {
+  uint8_t data[kOtcryptoModuleNameBytes] = {0};
+  otcrypto_byte_buf_t name = otcrypto_make_byte_buf(data, sizeof(data));
+  EXPECT_EQ(otcrypto_module_name(&name).value, kOtcryptoStatusValueOk);
+  const char kExpectedName[] = "otcrypto_earlgrey_cryptolib";
+  EXPECT_EQ(std::memcmp(data, kExpectedName, kOtcryptoModuleNameBytes), 0);
+
+  // Null pointer checks.
+  EXPECT_EQ(otcrypto_module_name(nullptr).value, kOtcryptoStatusValueBadArgs);
+  otcrypto_byte_buf_t null_data_buf =
+      otcrypto_make_byte_buf(nullptr, kOtcryptoModuleNameBytes);
+  EXPECT_EQ(otcrypto_module_name(&null_data_buf).value,
+            kOtcryptoStatusValueBadArgs);
+
+  // Length mismatch checks.
+  uint8_t wrong_size_data[kOtcryptoModuleNameBytes + 1] = {0};
+  otcrypto_byte_buf_t short_buf =
+      otcrypto_make_byte_buf(wrong_size_data, kOtcryptoModuleNameBytes - 1);
+  EXPECT_EQ(otcrypto_module_name(&short_buf).value,
+            kOtcryptoStatusValueBadArgs);
+  otcrypto_byte_buf_t long_buf =
+      otcrypto_make_byte_buf(wrong_size_data, kOtcryptoModuleNameBytes + 1);
+  EXPECT_EQ(otcrypto_module_name(&long_buf).value, kOtcryptoStatusValueBadArgs);
+
+  // Corrupted buffer checksum check.
+  otcrypto_byte_buf_t bad_checksum_buf =
+      otcrypto_make_byte_buf(data, sizeof(data));
+  bad_checksum_buf.ptr_checksum ^= 1;
+  EXPECT_EQ(otcrypto_module_name(&bad_checksum_buf).value,
+            kOtcryptoStatusValueFatalError);
+}
+
+TEST(IntegrityTest, RomVersion) {
+  rom_test::MockAbsMmio mmio;
+  const uint32_t kExpectedRomVersion = 0x12345678u;
+  EXPECT_ABS_READ32(
+      TOP_EARLGREY_ROM_CTRL_REGS_BASE_ADDR + ROM_CTRL_EXP_DIGEST_1_REG_OFFSET,
+      kExpectedRomVersion);
+
+  uint32_t rom_version = 0;
+  EXPECT_EQ(otcrypto_rom_version(&rom_version).value, kOtcryptoStatusValueOk);
+  EXPECT_EQ(rom_version, kExpectedRomVersion);
+}
+
+}  // namespace
+}  // namespace integrity_unittest

@@ -1,0 +1,890 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+#include "sw/device/lib/base/hardened_memory.h"
+#include "sw/device/lib/crypto/drivers/otbn.h"
+#include "sw/device/lib/crypto/impl/keyblob.h"
+#include "sw/device/lib/crypto/include/config.h"
+#include "sw/device/lib/crypto/include/cryptolib_build_info.h"
+#include "sw/device/lib/crypto/include/datatypes.h"
+#include "sw/device/lib/crypto/include/ecc_curve25519.h"
+#include "sw/device/lib/crypto/include/entropy_src.h"
+#include "sw/device/lib/crypto/include/integrity.h"
+#include "sw/device/lib/crypto/include/sha2.h"
+#include "sw/device/lib/runtime/log.h"
+#include "sw/device/lib/testing/test_framework/check.h"
+#include "sw/device/lib/testing/test_framework/ottf_main.h"
+
+enum {
+  /* Number of bytes needed to store the private key. */
+  kEd25519PrivateKeyBytes = 32,
+  /* Number of words needed to store the private key. */
+  kEd25519PrivateKeyWords = kEd25519PrivateKeyBytes / 4,
+  /* Number of bytes needed to store the private key. */
+  kEd25519SignatureBytes = 64,
+  /* Number of words needed to store the private key. */
+  kEd25519SignatureWords = kEd25519SignatureBytes / 4,
+  /* Number of bytes needed to store the public key. */
+  kEd25519PublicKeyBytes = 32,
+  /* Number of words needed to store the public key. */
+  kEd25519PublicKeyWords = kEd25519PublicKeyBytes / 4,
+};
+
+// This test vector stems from RFC 8032 section 7.1 TEST 2:
+// https://datatracker.ietf.org/doc/html/rfc8032#section-7.1
+
+//  ALGORITHM:
+//  Ed25519
+
+//  SECRET KEY:
+//  4ccd089b28ff96da9db6c346ec114e0f
+//  5b8a319f35aba624da8cf6ed4fb8a6fb
+
+//  PUBLIC KEY:
+//  3d4017c3e843895a92b70aa74d1b7ebc
+//  9c982ccf2ec4968cc0cd55f12af4660c
+
+//  MESSAGE (length 1 byte):
+//  72
+
+//  SIGNATURE:
+//  92a009a9f0d4cab8720e820b5f642540
+//  a2b27b5416503f8fb3762223ebdb69da
+//  085ac1e43e15996e458f3613d0f11d8c
+//  387b2eaeb4302aeeb00d291612bb0c00
+
+//  SECRET KEY (WORD & BYTE SWAPPED)
+static uint32_t kSecretKey[] = {
+    0x9b08cd4c, 0xda96ff28, 0x46c3b69d, 0x0f4e11ec,
+    0x9f318a5b, 0x24a6ab35, 0xedf68cda, 0xfba6b84f,
+};
+
+//  Public KEY (WORD & BYTE SWAPPED)
+static uint32_t kPublicKey[] = {
+    0xc317403d, 0x5a8943e8, 0xa70ab792, 0xbc7e1b4d,
+    0xcf2c989c, 0x8c96c42e, 0xf155cdc0, 0x0c66f42a,
+};
+
+//  Signature
+//  R: (WORD & BYTE SWAPPED)
+//  S: (WORD & BYTE SWAPPED)
+static uint32_t kSignature[] = {
+    // R
+    0xa909a092,
+    0xb8cad4f0,
+    0x0b820e72,
+    0x4025645f,
+    0x547bb2a2,
+    0x8f3f5016,
+    0x232276b3,
+    0xda69dbeb,
+    // S
+    0xe4c15a08,
+    0x6e99153e,
+    0x13368f45,
+    0x8c1df1d0,
+    0xae2e7b38,
+    0xee2a30b4,
+    0x16290db0,
+    0x000cbb12,
+};
+
+// MESSAGE (length 1 byte):
+static const char kMessage[] = {
+    0x72,
+};
+
+#define kPrivateKeyConfig                             \
+  ((otcrypto_key_config_t){                           \
+      .version = otcrypto_lib_version(),              \
+      .key_mode = kOtcryptoKeyModeEd25519,            \
+      .key_length = kEd25519PrivateKeyBytes,          \
+      .hw_backed = kHardenedBoolFalse,                \
+      .security_level = kOtcryptoKeySecurityLevelLow, \
+  })
+
+/**
+ * Helper function to import `kSecretKey` as two additive shares.
+ */
+static status_t import_kat_private_key(otcrypto_blinded_key_t *private_key) {
+  uint32_t share0_data[kEd25519PrivateKeyWords + 2] = {0};
+  uint32_t share1_data[kEd25519PrivateKeyWords + 2] = {0};
+  hardened_memshred(share1_data, ARRAYSIZE(share1_data));
+  HARDENED_TRY(hardened_sub(kSecretKey, share1_data, kEd25519PrivateKeyWords,
+                            share0_data));
+
+  otcrypto_const_word32_buf_t share0 = OTCRYPTO_MAKE_BUF(
+      otcrypto_const_word32_buf_t, share0_data, ARRAYSIZE(share0_data));
+  otcrypto_const_word32_buf_t share1 = OTCRYPTO_MAKE_BUF(
+      otcrypto_const_word32_buf_t, share1_data, ARRAYSIZE(share1_data));
+  return otcrypto_curve25519_private_key_import(share0, share1, private_key);
+}
+
+status_t ed25519_kat_test(void) {
+  LOG_INFO("Running Ed25519 KAT Test");
+
+  uint32_t keyblob[keyblob_num_words(kPrivateKeyConfig)];
+  otcrypto_blinded_key_t private_key = {
+      .config = kPrivateKeyConfig,
+      .keyblob_length = sizeof(keyblob),
+      .keyblob = keyblob,
+  };
+  CHECK_STATUS_OK(import_kat_private_key(&private_key));
+
+  // Set up public_key struct.
+  uint32_t public_key_buf[kEd25519PublicKeyWords];
+  otcrypto_unblinded_key_t public_key = {
+      .key_mode = kOtcryptoKeyModeEd25519,
+      .key_length = kEd25519PublicKeyBytes,
+      .key = public_key_buf,
+  };
+
+  // Run ed25519 key generation.
+  CHECK_STATUS_OK(
+      otcrypto_ed25519_public_key_from_private(&private_key, &public_key));
+  // Check the ed25519 key generation result.
+  TRY_CHECK_ARRAYS_EQ(kPublicKey, public_key.key, kEd25519PublicKeyWords);
+
+  // Set up input_message struct.
+  otcrypto_const_byte_buf_t input_message =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_byte_buf_t, (const uint8_t *)kMessage,
+                        ARRAYSIZE(kMessage));
+  // Set up signature struct.
+  uint32_t signature_data[kEd25519SignatureWords];
+  otcrypto_word32_buf_t signature = OTCRYPTO_MAKE_BUF(
+      otcrypto_word32_buf_t, signature_data, ARRAYSIZE(signature_data));
+
+  // Run ed25519 signature generation.
+  CHECK_STATUS_OK(otcrypto_ed25519_sign(
+      &private_key, &input_message, kOtcryptoEddsaSignModeEddsa, &signature));
+  // Check the ed25519 signature generation result.
+  TRY_CHECK_ARRAYS_EQ(kSignature, signature.data, kEd25519SignatureWords);
+
+  // Set up signature struct for verification.
+  const uint32_t *const signature_verif_data =
+      (const uint32_t *const)signature_data;
+  otcrypto_const_word32_buf_t signature_verif =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_word32_buf_t, signature_verif_data,
+                        ARRAYSIZE(signature_data));
+
+  // Run ed25519 signature verification.
+  hardened_bool_t verification_result;
+  CHECK_STATUS_OK(otcrypto_ed25519_verify(
+      &public_key, &input_message, kOtcryptoEddsaSignModeEddsa,
+      &signature_verif, &verification_result));
+
+  // Signature verification is expected to succeed.
+  TRY_CHECK(verification_result == kHardenedBoolTrue);
+
+  return OTCRYPTO_OK;
+}
+
+static status_t ed25519_keygen_test(void) {
+  LOG_INFO("Running Ed25519 keygen test");
+
+  uint32_t keyblob[keyblob_num_words(kPrivateKeyConfig)];
+  otcrypto_blinded_key_t private_key = {
+      .config = kPrivateKeyConfig,
+      .keyblob_length = sizeof(keyblob),
+      .keyblob = keyblob,
+  };
+
+  uint32_t public_key_buf[kEd25519PublicKeyWords];
+  otcrypto_unblinded_key_t public_key = {
+      .key_mode = kOtcryptoKeyModeEd25519,
+      .key_length = kEd25519PublicKeyBytes,
+      .key = public_key_buf,
+  };
+
+  CHECK_STATUS_OK(otcrypto_ed25519_keygen(&private_key, &public_key));
+  TRY_CHECK(otcrypto_integrity_blinded_key_check(&private_key) ==
+            kHardenedBoolTrue);
+  TRY_CHECK(otcrypto_integrity_unblinded_key_check(&public_key) ==
+            kHardenedBoolTrue);
+
+  otcrypto_const_byte_buf_t input_message =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_byte_buf_t, (const uint8_t *)kMessage,
+                        ARRAYSIZE(kMessage));
+  uint32_t signature_data[kEd25519SignatureWords];
+  otcrypto_word32_buf_t signature = OTCRYPTO_MAKE_BUF(
+      otcrypto_word32_buf_t, signature_data, ARRAYSIZE(signature_data));
+
+  CHECK_STATUS_OK(otcrypto_ed25519_sign(
+      &private_key, &input_message, kOtcryptoEddsaSignModeEddsa, &signature));
+
+  const uint32_t *const signature_verif_data =
+      (const uint32_t *const)signature_data;
+  otcrypto_const_word32_buf_t signature_verif =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_word32_buf_t, signature_verif_data,
+                        ARRAYSIZE(signature_data));
+
+  hardened_bool_t verification_result = kHardenedBoolFalse;
+  CHECK_STATUS_OK(otcrypto_ed25519_verify(
+      &public_key, &input_message, kOtcryptoEddsaSignModeEddsa,
+      &signature_verif, &verification_result));
+  TRY_CHECK(verification_result == kHardenedBoolTrue);
+
+  return OTCRYPTO_OK;
+}
+
+/**
+ * Run a sign and verify loop utilizing the HashEdDSA sign mode
+ */
+static status_t hasheddsa_test(void) {
+  LOG_INFO("Running HashEdDSA test");
+
+  uint32_t keyblob[keyblob_num_words(kPrivateKeyConfig)];
+  otcrypto_blinded_key_t private_key = {
+      .config = kPrivateKeyConfig,
+      .keyblob_length = sizeof(keyblob),
+      .keyblob = keyblob,
+  };
+  CHECK_STATUS_OK(import_kat_private_key(&private_key));
+
+  uint32_t public_key_buf[kEd25519PublicKeyWords];
+  otcrypto_unblinded_key_t public_key = {
+      .key_mode = kOtcryptoKeyModeEd25519,
+      .key_length = kEd25519PublicKeyBytes,
+      .key = public_key_buf,
+  };
+
+  CHECK_STATUS_OK(
+      otcrypto_ed25519_public_key_from_private(&private_key, &public_key));
+  LOG_INFO("OTBN keygen instruction count: 0x%08x",
+           otbn_instruction_count_get());
+
+  otcrypto_const_byte_buf_t input_message =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_byte_buf_t, (const uint8_t *)kMessage,
+                        ARRAYSIZE(kMessage));
+
+  uint32_t signature_data[kEd25519SignatureWords];
+  otcrypto_word32_buf_t signature = OTCRYPTO_MAKE_BUF(
+      otcrypto_word32_buf_t, signature_data, ARRAYSIZE(signature_data));
+
+  CHECK_STATUS_OK(otcrypto_ed25519_sign(&private_key, &input_message,
+                                        kOtcryptoEddsaSignModeHashEddsa,
+                                        &signature));
+  LOG_INFO("OTBN sign instruction count: 0x%08x", otbn_instruction_count_get());
+
+  const uint32_t *const signature_verif_data =
+      (const uint32_t *const)signature_data;
+  otcrypto_const_word32_buf_t signature_verif =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_word32_buf_t, signature_verif_data,
+                        ARRAYSIZE(signature_data));
+
+  hardened_bool_t verification_result;
+  CHECK_STATUS_OK(otcrypto_ed25519_verify(
+      &public_key, &input_message, kOtcryptoEddsaSignModeHashEddsa,
+      &signature_verif, &verification_result));
+  LOG_INFO("OTBN verify instruction count: 0x%08x",
+           otbn_instruction_count_get());
+
+  TRY_CHECK(verification_result == kHardenedBoolTrue);
+
+  return OTCRYPTO_OK;
+}
+
+/**
+ * Test the combined sign-and-verify function.
+ */
+static status_t sign_verify_test(void) {
+  LOG_INFO("Running sign_verify test");
+
+  uint32_t keyblob[keyblob_num_words(kPrivateKeyConfig)];
+  otcrypto_blinded_key_t private_key = {
+      .config = kPrivateKeyConfig,
+      .keyblob_length = sizeof(keyblob),
+      .keyblob = keyblob,
+  };
+  CHECK_STATUS_OK(import_kat_private_key(&private_key));
+
+  // Set up public_key struct.
+  uint32_t public_key_buf[kEd25519PublicKeyWords];
+  memcpy(public_key_buf, kPublicKey, kEd25519PublicKeyBytes);
+  otcrypto_unblinded_key_t public_key = {
+      .key_mode = kOtcryptoKeyModeEd25519,
+      .key_length = kEd25519PublicKeyBytes,
+      .key = public_key_buf,
+  };
+  public_key.checksum = otcrypto_integrity_unblinded_checksum(&public_key);
+
+  // Set up input_message struct.
+  otcrypto_const_byte_buf_t input_message =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_byte_buf_t, (const uint8_t *)kMessage,
+                        ARRAYSIZE(kMessage));
+
+  // Set up signature struct.
+  uint32_t signature_data[kEd25519SignatureWords];
+  otcrypto_word32_buf_t signature = OTCRYPTO_MAKE_BUF(
+      otcrypto_word32_buf_t, signature_data, ARRAYSIZE(signature_data));
+
+  // Run combined ed25519 signature generation and verification.
+  CHECK_STATUS_OK(
+      otcrypto_ed25519_sign_verify(&private_key, &public_key, &input_message,
+                                   kOtcryptoEddsaSignModeEddsa, &signature));
+
+  // Check the ed25519 signature generation result still matches the KAT.
+  TRY_CHECK_ARRAYS_EQ(kSignature, signature.data, kEd25519SignatureWords);
+
+  return OTCRYPTO_OK;
+}
+
+/**
+ * Test the Ed25519 point-on-curve check.
+ */
+static status_t point_on_curve_test(void) {
+  LOG_INFO("Running point_on_curve test");
+
+  uint32_t point_buf[kEd25519PublicKeyWords];
+  memcpy(point_buf, kPublicKey, kEd25519PublicKeyBytes);
+  otcrypto_unblinded_key_t point = {
+      .key_mode = kOtcryptoKeyModeEd25519,
+      .key_length = kEd25519PublicKeyBytes,
+      .key = point_buf,
+  };
+  point.checksum = otcrypto_integrity_unblinded_checksum(&point);
+
+  hardened_bool_t result = kHardenedBoolFalse;
+  CHECK_STATUS_OK(otcrypto_ed25519_point_on_curve(&point, &result));
+  TRY_CHECK(result == kHardenedBoolTrue);
+
+  // Modify the encoded point so that y^2 - 1 / (d * y^2 + 1) is not a square.
+  point_buf[7] ^= 0x1;
+  point.checksum = otcrypto_integrity_unblinded_checksum(&point);
+  result = kHardenedBoolTrue;
+  CHECK_STATUS_OK(otcrypto_ed25519_point_on_curve(&point, &result));
+  TRY_CHECK(result == kHardenedBoolFalse);
+
+  // Test a non-canonical point (y >= p).
+  memset(point_buf, 0xff, sizeof(point_buf));
+  point.checksum = otcrypto_integrity_unblinded_checksum(&point);
+  result = kHardenedBoolTrue;
+  CHECK_STATUS_OK(otcrypto_ed25519_point_on_curve(&point, &result));
+  TRY_CHECK(result == kHardenedBoolFalse);
+
+  return OTCRYPTO_OK;
+}
+
+/**
+ * Wycheproof Test Case 61: "invalid R"
+ *
+ */
+static status_t run_wycheproof_invalid_r_test(void) {
+  LOG_INFO("Running Wycheproof invalid signature R");
+
+  uint32_t pubkey_data[kEd25519PublicKeyWords] = {
+      0x7f0e4d7d, 0x9ba65361, 0x22b54262, 0x85e6beab,
+      0x0f42a4fd, 0x08b13488, 0x36aebdc3, 0xfa49f59e,
+  };
+  otcrypto_unblinded_key_t valid_pub = {
+      .key_mode = kOtcryptoKeyModeEd25519,
+      .key_length = kEd25519PublicKeyBytes,
+      .key = pubkey_data,
+  };
+  valid_pub.checksum = otcrypto_integrity_unblinded_checksum(&valid_pub);
+
+  const uint8_t wycheproof_msg_bytes[] = {0x31, 0x32, 0x33, 0x34, 0x30, 0x30};
+  otcrypto_const_byte_buf_t msg =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_byte_buf_t, wycheproof_msg_bytes,
+                        sizeof(wycheproof_msg_bytes));
+
+  uint32_t wycheproof_sig_data[kEd25519SignatureWords] = {
+      // R (Non-canonical, y >= p)
+      0xffffffff,
+      0xffffffff,
+      0xffffffff,
+      0xffffffff,
+      0xffffffff,
+      0xffffffff,
+      0xffffffff,
+      0xffffffff,
+      // S
+      0x08193a46,
+      0xb77e2e38,
+      0xf9ce3a69,
+      0xf97c4f88,
+      0xe015a231,
+      0xbe761879,
+      0xa531c622,
+      0x0efd8198,
+  };
+  otcrypto_const_word32_buf_t signature_verif =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_word32_buf_t, wycheproof_sig_data,
+                        ARRAYSIZE(wycheproof_sig_data));
+
+  hardened_bool_t verify_res;
+
+  CHECK(otcrypto_ed25519_verify(&valid_pub, &msg, kOtcryptoEddsaSignModeEddsa,
+                                &signature_verif, &verify_res)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  return OTCRYPTO_OK;
+}
+
+/**
+ * Execute negative testing.
+ */
+static status_t run_negative_tests(void) {
+  LOG_INFO("Running negative tests");
+
+  uint32_t priv_keyblob[keyblob_num_words(kPrivateKeyConfig)];
+  otcrypto_blinded_key_t valid_priv = {
+      .config = kPrivateKeyConfig,
+      .keyblob_length = sizeof(priv_keyblob),
+      .keyblob = priv_keyblob,
+  };
+  CHECK_STATUS_OK(import_kat_private_key(&valid_priv));
+
+  uint32_t public_key_buf[kEd25519PublicKeyWords];
+  otcrypto_unblinded_key_t valid_pub = {
+      .key_mode = kOtcryptoKeyModeEd25519,
+      .key_length = kEd25519PublicKeyBytes,
+      .key = public_key_buf,
+  };
+  valid_pub.checksum = otcrypto_integrity_unblinded_checksum(&valid_pub);
+
+  otcrypto_const_byte_buf_t msg =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_byte_buf_t, (const uint8_t *)kMessage,
+                        ARRAYSIZE(kMessage));
+
+  otcrypto_const_byte_buf_t bad_msg =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_byte_buf_t, NULL, 5);
+
+  uint32_t sig_buf[kEd25519SignatureWords];
+  otcrypto_word32_buf_t sig =
+      OTCRYPTO_MAKE_BUF(otcrypto_word32_buf_t, sig_buf, kEd25519SignatureWords);
+
+  // Test ed25519_key_check with invalid key length
+  otcrypto_key_config_t bad_len_cfg = kPrivateKeyConfig;
+  bad_len_cfg.key_length = 31;
+  otcrypto_blinded_key_t bad_key_len = {
+      .config = bad_len_cfg,
+      .keyblob_length = sizeof(priv_keyblob),
+      .keyblob = priv_keyblob,
+  };
+  bad_key_len.checksum = otcrypto_integrity_blinded_checksum(&bad_key_len);
+  CHECK(otcrypto_ed25519_public_key_from_private(&bad_key_len, &valid_pub)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  // Test ed25519_key_check with invalid key mode
+  otcrypto_key_config_t bad_mode_cfg = kPrivateKeyConfig;
+  bad_mode_cfg.key_mode = kOtcryptoKeyModeEcdsaP256;
+  otcrypto_blinded_key_t bad_key_mode = {
+      .config = bad_mode_cfg,
+      .keyblob_length = sizeof(priv_keyblob),
+      .keyblob = priv_keyblob,
+  };
+  bad_key_mode.checksum = otcrypto_integrity_blinded_checksum(&bad_key_mode);
+  CHECK(otcrypto_ed25519_public_key_from_private(&bad_key_mode, &valid_pub)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  // Test ed25519_key_check with NULL data
+  otcrypto_blinded_key_t bad_key_null = {
+      .config = kPrivateKeyConfig,
+      .keyblob_length = sizeof(priv_keyblob),
+      .keyblob = NULL,
+  };
+  CHECK(otcrypto_ed25519_public_key_from_private(&bad_key_null, &valid_pub)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  // Test ed25519_key_check with bad checksum
+  otcrypto_blinded_key_t bad_key_chk = {
+      .config = kPrivateKeyConfig,
+      .keyblob_length = sizeof(priv_keyblob),
+      .keyblob = priv_keyblob,
+  };
+  bad_key_chk.checksum = valid_priv.checksum ^ 0xFFFFFFFF;
+  CHECK(otcrypto_ed25519_public_key_from_private(&bad_key_chk, &valid_pub)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  // Null pointer tests
+  CHECK(otcrypto_ed25519_public_key_from_private(NULL, &valid_pub).value ==
+        OTCRYPTO_BAD_ARGS.value);
+
+  // Negative tests for otcrypto_ed25519_keygen
+  CHECK(otcrypto_ed25519_keygen(&bad_key_len, &valid_pub).value ==
+        OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_ed25519_keygen(&bad_key_mode, &valid_pub).value ==
+        OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_ed25519_keygen(&bad_key_null, &valid_pub).value ==
+        OTCRYPTO_BAD_ARGS.value);
+
+  otcrypto_key_config_t hw_backed_cfg = kPrivateKeyConfig;
+  hw_backed_cfg.hw_backed = kHardenedBoolTrue;
+  uint32_t hw_keyblob[8] = {0};
+  otcrypto_blinded_key_t hw_backed_key = {
+      .config = hw_backed_cfg,
+      .keyblob_length = sizeof(hw_keyblob),
+      .keyblob = hw_keyblob,
+  };
+  hw_backed_key.checksum = otcrypto_integrity_blinded_checksum(&hw_backed_key);
+  CHECK(otcrypto_ed25519_keygen(&hw_backed_key, &valid_pub).value ==
+        OTCRYPTO_BAD_ARGS.value);
+
+  CHECK(otcrypto_ed25519_keygen(NULL, &valid_pub).value ==
+        OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_ed25519_keygen(&valid_priv, NULL).value ==
+        OTCRYPTO_BAD_ARGS.value);
+
+  // Test NULL data with len > 0 or invalid mode
+  CHECK(otcrypto_ed25519_sign(&valid_priv, &bad_msg,
+                              kOtcryptoEddsaSignModeEddsa, &sig)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  CHECK(otcrypto_ed25519_sign(&valid_priv, &msg,
+                              (otcrypto_eddsa_sign_mode_t)0xFF, &sig)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  // Test NULL pointer, bad length, or NULL data
+  otcrypto_word32_buf_t bad_sig =
+      OTCRYPTO_MAKE_BUF(otcrypto_word32_buf_t, sig_buf, 15);
+  CHECK(otcrypto_ed25519_sign(&valid_priv, &msg, kOtcryptoEddsaSignModeEddsa,
+                              &bad_sig)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  bad_sig.data = NULL;
+  bad_sig.len = kEd25519SignatureWords;
+  CHECK(otcrypto_ed25519_sign(&valid_priv, &msg, kOtcryptoEddsaSignModeEddsa,
+                              &bad_sig)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  CHECK(otcrypto_ed25519_sign(&valid_priv, &msg, kOtcryptoEddsaSignModeEddsa,
+                              NULL)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  // Bad signature verification
+  otcrypto_const_word32_buf_t bad_const_sig =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_word32_buf_t, sig_buf, 15);
+  hardened_bool_t verify_res;
+  CHECK(otcrypto_ed25519_verify(&valid_pub, &msg, kOtcryptoEddsaSignModeEddsa,
+                                &bad_const_sig, &verify_res)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  // Negative tests for otcrypto_ed25519_public_key_from_private_async_finalize
+#ifndef OTCRYPTO_DISABLE_NULL_CHECKS
+  CHECK(otcrypto_ed25519_public_key_from_private_async_finalize(NULL).value ==
+        OTCRYPTO_BAD_ARGS.value);
+  otcrypto_unblinded_key_t null_pub_buf = valid_pub;
+  null_pub_buf.key = NULL;
+  CHECK(otcrypto_ed25519_public_key_from_private_async_finalize(&null_pub_buf)
+            .value == OTCRYPTO_BAD_ARGS.value);
+#endif
+  otcrypto_unblinded_key_t wrong_mode_pub = valid_pub;
+  wrong_mode_pub.key_mode = kOtcryptoKeyModeX25519;
+  CHECK(otcrypto_ed25519_public_key_from_private_async_finalize(&wrong_mode_pub)
+            .value == OTCRYPTO_BAD_ARGS.value);
+  otcrypto_unblinded_key_t wrong_len_pub = valid_pub;
+  wrong_len_pub.key_length = kEd25519PublicKeyBytes - 1;
+  CHECK(otcrypto_ed25519_public_key_from_private_async_finalize(&wrong_len_pub)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  // Negative tests for NULL message and async sign part1/part2 buffers
+  uint32_t s_buf[12] = {0};
+  uint32_t r_buf[20] = {0};
+  otcrypto_word32_buf_t s_ok =
+      OTCRYPTO_MAKE_BUF(otcrypto_word32_buf_t, s_buf, 12);
+  otcrypto_word32_buf_t r_ok =
+      OTCRYPTO_MAKE_BUF(otcrypto_word32_buf_t, r_buf, 20);
+#ifndef OTCRYPTO_DISABLE_NULL_CHECKS
+  CHECK(otcrypto_ed25519_sign(&valid_priv, NULL, kOtcryptoEddsaSignModeEddsa,
+                              &sig)
+            .value == OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_ed25519_verify(&valid_pub, NULL, kOtcryptoEddsaSignModeEddsa,
+                                &bad_const_sig, &verify_res)
+            .value == OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_ed25519_sign_part1_async_start(&valid_priv, NULL,
+                                                kOtcryptoEddsaSignModeEddsa,
+                                                &s_ok, &s_ok, &r_ok, &r_ok)
+            .value == OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_ed25519_sign_part1_async_start(&valid_priv, &msg,
+                                                kOtcryptoEddsaSignModeEddsa,
+                                                NULL, &s_ok, &r_ok, &r_ok)
+            .value == OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_ed25519_sign_part2_async_start(
+            &valid_priv, NULL, kOtcryptoEddsaSignModeEddsa, &sig, &s_ok, &s_ok,
+            &r_ok, &r_ok)
+            .value == OTCRYPTO_BAD_ARGS.value);
+#endif
+  otcrypto_word32_buf_t s_short =
+      OTCRYPTO_MAKE_BUF(otcrypto_word32_buf_t, s_buf, 11);
+  otcrypto_word32_buf_t r_short =
+      OTCRYPTO_MAKE_BUF(otcrypto_word32_buf_t, r_buf, 19);
+  CHECK(otcrypto_ed25519_sign_part1_async_start(&valid_priv, &msg,
+                                                kOtcryptoEddsaSignModeEddsa,
+                                                &s_short, &s_ok, &r_ok, &r_ok)
+            .value == OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_ed25519_sign_part1_async_start(&valid_priv, &msg,
+                                                kOtcryptoEddsaSignModeEddsa,
+                                                &s_ok, &s_ok, &r_short, &r_ok)
+            .value == OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_ed25519_sign_part2_async_start(
+            &valid_priv, &msg, kOtcryptoEddsaSignModeEddsa, &sig, &s_short,
+            &s_ok, &r_ok, &r_ok)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  // Negative tests for otcrypto_ed25519_point_on_curve
+  CHECK(otcrypto_ed25519_point_on_curve(NULL, &verify_res).value ==
+        OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_ed25519_point_on_curve(&valid_pub, NULL).value ==
+        OTCRYPTO_BAD_ARGS.value);
+  otcrypto_unblinded_key_t bad_pub_len = valid_pub;
+  bad_pub_len.key_length = kEd25519PublicKeyBytes - 1;
+  CHECK(otcrypto_ed25519_point_on_curve(&bad_pub_len, &verify_res).value ==
+        OTCRYPTO_BAD_ARGS.value);
+
+  return OTCRYPTO_OK;
+}
+
+static status_t ed25519_key_import_export_test(void) {
+  LOG_INFO("Running Ed25519 key import/export test");
+
+  otcrypto_key_config_t exportable_cfg = kPrivateKeyConfig;
+  exportable_cfg.exportable = kHardenedBoolTrue;
+
+  uint32_t keyblob_orig[keyblob_num_words(exportable_cfg)];
+  otcrypto_blinded_key_t priv_orig = {
+      .config = exportable_cfg,
+      .keyblob_length = sizeof(keyblob_orig),
+      .keyblob = keyblob_orig,
+  };
+  CHECK_STATUS_OK(import_kat_private_key(&priv_orig));
+
+  enum {
+    kShareWords = kEd25519PrivateKeyWords + 2,
+  };
+  uint32_t s0_data[kShareWords];
+  uint32_t s1_data[kShareWords];
+  otcrypto_word32_buf_t s0_out =
+      OTCRYPTO_MAKE_BUF(otcrypto_word32_buf_t, s0_data, ARRAYSIZE(s0_data));
+  otcrypto_word32_buf_t s1_out =
+      OTCRYPTO_MAKE_BUF(otcrypto_word32_buf_t, s1_data, ARRAYSIZE(s1_data));
+  CHECK_STATUS_OK(
+      otcrypto_curve25519_private_key_export(&priv_orig, &s0_out, &s1_out));
+
+  uint32_t recombined[kEd25519PrivateKeyWords];
+  HARDENED_TRY(
+      hardened_add(s0_data, s1_data, kEd25519PrivateKeyWords, recombined));
+  TRY_CHECK_ARRAYS_EQ(recombined, kSecretKey, kEd25519PrivateKeyWords);
+
+  // Re-import exported shares and verify derived public key matches KAT.
+  uint32_t keyblob_reimp[keyblob_num_words(kPrivateKeyConfig)];
+  otcrypto_blinded_key_t priv_reimp = {
+      .config = kPrivateKeyConfig,
+      .keyblob_length = sizeof(keyblob_reimp),
+      .keyblob = keyblob_reimp,
+  };
+  otcrypto_const_word32_buf_t s0_in = OTCRYPTO_MAKE_BUF(
+      otcrypto_const_word32_buf_t, s0_data, ARRAYSIZE(s0_data));
+  otcrypto_const_word32_buf_t s1_in = OTCRYPTO_MAKE_BUF(
+      otcrypto_const_word32_buf_t, s1_data, ARRAYSIZE(s1_data));
+  CHECK_STATUS_OK(
+      otcrypto_curve25519_private_key_import(s0_in, s1_in, &priv_reimp));
+
+  uint32_t pub_buf[kEd25519PublicKeyWords];
+  otcrypto_unblinded_key_t pub = {
+      .key_mode = kOtcryptoKeyModeEd25519,
+      .key_length = kEd25519PublicKeyBytes,
+      .key = pub_buf,
+  };
+  CHECK_STATUS_OK(otcrypto_ed25519_public_key_from_private(&priv_reimp, &pub));
+  TRY_CHECK_ARRAYS_EQ(pub.key, kPublicKey, kEd25519PublicKeyWords);
+
+  // Non-exportable key must fail export.
+  CHECK(otcrypto_curve25519_private_key_export(&priv_reimp, &s0_out, &s1_out)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  // Wrong share length and wrong key mode must fail import/export.
+  otcrypto_const_word32_buf_t s0_short = OTCRYPTO_MAKE_BUF(
+      otcrypto_const_word32_buf_t, s0_data, (size_t)(kShareWords - 1));
+  CHECK(otcrypto_curve25519_private_key_import(s0_short, s1_in, &priv_reimp)
+            .value == OTCRYPTO_BAD_ARGS.value);
+  otcrypto_word32_buf_t s0_out_short = OTCRYPTO_MAKE_BUF(
+      otcrypto_word32_buf_t, s0_data, (size_t)(kShareWords - 1));
+  CHECK(
+      otcrypto_curve25519_private_key_export(&priv_orig, &s0_out_short, &s1_out)
+          .value == OTCRYPTO_BAD_ARGS.value);
+
+  // Upper 2 words in shares must be ignored during import.
+  s0_data[kEd25519PrivateKeyWords] = 0xdeadbeef;
+  s0_data[kEd25519PrivateKeyWords + 1] = 0x12345678;
+  s1_data[kEd25519PrivateKeyWords] = 0xcafebabe;
+  s1_data[kEd25519PrivateKeyWords + 1] = 0x87654321;
+  CHECK_STATUS_OK(
+      otcrypto_curve25519_private_key_import(s0_in, s1_in, &priv_reimp));
+  CHECK_STATUS_OK(otcrypto_ed25519_public_key_from_private(&priv_reimp, &pub));
+  TRY_CHECK_ARRAYS_EQ(pub.key, kPublicKey, kEd25519PublicKeyWords);
+
+  otcrypto_blinded_key_t bad_mode_key = priv_orig;
+  bad_mode_key.config.key_mode = kOtcryptoKeyModeEcdsaP256;
+  CHECK(otcrypto_curve25519_private_key_import(s0_in, s1_in, &bad_mode_key)
+            .value == OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_curve25519_private_key_export(&bad_mode_key, &s0_out, &s1_out)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  otcrypto_blinded_key_t hw_key = priv_orig;
+  hw_key.config.hw_backed = kHardenedBoolTrue;
+  CHECK(otcrypto_curve25519_private_key_import(s0_in, s1_in, &hw_key).value ==
+        OTCRYPTO_BAD_ARGS.value);
+  CHECK(
+      otcrypto_curve25519_private_key_export(&hw_key, &s0_out, &s1_out).value ==
+      OTCRYPTO_BAD_ARGS.value);
+
+  otcrypto_blinded_key_t bad_checksum_key = priv_orig;
+  bad_checksum_key.checksum ^= 1;
+  CHECK(otcrypto_curve25519_private_key_export(&bad_checksum_key, &s0_out,
+                                               &s1_out)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+#ifndef OTCRYPTO_DISABLE_NULL_CHECKS
+  otcrypto_const_word32_buf_t s0_null =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_word32_buf_t, NULL, kShareWords);
+  CHECK(otcrypto_curve25519_private_key_import(s0_null, s1_in, &priv_reimp)
+            .value == OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_curve25519_private_key_import(s0_in, s1_in, NULL).value ==
+        OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_curve25519_private_key_export(NULL, &s0_out, &s1_out).value ==
+        OTCRYPTO_BAD_ARGS.value);
+  CHECK(
+      otcrypto_curve25519_private_key_export(&priv_orig, NULL, &s1_out).value ==
+      OTCRYPTO_BAD_ARGS.value);
+#endif
+
+  return OTCRYPTO_OK;
+}
+
+status_t ed25519_out_of_order_test(void) {
+  LOG_INFO("Running Ed25519 out of order test");
+
+  uint32_t keyblob[keyblob_num_words(kPrivateKeyConfig)];
+  otcrypto_blinded_key_t private_key = {
+      .config = kPrivateKeyConfig,
+      .keyblob_length = sizeof(keyblob),
+      .keyblob = keyblob,
+  };
+  CHECK_STATUS_OK(import_kat_private_key(&private_key));
+
+  otcrypto_const_byte_buf_t msg =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_byte_buf_t, (const uint8_t *)kMessage,
+                        ARRAYSIZE(kMessage));
+
+  uint32_t sig_buf[kEd25519SignatureWords];
+  otcrypto_word32_buf_t sig =
+      OTCRYPTO_MAKE_BUF(otcrypto_word32_buf_t, sig_buf, kEd25519SignatureWords);
+
+  uint32_t s0_buf[12];
+  uint32_t s1_buf[12];
+  uint32_t r0_buf[20];
+  uint32_t r1_buf[20];
+
+  otcrypto_word32_buf_t s0 =
+      OTCRYPTO_MAKE_BUF(otcrypto_word32_buf_t, s0_buf, 12);
+  otcrypto_word32_buf_t s1 =
+      OTCRYPTO_MAKE_BUF(otcrypto_word32_buf_t, s1_buf, 12);
+  otcrypto_word32_buf_t r0 =
+      OTCRYPTO_MAKE_BUF(otcrypto_word32_buf_t, r0_buf, 20);
+  otcrypto_word32_buf_t r1 =
+      OTCRYPTO_MAKE_BUF(otcrypto_word32_buf_t, r1_buf, 20);
+
+  // Call part2 before part1
+  CHECK(otcrypto_ed25519_sign_part2_async_start(&private_key, &msg,
+                                                kOtcryptoEddsaSignModeEddsa,
+                                                &sig, &s0, &s1, &r0, &r1)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  // Call finalize before part1/part2
+  CHECK(otcrypto_ed25519_sign_async_finalize(&sig).value ==
+        OTCRYPTO_BAD_ARGS.value);
+
+  // Call part1 and then finalize directly (skip part2)
+  CHECK_STATUS_OK(otcrypto_ed25519_sign_part1_async_start(
+      &private_key, &msg, kOtcryptoEddsaSignModeEddsa, &s0, &s1, &r0, &r1));
+  CHECK(otcrypto_ed25519_sign_async_finalize(&sig).value ==
+        OTCRYPTO_BAD_ARGS.value);
+
+  // Start part1 again (just to see if we can recover)
+  CHECK_STATUS_OK(otcrypto_ed25519_sign_part1_async_start(
+      &private_key, &msg, kOtcryptoEddsaSignModeEddsa, &s0, &s1, &r0, &r1));
+  CHECK_STATUS_OK(otcrypto_ed25519_sign_part2_async_start(
+      &private_key, &msg, kOtcryptoEddsaSignModeEddsa, &sig, &s0, &s1, &r0,
+      &r1));
+
+  // Start part2 again instead of finalize
+  CHECK(otcrypto_ed25519_sign_part2_async_start(&private_key, &msg,
+                                                kOtcryptoEddsaSignModeEddsa,
+                                                &sig, &s0, &s1, &r0, &r1)
+            .value == OTCRYPTO_BAD_ARGS.value);
+
+  // Start over to finally finalize correctly
+  CHECK_STATUS_OK(otcrypto_ed25519_sign_part1_async_start(
+      &private_key, &msg, kOtcryptoEddsaSignModeEddsa, &s0, &s1, &r0, &r1));
+  CHECK_STATUS_OK(otcrypto_ed25519_sign_part2_async_start(
+      &private_key, &msg, kOtcryptoEddsaSignModeEddsa, &sig, &s0, &s1, &r0,
+      &r1));
+
+  // Finally finalize correctly
+  CHECK_STATUS_OK(otcrypto_ed25519_sign_async_finalize(&sig));
+
+  // Hardware-backed Ed25519 keys must be rejected across all entry points,
+  // including sign_part2_async_start even after a valid part1_async_start.
+  uint32_t hw_blob[kKeyblobHwBackedWords] = {0};
+  otcrypto_key_config_t hw_cfg = kPrivateKeyConfig;
+  hw_cfg.hw_backed = kHardenedBoolTrue;
+  otcrypto_blinded_key_t hw_priv = {
+      .config = hw_cfg,
+      .keyblob_length = sizeof(hw_blob),
+      .keyblob = hw_blob,
+  };
+  hw_priv.checksum = otcrypto_integrity_blinded_checksum(&hw_priv);
+  uint32_t pk_buf[kEd25519PublicKeyWords] = {0};
+  otcrypto_unblinded_key_t pub_key = {
+      .key_mode = kOtcryptoKeyModeEd25519,
+      .key_length = kEd25519PublicKeyBytes,
+      .key = pk_buf,
+  };
+  CHECK(otcrypto_ed25519_keygen(&hw_priv, &pub_key).value ==
+        OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_ed25519_keygen_async_finalize(&hw_priv, &pub_key).value ==
+        OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_ed25519_public_key_from_private(&hw_priv, &pub_key).value ==
+        OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_ed25519_sign(&hw_priv, &msg, kOtcryptoEddsaSignModeEddsa, &sig)
+            .value == OTCRYPTO_BAD_ARGS.value);
+  CHECK(otcrypto_ed25519_sign_part1_async_start(
+            &hw_priv, &msg, kOtcryptoEddsaSignModeEddsa, &s0, &s1, &r0, &r1)
+            .value == OTCRYPTO_BAD_ARGS.value);
+  CHECK_STATUS_OK(otcrypto_ed25519_sign_part1_async_start(
+      &private_key, &msg, kOtcryptoEddsaSignModeEddsa, &s0, &s1, &r0, &r1));
+  CHECK(otcrypto_ed25519_sign_part2_async_start(&hw_priv, &msg,
+                                                kOtcryptoEddsaSignModeEddsa,
+                                                &sig, &s0, &s1, &r0, &r1)
+            .value == OTCRYPTO_BAD_ARGS.value);
+  // Drain OTBN stage 1 before returning.
+  CHECK_STATUS_OK(otcrypto_ed25519_sign_part2_async_start(
+      &private_key, &msg, kOtcryptoEddsaSignModeEddsa, &sig, &s0, &s1, &r0,
+      &r1));
+  CHECK_STATUS_OK(otcrypto_ed25519_sign_async_finalize(&sig));
+
+  return OTCRYPTO_OK;
+}
+
+OTTF_DEFINE_TEST_CONFIG();
+
+bool test_main(void) {
+  status_t result = OK_STATUS();
+
+  otcrypto_state_t state = {0};
+  CHECK_STATUS_OK(otcrypto_init(kOtcryptoKeySecurityLevelLow, &state));
+
+  EXECUTE_TEST(result, ed25519_kat_test);
+  EXECUTE_TEST(result, ed25519_keygen_test);
+  EXECUTE_TEST(result, ed25519_key_import_export_test);
+  EXECUTE_TEST(result, hasheddsa_test);
+  EXECUTE_TEST(result, sign_verify_test);
+  EXECUTE_TEST(result, point_on_curve_test);
+  EXECUTE_TEST(result, run_wycheproof_invalid_r_test);
+  EXECUTE_TEST(result, run_negative_tests);
+  EXECUTE_TEST(result, ed25519_out_of_order_test);
+
+  return status_ok(result);
+}

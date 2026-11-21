@@ -1,0 +1,1314 @@
+# OpenTitan Cryptography Library User Guide
+
+This page is intended for users of the OpenTitan cryptographic library.
+The library is written in C and uses OpenTitan's hardware blocks for accelerated cryptography.
+It generally attempts to minimize code size and protect against side-channel and fault-injection attacks, including by physically present attackers.
+For a secure setting, the cryptolib should be the only software in the firmware authorized to interact with the crypto blocks in OpenTitan.
+
+This page:
+- Lists a quick reference for [supported algorithms](#supported-algorithms)
+- Enumerates all of the cryptolib's [data structures](#data-structures)
+- Shows and explains the interfaces for:
+  - [AES-based operations](#aes)
+  - [TDES-based operations (not FI/SCA protected)](#tdes)
+  - [Hash functions](#hash-functions)
+  - [Message authentication](#message-authentication)
+  - [RSA operations](#rsa)
+  - [Elliptic curve cryptography](#elliptic-curve-cryptography)
+  - [Deterministic random bit generation (DRBG)](#deterministic-random-bit-generation)
+  - [Key derivation functions (KDF)](#key-derivation)
+  - [Key transport](#key-transport)
+- Explains [key destruction and zeroization](#key-destruction-and-zeroization)
+- Explains how [asynchronous operations](#asynchronous-operations) work
+- Lists the [security strength](#security-strength) of each algorithm
+- Lists [references](#reference) for further reading
+
+## Supported Algorithms
+
+The following is a quick reference for algorithms and modes supported by the OT cryptolib.
+For more details, see later sections (links in the "category" column).
+
+| Category        | Supported schemes         |
+|-----------------|---------------------------|
+| [**AES**](#aes) | AES-{ECB,CBC,CFB,OFB,CTR}<br>AES-KWP<br>AES-GCM |
+| [**TDES**](#tdes) | TDES-{ECB,CBC,CFB,OFB,CTR} *(plain software; not FI/SCA protected)* |
+| [**Hash functions**](#hash-functions) | SHA-1 *(plain software; not FI/SCA protected)*<br>SHA2-{256,384,512}<br>SHA3-{224,256,384,512}<br>SHAKE{128,256} (XOF)<br>cSHAKE{128,256} (XOF) |
+| [**Message authentication**](#message-authentication) | HMAC-SHA-1 *(plain software; not FI/SCA protected)*<br>HMAC-SHA{256,384,512}<br>KMAC{128,256}<br>AES-CMAC |
+| [**RSA**](#rsa) | RSA-{2048,3072,4096} |
+| [**Elliptic curve cryptography**](#elliptic-curve-cryptography) | ECDSA-{P256,P384}<br>ECDH-{P256,P384}<br>Ed25519<br>X25519 |
+| [**Deterministic random bit generation**](#deterministic-random-bit-generation) | AES-CTR-DRBG<br>HMAC-DRBG *(not FI/SCA protected)* |
+| [**Key derivation**](#key-derivation) | HKDF<br>HMAC-KDF-CTR<br>KMAC-KDF-CTR<br>AES-CMAC-KDF-CTR |
+
+## Cryptolib Initialization
+
+Before using the cryptolib, the user should initialize the system with the dedicated `otcrypto_init` function.
+Depending on the provided `security_level` (`kOtcryptoKeySecurityLevelLow`, `kOtcryptoKeySecurityLevelMedium`, `kOtcryptoKeySecurityLevelHigh`), the initialization function enables certain countermeasures (e.g., the Ibex dummy instruction [feature][dummy-instruction]).
+The function also takes a pointer to an `otcrypto_state_t` structure, which is used to track the library's internal state (such as KATs and integrity checks) across calls.
+Please note that this function only can be called from the machine (M) mode privilege level as it writes to system registers.
+
+{{#header-snippet sw/device/lib/crypto/include/config.h otcrypto_init }}
+
+### Advanced Configuration and System Operations
+
+{{#header-snippet sw/device/lib/crypto/include/config.h otcrypto_security_config_check }}
+{{#header-snippet sw/device/lib/crypto/include/config.h otcrypto_set_security_config }}
+{{#header-snippet sw/device/lib/crypto/include/config.h otcrypto_disable_icache }}
+{{#header-snippet sw/device/lib/crypto/include/config.h otcrypto_restore_icache }}
+{{#header-snippet sw/device/lib/crypto/include/config.h otcrypto_clear_alerts }}
+{{#header-snippet sw/device/lib/crypto/include/entropy_src.h otcrypto_entropy_init }}
+{{#header-snippet sw/device/lib/crypto/include/entropy_src.h otcrypto_entropy_check }}
+{{#header-snippet sw/device/lib/crypto/include/entropy_src.h otcrypto_entropy_health_test_config_check }}
+{{#header-snippet sw/device/lib/crypto/include/self_integrity.h otcrypto_integrity_check }}
+{{#header-snippet sw/device/lib/crypto/include/cmvp.h otcrypto_cmvp_service_indicator }}
+
+## Cryptolib Exit
+
+Before returning to the caller, the cryptolib invokes `otcrypto_eval_exit` with the status returned by the cryptolib operation.
+This function checks whether any security alert was fired during the operation and returns an error if so.
+Moreover, the function also checks the entropy complex health test and alert configurations.
+
+{{#header-snippet sw/device/lib/crypto/include/config.h otcrypto_eval_exit }}
+
+## Build Configurations
+
+The OpenTitan cryptography library provides several compile-time configuration settings via Bazel.
+These flags allow you to optimize code size or enable deep debugging.
+
+Each setting is defined as a Bazel `bool_flag` (`//sw/device/lib/crypto/configs:<setting>_flag`) with a `.bazelrc` alias (`--<setting>`).
+You can activate these settings during the build process by passing `--<setting>=true` (or `--//sw/device/lib/crypto/configs:<setting>_flag=true` when building from an external workspace or transition) to Bazel.
+
+Additionally, building with the Bazel `--stamp` option is required to include the actual Git commit hash in the build info.
+Building with `--stamp` also automatically marks the build as a release build (setting `released` to `true`).
+
+| Flag Alias | Build Setting | Internal Define | Description |
+|---|---|---|---|
+| `--crypto_status_debug` | `//sw/device/lib/crypto/configs:crypto_status_debug_flag` | `OTCRYPTO_STATUS_DEBUG` | Embeds the module ID and line number directly into `otcrypto_status_t` error codes. This significantly aids debugging but increases the footprint and alters standard error structures. |
+| `--disable_null_checks` | `//sw/device/lib/crypto/configs:disable_null_checks_flag` | `OTCRYPTO_DISABLE_NULL_CHECKS` | Removes `NULL` pointer checks on API inputs throughout the library (e.g., AES-GCM operations). This saves code size, but strictly requires the caller to guarantee no `NULL` pointers are passed. |
+| `--disable_buf_integrity_checks` | `//sw/device/lib/crypto/configs:disable_buf_integrity_checks_flag` | `OTCRYPTO_DISABLE_BUF_INTEGRITY_CHECKS` | Disables runtime integrity verification for data buffers. This bypasses `verify_buf_integrity`, removing the check that compares `ptr_checksum` against the data's calculated checksum. |
+| `--disable_hardening` | `//sw/device/lib/crypto/configs:disable_hardening_flag` | `OT_DISABLE_HARDENING` | Replaces the fault-hardened double-branch assembly sequences in `HARDENED_TRY` and `HARDENED_CHECK_*` with a single non-redundant check in the cryptolib to reduce code size. When enabled, `otcrypto_security_config_check` only permits `kOtcryptoKeySecurityLevelLow`. |
+
+## Build Information and Versioning
+
+The cryptolib provides functions to query the library version and build information (such as the Git commit hash of `sw/device/lib/crypto`).
+
+Callers can check the current library version using the `otcrypto_lib_version` API function (which returns the `otcrypto_lib_version_t` enum value):
+
+{{#header-snippet sw/device/lib/crypto/include/cryptolib_build_info.h otcrypto_lib_version }}
+
+To protect against fault injection and guarantee high Hamming distance between version increments, library version numbers (`otcrypto_lib_version_t`) are encoded using modular multiplicative inversion in $GF(2^{32})$:
+```
+version = (((major << 24) | (minor << 16) | (patch << 8) | 0x04) * 0xc0c001fdu) & 0xffffffffu
+```
+For example, version `1.0.0` encodes to `0x000007f4` (`kOtcryptoLibVersion1`) and version `2.0.0` encodes to `0xfd0007f4` (`kOtcryptoLibVersion2`).
+
+Callers can decode any version integer into its major, minor, and patch components using `otcrypto_version_decode`:
+
+{{#header-snippet sw/device/lib/crypto/include/cryptolib_build_info.h otcrypto_version_decode }}
+
+Full build information, including release status and truncated Git commit hash, can be queried with `otcrypto_build_info`:
+
+{{#header-snippet sw/device/lib/crypto/include/cryptolib_build_info.h otcrypto_build_info }}
+
+The cryptolib module name (`otcrypto_earlgrey_cryptolib`) can be queried into a fixed-length byte buffer (`kOtcryptoModuleNameBytes`) with `otcrypto_module_name`:
+
+{{#header-snippet sw/device/lib/crypto/include/cryptolib_build_info.h otcrypto_module_name }}
+
+The ROM version (stored in the `ROM_CTRL.EXP_DIGEST_1` register) can be read with `otcrypto_rom_version`:
+
+{{#header-snippet sw/device/lib/crypto/include/cryptolib_build_info.h otcrypto_rom_version }}
+
+### Key Structure Migration and Version Verification
+
+Secret keys (`otcrypto_blinded_key_t`) are masked/blinded in memory to protect against side-channel attacks.
+Because internal keyblob layouts and masking representations may evolve across library releases, blinded key configurations store the library version under which they were generated (`config.version`).
+When performing integrity checks on secret keys (`otcrypto_integrity_blinded_key_check`), the library strictly verifies that `key->config.version` matches the current library version (`kCryptoLibVersion`).
+Only secret keys matching the current library version are accepted; keys with a different version fail integrity checks and are rejected with `OTCRYPTO_BAD_ARGS`.
+
+To migrate key structures across library releases, the cryptolib provides dedicated key migration functions:
+
+{{#header-snippet sw/device/lib/crypto/include/key_transport.h otcrypto_blinded_key_migrate }}
+
+Hardware-backed keys cannot be migrated using these functions, due to their version being used as diversifier.
+
+## FIPS Build & Position-Independent Code (PIC)
+
+In addition to the default development build (`crypto_dev` which builds a standard static library), the cryptolib can be built as a **position-independent binary blob** for FIPS compliance.
+This specialized target hashes the library's contents and fuses the hash onto the binary boundary.
+
+You can trigger this build using the `--config=crypto_fips_all` Bazel flag.
+The exact functions included in this blob are strictly governed by an allowlist configuration file located in `//sw/device/lib/crypto/configs`.
+
+Because the FIPS blob is relocatable and contiguous, developers contributing to the cryptolib must adhere to strict memory and structural constraints.
+
+### Cryptolib Contributor Constraints
+
+*   **No `.bss` or `.data` sections:** The linker script enforces that the `.bss`, `.sbss`, `.data`, and `.sdata2` sections have a size of exactly 0.
+You **cannot** use static (non-const) variables or uninitialized global variables.
+All data must reside in `.text`, `.rodata`, or `.srodata`.
+*   **Strict Position Independence:** Code must be completely position-independent (PIC) and cannot rely on a Global Offset Table (GOT).
+*   **No Jump Tables:** The library is explicitly compiled with `-fno-jump-tables`.
+This forces the compiler to handle `switch` statements without generating position-dependent jump tables.
+*   **No Function Pointer Arrays:** Do not use `static const` arrays of function pointers (such as execution dispatch tables).
+The compiler will bake absolute memory addresses into the `.rodata` section.
+Instead, use sequential `if` statements or `switch` blocks, which force the compiler to generate safe, PC-relative jump instructions (`jal` or `auipc`).
+*   **Dynamic Pointer Initialization:** When initializing structs that contain pointers (like `otcrypto_byte_buf_t` or `otcrypto_unblinded_key_t`) with global constant arrays, **do not** use static curly-brace initialization or macros like `OTCRYPTO_MAKE_BUF`.
+The GCC optimizer will trap this and embed absolute addresses into `.rodata`.
+Instead, construct these structs dynamically at runtime using the inline builder functions provided in `integrity.h` (e.g., `otcrypto_make_const_byte_buf()`).
+This forces the compiler to calculate the pointer offsets safely on the stack.
+
+### Stateful Known Answer Tests (KATs)
+
+In the FIPS build, cryptographic operations are gated by Power-On Self-Tests (POSTs), Known Answer Tests (KATs), and self-integrity checks.
+The cryptolib handles these seamlessly, but internal contributors and host applications must observe the following rules to prevent lockups and memory faults:
+
+*   **Run-Once State Tracking:** To minimize latency, KATs execute lazily upon the first invocation of a module.
+Because the cryptolib cannot maintain its own `.bss` section to track this execution state, the ledger relies on a host-provided state pointer passed during `otcrypto_init()`.
+*   **Hardware Pointer Stashing:** To avoid passing this pointer through every internal crypto function call, the cryptolib splits and stashes the 32-bit state address inside two unused 16-bit threshold registers within the hardware's `ENTROPY_SRC` block (`ENTROPY_SRC_EXTHT_HI_THRESHOLDS` and `ENTROPY_SRC_EXTHT_LO_THRESHOLDS`).
+These registers do not influence the entropy source's health tests.
+*   **Register Integrity:** Never manually configure or overwrite the `ENTROPY_SRC_EXTHT_HI_THRESHOLDS` or `ENTROPY_SRC_EXTHT_LO_THRESHOLDS` registers in the entropy source after initialization.
+Doing so will corrupt the stashed pointer.
+*   **Host Memory Stability:** The host firmware calling `otcrypto_init()` must ensure that the memory address backing the KAT state is globally stable.
+Do not pass a stack-allocated variable unless its scope is guaranteed to outlive all cryptographic operations.
+*   **Self-Integrity Check:** In FIPS mode, `otcrypto_init()` performs a self-integrity check by hashing the library's binary blob and comparing it to a pre-calculated hash.
+The result is stored in the tracking state.
+Subsequent operations verify that this check has passed, returning a recoverable error (`kOtcryptoStatusValueInternalError`) if it has not.
+*   **Locked State:** If the self-integrity check fails, or if any subsequent KAT fails, the library enters a locked state.
+Once locked, the library is disabled, and all subsequent cryptographic operations will immediately return a fatal error (`kOtcryptoStatusValueFatalError`), this is only reverted by resetting the chip.
+
+### Testing PIC Compliance
+
+If you suspect position-dependent code has been introduced, you can run the dedicated PIC compliance test:
+
+```bash
+bazel test //sw/device/tests/crypto:otcrypto_pic_test
+```
+
+This test ensures there are no absolute addresses in the blob.
+It does this by compiling the library at two different base memory offsets, extracting the pure binary, and comparing them byte-by-byte.
+If differences are found, the test traces them back to the violating symbols, failing the run and printing the exact functions or variables that need manual inspection in the disassembly.
+
+## Cryptolib Usage Examples
+
+Examples of how to use the cryptolib API are provided in the [cryptolib test directory][crypto-tests].
+These examples cover a range of algorithms and demonstrate the typical call sequence for symmetric and asymmetric cryptographic operations including key generation.
+
+## Data structures
+
+These are the basic data structures used by the crypto library to communicate with the caller.
+Note that in the OpenTitan cryptolib, memory allocation is left mostly to the caller.
+
+### Status Codes
+
+All functions in the OpenTitan cryptolib return `otcrypto_status_t`.
+This design is compatible with OpenTitan's internal `status_t` datatype.
+
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_status_t }}
+
+However, the cryptolib additionally guarantees that all status codes will be bit-compatible to the `otcrypto_status_value` enum.
+Callers who do not wish to use `status_t` infrastructure may compare to these values.
+
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_status_value }}
+
+#### Error Handling and Applicability Across APIs
+
+Every API in the OpenTitan cryptography library returns an `otcrypto_status_t` code that evaluates to one of the standard `otcrypto_status_value_t` values.
+The table below specifies the meaning of each status code, the exact conditions under which it is returned, and which APIs it applies to:
+
+| Status Value | Meaning | Return Conditions | Applicability |
+|---|---|---|---|
+| `kOtcryptoStatusValueOk` | Success | The operation completed successfully without errors. | All Cryptolib APIs. |
+| `kOtcryptoStatusValueBadArgs` | Bad Arguments / Invalid Input | Returned when: <br>- A required input pointer is `NULL` (unless `OTCRYPTO_DISABLE_NULL_CHECKS` is configured).<br>- An input or output buffer length does not match expectations (e.g., in `otcrypto_aes`, `otcrypto_key_wrap`, `otcrypto_hmac`).<br>- An invalid key type, key mode, padding mode, or curve parameter is specified.<br>- Keyblob or share length does not match the key configuration (e.g., in `otcrypto_ecdsa_p256_keygen` or `otcrypto_symmetric_keygen`). | All APIs that accept arguments, buffers, or key configurations. |
+| `kOtcryptoStatusValueInternalError` | Recoverable / Transient Error | Returned when a transient, non-fatal hardware error or timeout occurs (e.g., timeout waiting for TRNG/entropy generation or OTBN completion). The caller may safely retry the operation. | APIs that interface with hardware accelerators or the entropy complex (`drbg`, `otbn`, `entropy_src`). |
+| `kOtcryptoStatusValueFatalError` | Fatal Error | Returned when: <br>- A security alert or hardware fault detector is triggered during execution.<br>- A buffer or key integrity checksum check fails (`otcrypto_integrity_*`).<br>- A Power-On Self-Test (POST) or Known Answer Test (KAT) fails. | All cryptographic operations and initialization routines. |
+| `kOtcryptoStatusValueAsyncIncomplete` | Asynchronous Operation In Progress | Returned when an asynchronous operation (e.g., `otcrypto_ecdsa_p256_sign_async_finalize` or `otcrypto_rsa_sign_async_finalize`) is polled or finalized before OTBN has finished processing. | Only asynchronous `*_async_finalize` APIs. |
+
+For specific API functions (e.g., `otcrypto_aes`, `otcrypto_ecdsa_p256_keygen`, `otcrypto_key_wrap`), any mismatch in input lengths, invalid key mode, or invalid buffer alignment will specifically return `kOtcryptoStatusValueBadArgs`, while hardware alerts or checksum corruptions will return `kOtcryptoStatusValueFatalError`.
+
+### Data buffers
+
+The cryptolib uses byte buffers for data that may not be 32-bit aligned, such as message inputs to hash functions.
+
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_byte_buf }}
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_const_byte_buf }}
+
+The cryptolib uses word buffers to enforce alignment where either the data is guaranteed to be aligned or where it is especially helpful for implementation reasons.
+Since most OpenTitan hardware interfaces expect aligned data, this is important sometimes for security and simplicity.
+Word buffers can be safely interpreted as byte streams by the caller; the bytes are arranged so that on a little-endian processor like Ibex, they will read as the correct byte-stream even if the specification calls for big-endian.
+
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_word32_buf }}
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_const_word32_buf }}
+
+### Buffer and Key Integrity Helpers
+
+The cryptolib provides helper functions to create and verify integrity checksums on data buffers and key structures:
+
+{{#header-snippet sw/device/lib/crypto/include/integrity.h otcrypto_make_byte_buf }}
+{{#header-snippet sw/device/lib/crypto/include/integrity.h otcrypto_make_const_byte_buf }}
+{{#header-snippet sw/device/lib/crypto/include/integrity.h otcrypto_make_word32_buf }}
+{{#header-snippet sw/device/lib/crypto/include/integrity.h otcrypto_make_const_word32_buf }}
+{{#header-snippet sw/device/lib/crypto/include/integrity.h otcrypto_check_byte_buf }}
+{{#header-snippet sw/device/lib/crypto/include/integrity.h otcrypto_check_const_byte_buf }}
+{{#header-snippet sw/device/lib/crypto/include/integrity.h otcrypto_check_word32_buf }}
+{{#header-snippet sw/device/lib/crypto/include/integrity.h otcrypto_check_const_word32_buf }}
+{{#header-snippet sw/device/lib/crypto/include/integrity.h otcrypto_integrity_unblinded_checksum }}
+{{#header-snippet sw/device/lib/crypto/include/integrity.h otcrypto_integrity_blinded_checksum }}
+{{#header-snippet sw/device/lib/crypto/include/integrity.h otcrypto_integrity_unblinded_key_check }}
+{{#header-snippet sw/device/lib/crypto/include/integrity.h otcrypto_integrity_blinded_key_check }}
+
+### Key data structures
+
+Keys receive extra protection from the cryptolib.
+Public keys are represented in plain, "unblinded" form, but include a checksum to protect them against accidental corruption.
+The checksum is implementation-specific and may change over time.
+The caller should use algorithm-specific routines to construct unblinded keys; see e.g. the ECC and RSA sections for details.
+
+Because memory allocation for all key structures (including `otcrypto_blinded_key_t`, `otcrypto_unblinded_key_t`, and their underlying `keyblob`/`key` buffers) is managed by the caller, key destruction and randomization of RAM-allocated key material is the responsibility of the caller once keys are no longer needed.
+See [Key destruction and zeroization](#key-destruction-and-zeroization) for details.
+
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_unblinded_key }}
+
+Secret keys are "blinded", meaning that keys are represented by at least two "shares" the same size as the key.
+Blinded keys are also sometimes referred to as "masked".
+This helps protect against e.g. power side-channel attacks, because the code will never handle a bit of the "real" key, only the independent shares.
+The exact blinding method and internal representation of blinded key data is opaque to the caller and subject to change in future library versions.
+Like unblinded keys, they include a checksum.
+Callers should use key import/export functions to generate, construct, and interpret blinded keys.
+
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_blinded_key }}
+
+As shown above, all secret keys have a configuration value.
+Once the key is created, or imported, the configuration is not expected to change; the cryptolib will never change it, and the caller would have to recompute the key checksum to change it, which is not recommended.
+The configuration helps the cryptolib interpret how the key is represented and how it is permitted to be used.
+Nothing in the configuration is typically secret.
+
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_key_config }}
+
+In most cases, the caller needs to provide a configuration before calling algorithms which generate secret keys.
+Callers may request keys from OpenTitan's [key manager block][keymgr] by setting `hw_backed` in the key configuration.
+In this case, the keyblob is the diversification input for key manager instead of the key material itself.
+See the [key transport](#key-transport) section for more details.
+
+### Bookkeeping data structures
+
+This versioning enum helps the cryptolib keep backwards-compatibility if the representation of opaque data-structures changes.
+This way, a later version of the cryptolib can still recognize and interpret a data structure produced by an earlier version, for example a stored key.
+
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_lib_version }}
+
+The required security level for the blinded key is chosen using the enum below.
+At high security levels, the crypto library will prioritize protecting the key from sophisticated attacks, even at large performance costs. If the security level is low, the crypto library will still try to protect the key, but may forgo the most costly protections against it.
+
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_key_security_level }}
+
+Data structures for key types and modes help the cryptolib recognize and prevent misuse of a key for the wrong algorithm or mode.
+
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_key_type }}
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_aes_key_mode }}
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_tdes_key_mode }}
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_hmac_key_mode }}
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_kmac_key_mode }}
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_rsa_key_mode }}
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_ecc_key_mode }}
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_kdf_key_mode }}
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_key_mode }}
+
+### Algorithm-specific data structures
+
+#### AES data structures
+
+{{#header-snippet sw/device/lib/crypto/include/aes.h otcrypto_aes_mode }}
+{{#header-snippet sw/device/lib/crypto/include/aes.h otcrypto_aes_operation }}
+{{#header-snippet sw/device/lib/crypto/include/aes.h otcrypto_aes_padding }}
+{{#header-snippet sw/device/lib/crypto/include/aes_gcm.h otcrypto_aes_gcm_tag_len }}
+
+#### TDES data structures
+
+> **Warning:** TDES is a plain software implementation and is **not** protected against fault injection (FI) or side-channel analysis (SCA) attacks.
+
+{{#header-snippet sw/device/lib/crypto/include/tdes.h otcrypto_tdes_mode }}
+{{#header-snippet sw/device/lib/crypto/include/tdes.h otcrypto_tdes_operation }}
+{{#header-snippet sw/device/lib/crypto/include/tdes.h otcrypto_tdes_padding }}
+
+#### Elliptic curve data structures
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_eddsa_sign_mode }}
+
+#### Hash data structures
+
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_hash_mode }}
+{{#header-snippet sw/device/lib/crypto/include/datatypes.h otcrypto_hash_digest }}
+
+#### RSA data structures
+
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_padding }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_size }}
+
+### Private data structures
+
+The following data structures are considered implementation specific.
+The caller knows their size and must allocate space for them.
+However, they are essentially scratchpad space for the underlying implementation and should not be modified directly.
+
+{{#header-snippet sw/device/lib/crypto/include/sha1.h otcrypto_sha1_context }}
+{{#header-snippet sw/device/lib/crypto/include/sha2.h otcrypto_sha2_context }}
+{{#header-snippet sw/device/lib/crypto/include/hmac.h otcrypto_hmac_context }}
+{{#header-snippet sw/device/lib/crypto/include/sha1.h otcrypto_hmac_sha1_context }}
+{{#header-snippet sw/device/lib/crypto/include/cmac.h otcrypto_cmac_context }}
+{{#header-snippet sw/device/lib/crypto/include/hmac_drbg.h otcrypto_hmac_drbg_context }}
+
+## AES
+
+OpenTitan includes a hardware [AES block][aes].
+The AES block supports five cipher modes (ECB, CBC, CFB, OFB, and CTR) with a key length of 128 bits, 192 bits and 256 bits.
+
+The crypto library includes all five basic cipher modes supported by the hardware, as well as the AES-KWP key-wrapping scheme and AES-GCM authenticated encryption scheme.
+Padding schemes are defined in the **otcrypto\_aes\_padding\_t** structure from [this section](#aes-data-structures).
+
+Because the crypto library uses the hardware AES block, it does not expose an init/update/final interface for AES, since this would risk locking up the block if an operation is not finalized.
+
+### Block Cipher
+
+A one-shot API initializes the required block cipher mode of operation (ECB, CBC, CFB, OFB or CTR) and performs the required encryption/decryption.
+
+{{#header-snippet sw/device/lib/crypto/include/aes.h otcrypto_aes_padded_plaintext_length }}
+{{#header-snippet sw/device/lib/crypto/include/aes.h otcrypto_aes_padding_strip }}
+{{#header-snippet sw/device/lib/crypto/include/aes.h otcrypto_aes }}
+
+#### Usage
+
+The following example shows how a message can be encrypted and decrypted using the cryptolib AES API.
+
+```c
+enum {
+  // Plaintext is 20 bytes: not a multiple of the 16-byte AES block size.
+  kPlaintextLen = 20,
+};
+
+// Two key shares that XOR to the actual 128-bit key.
+static const uint32_t kKeyShare0[4] = {0xdeadbeef, 0x01234567, 0x89abcdef, 0xfedcba98};
+static const uint32_t kKeyShare1[4] = {0x00000000, 0x00000000, 0x00000000, 0x00000000};
+
+bool aes_encrypt_decrypt_example(void) {
+  // --- Initialize the system for the cryptolib execution  ---
+  TRY(otcrypto_init(kOtcryptoKeySecurityLevelLow));
+
+  // --- Build the blinded AES-ECB key ---
+  otcrypto_key_config_t key_config = {
+    .version        = otcrypto_lib_version(),
+    .key_mode       = kOtcryptoKeyModeAesEcb,
+    .key_length     = 16,
+    .hw_backed      = kHardenedBoolFalse,
+    .exportable     = kHardenedBoolFalse,
+    .security_level = kOtcryptoKeySecurityLevelLow,
+  };
+  // Keyblob must be twice the key length (holds two shares).
+  uint32_t keyblob[8];
+  otcrypto_blinded_key_t key = {
+    .config         = key_config,
+    .keyblob_length = sizeof(keyblob),
+    .keyblob        = keyblob,
+  };
+  otcrypto_const_word32_buf_t share0 =
+    OTCRYPTO_MAKE_BUF(otcrypto_const_word32_buf_t, kKeyShare0, 4);
+  otcrypto_const_word32_buf_t share1 =
+    OTCRYPTO_MAKE_BUF(otcrypto_const_word32_buf_t, kKeyShare1, 4);
+  TRY(otcrypto_import_blinded_key(&share0, &share1, &key));
+
+  // --- Plaintext: 20 bytes, not a multiple of the block size ---
+  static const uint8_t kPlaintext[kPlaintextLen] = "Hello, OpenTitan!!!";
+
+  // --- Query padded length, then allocate output buffers ---
+  size_t padded_len;
+  TRY(otcrypto_aes_padded_plaintext_length(
+    kPlaintextLen, kOtcryptoAesPaddingPkcs7, &padded_len));
+
+  uint8_t ciphertext[padded_len];
+  uint8_t decrypted[padded_len];
+
+  // --- Encrypt ---
+  otcrypto_const_byte_buf_t plaintext_buf =
+    OTCRYPTO_MAKE_BUF(otcrypto_const_byte_buf_t, kPlaintext, kPlaintextLen);
+  otcrypto_byte_buf_t ciphertext_buf =
+    OTCRYPTO_MAKE_BUF(otcrypto_byte_buf_t, ciphertext, padded_len);
+  TRY(otcrypto_aes(&key, /*iv=*/NULL, kOtcryptoAesModeEcb,
+                   kOtcryptoAesOperationEncrypt, &plaintext_buf,
+                   kOtcryptoAesPaddingPkcs7, &ciphertext_buf));
+
+  // --- Decrypt ---
+  otcrypto_const_byte_buf_t ciphertext_in =
+    OTCRYPTO_MAKE_BUF(otcrypto_const_byte_buf_t, ciphertext, padded_len);
+  otcrypto_byte_buf_t decrypted_buf =
+    OTCRYPTO_MAKE_BUF(otcrypto_byte_buf_t, decrypted, padded_len);
+  TRY(otcrypto_aes(&key, /*iv=*/NULL, kOtcryptoAesModeEcb,
+                   kOtcryptoAesOperationDecrypt, &ciphertext_in,
+                   kOtcryptoAesPaddingPkcs7, &decrypted_buf));
+
+  // --- Strip padding ---
+  size_t recovered_len;
+  TRY(otcrypto_aes_padding_strip(
+    &decrypted_buf, kOtcryptoAesPaddingPkcs7, &recovered_len));
+
+  // --- Compare ---
+  return memcmp(kPlaintext, decrypted, recovered_len) == 0;
+}
+```
+
+### AES-GCM
+
+AES-GCM (Galois/Counter Mode) is an authenticated encryption with associated data (AEAD) scheme.
+It protects both the confidentiality and authenticity of the main input and the authenticity (but not confidentiality) of the associated data.
+
+GCM is specified in [NIST SP800-38D][gcm-spec].
+One important note for using AES-GCM is that shorter tags degrade authentication guarantees, so it is important to fully understand the implications before using shortened tags.
+
+The cryptolib offers GCM in one-shot and in streaming mode.
+In streaming mode, it is strongly recommended not to process the decrypted data before verifying the authentication tag.
+
+#### GCM - Authenticated Encryption and Decryption
+
+{{#header-snippet sw/device/lib/crypto/include/aes_gcm.h otcrypto_aes_gcm_encrypt }}
+{{#header-snippet sw/device/lib/crypto/include/aes_gcm.h otcrypto_aes_gcm_decrypt }}
+{{#header-snippet sw/device/lib/crypto/include/aes_gcm.h otcrypto_aes_gcm_encrypt_init }}
+{{#header-snippet sw/device/lib/crypto/include/aes_gcm.h otcrypto_aes_gcm_decrypt_init }}
+{{#header-snippet sw/device/lib/crypto/include/aes_gcm.h otcrypto_aes_gcm_update_aad }}
+{{#header-snippet sw/device/lib/crypto/include/aes_gcm.h otcrypto_aes_gcm_update_encrypted_data }}
+{{#header-snippet sw/device/lib/crypto/include/aes_gcm.h otcrypto_aes_gcm_encrypt_final }}
+{{#header-snippet sw/device/lib/crypto/include/aes_gcm.h otcrypto_aes_gcm_decrypt_final }}
+
+## TDES
+
+OpenTitan does not include a hardware Triple DES (TDES) accelerator.
+Instead, the cryptography library provides a **plain software implementation** of TDES supporting five block cipher modes (ECB, CBC, CFB, OFB, and CTR) over 64-bit (8-byte) blocks with 2-key (16-byte with parity, or 14-byte packed 56-bit) and 3-key (24-byte with parity, or 21-byte packed 56-bit) keys, as specified in [NIST SP800-67][tdes-spec] and [NIST SP800-38A][aes-basic-modes-spec].
+Padding schemes are defined in the **otcrypto\_tdes\_padding\_t** structure from [this section](#tdes-data-structures).
+
+> **Security Warning (Not FI/SCA Protected):** The TDES implementation (`otcrypto_tdes`, `otcrypto_tdes_padded_plaintext_length`, and `otcrypto_tdes_padding_strip`) is a **plain software implementation and is NOT protected against fault injection (FI) or side-channel analysis (SCA) attacks**, regardless of the `security_level` configured in `otcrypto_key_config_t` or `otcrypto_init`. Key shares in `otcrypto_blinded_key_t` are unmasked into software memory during execution, DES rounds are computed using standard table lookups without masking or FI redundancy, and hardware-backed sideload keys (`hw_backed = kHardenedBoolTrue`) are not supported. Furthermore, TDES is not a FIPS-approved service (`kOtcryptoCmvpNotApprovedService`). Do not use TDES in security-critical contexts where FI or SCA resistance is required.
+
+### Block Cipher
+
+A one-shot API initializes the required TDES block cipher mode of operation (ECB, CBC, CFB, OFB, or CTR) and performs the required encryption or decryption.
+
+{{#header-snippet sw/device/lib/crypto/include/tdes.h otcrypto_tdes_padded_plaintext_length }}
+{{#header-snippet sw/device/lib/crypto/include/tdes.h otcrypto_tdes_padding_strip }}
+{{#header-snippet sw/device/lib/crypto/include/tdes.h otcrypto_tdes }}
+
+#### Usage
+
+The following example shows how a message can be encrypted and decrypted using the cryptolib TDES API.
+
+```c
+enum {
+  // Plaintext is 20 bytes: not a multiple of the 8-byte TDES block size.
+  kPlaintextLen = 20,
+};
+
+// Two key shares that XOR to the actual 192-bit (24-byte, 3-key) TDES key.
+static const uint32_t kKeyShare0[6] = {
+    0x533b154d, 0xb3a32729, 0x12784d00, 0x5560457a, 0x0ec17ad8, 0x9a6f7317};
+static const uint32_t kKeyShare1[6] = {0, 0, 0, 0, 0, 0};
+
+bool tdes_encrypt_decrypt_example(void) {
+  // --- Initialize the system for the cryptolib execution ---
+  otcrypto_state_t state = {0};
+  TRY(otcrypto_init(kOtcryptoKeySecurityLevelLow, &state));
+
+  // --- Build the blinded TDES-ECB key (plain software; not FI/SCA protected) ---
+  otcrypto_key_config_t key_config = {
+    .version        = otcrypto_lib_version(),
+    .key_mode       = kOtcryptoKeyModeTdesEcb,
+    .key_length     = 24,
+    .hw_backed      = kHardenedBoolFalse,
+    .exportable     = kHardenedBoolFalse,
+    .security_level = kOtcryptoKeySecurityLevelLow,
+  };
+  uint32_t keyblob[12];
+  otcrypto_blinded_key_t key = {
+    .config         = key_config,
+    .keyblob_length = sizeof(keyblob),
+    .keyblob        = keyblob,
+  };
+  otcrypto_const_word32_buf_t share0 =
+    OTCRYPTO_MAKE_BUF(otcrypto_const_word32_buf_t, kKeyShare0, 6);
+  otcrypto_const_word32_buf_t share1 =
+    OTCRYPTO_MAKE_BUF(otcrypto_const_word32_buf_t, kKeyShare1, 6);
+  TRY(otcrypto_import_blinded_key(&share0, &share1, &key));
+
+  // --- Plaintext: 20 bytes, not a multiple of the 8-byte block size ---
+  static const uint8_t kPlaintext[kPlaintextLen] = "Hello, OpenTitan!!!";
+
+  // --- Query padded length, then allocate output buffers ---
+  size_t padded_len;
+  TRY(otcrypto_tdes_padded_plaintext_length(
+    kPlaintextLen, kOtcryptoTdesPaddingPkcs7, &padded_len));
+
+  uint8_t ciphertext[padded_len];
+  uint8_t decrypted[padded_len];
+
+  // --- Encrypt ---
+  otcrypto_const_byte_buf_t plaintext_buf =
+    OTCRYPTO_MAKE_BUF(otcrypto_const_byte_buf_t, kPlaintext, kPlaintextLen);
+  otcrypto_byte_buf_t ciphertext_buf =
+    OTCRYPTO_MAKE_BUF(otcrypto_byte_buf_t, ciphertext, padded_len);
+  TRY(otcrypto_tdes(&key, /*iv=*/NULL, kOtcryptoTdesModeEcb,
+                    kOtcryptoTdesOperationEncrypt, &plaintext_buf,
+                    kOtcryptoTdesPaddingPkcs7, &ciphertext_buf));
+
+  // --- Decrypt ---
+  otcrypto_const_byte_buf_t ciphertext_in =
+    OTCRYPTO_MAKE_BUF(otcrypto_const_byte_buf_t, ciphertext, padded_len);
+  otcrypto_byte_buf_t decrypted_buf =
+    OTCRYPTO_MAKE_BUF(otcrypto_byte_buf_t, decrypted, padded_len);
+  TRY(otcrypto_tdes(&key, /*iv=*/NULL, kOtcryptoTdesModeEcb,
+                    kOtcryptoTdesOperationDecrypt, &ciphertext_in,
+                    kOtcryptoTdesPaddingPkcs7, &decrypted_buf));
+
+  // --- Strip padding ---
+  size_t recovered_len;
+  TRY(otcrypto_tdes_padding_strip(
+    &decrypted_buf, kOtcryptoTdesPaddingPkcs7, &recovered_len));
+
+  // --- Compare ---
+  return memcmp(kPlaintext, decrypted, recovered_len) == 0;
+}
+```
+
+## Hash functions
+
+OpenTitan's [KMAC block][kmac] supports the fixed digest length SHA3\[224, 256, 384, 512\] cryptographic hash functions, and the extendable-output functions of variable digest length SHAKE\[128, 256\] and cSHAKE\[128, 256\].
+
+SHA-2 functions are supported by the [HMAC block][hmac].
+The OpenTitan cryptolib supports SHA2-256, SHA2-384, and SHA2-512.
+For legacy compatibility, the cryptolib also provides a plain software implementation of **SHA-1** (`otcrypto_sha1`, `otcrypto_sha1_init`, `otcrypto_sha1_update`, `otcrypto_sha1_final`).
+
+> **Security warning:** The SHA-1 implementation runs in plain software without hardware acceleration and is **not** protected against fault injection (FI) or side-channel analysis (SCA) attacks.
+
+For **SHA-1 and SHA-2**, the hash API supports both one-shot and streaming modes of operation.
+
+### One-shot mode
+
+This mode is used when the entire data to be hashed is available upfront.
+
+{{#header-snippet sw/device/lib/crypto/include/sha1.h otcrypto_sha1 }}
+{{#header-snippet sw/device/lib/crypto/include/sha2.h otcrypto_sha2_256 }}
+{{#header-snippet sw/device/lib/crypto/include/sha2.h otcrypto_sha2_384 }}
+{{#header-snippet sw/device/lib/crypto/include/sha2.h otcrypto_sha2_512 }}
+{{#header-snippet sw/device/lib/crypto/include/sha3.h otcrypto_sha3_224 }}
+{{#header-snippet sw/device/lib/crypto/include/sha3.h otcrypto_sha3_256 }}
+{{#header-snippet sw/device/lib/crypto/include/sha3.h otcrypto_sha3_384 }}
+{{#header-snippet sw/device/lib/crypto/include/sha3.h otcrypto_sha3_512 }}
+
+The cryptolib supports the SHAKE and cSHAKE extendable-output functions, which can produce a variable-sized digest.
+To avoid locking up the KMAC block, only a one-shot mode is supported.
+
+{{#header-snippet sw/device/lib/crypto/include/sha3.h otcrypto_shake128 }}
+{{#header-snippet sw/device/lib/crypto/include/sha3.h otcrypto_shake256 }}
+{{#header-snippet sw/device/lib/crypto/include/sha3.h otcrypto_cshake128 }}
+{{#header-snippet sw/device/lib/crypto/include/sha3.h otcrypto_cshake256 }}
+
+### Streaming mode
+
+The streaming mode API is used for incremental hashing, where the data to be hashed is split and passed in multiple blocks.
+Streaming is supported for **SHA-1** (in plain software; not FI/SCA protected) and **SHA-2** hash modes (SHA256, SHA384, SHA512), because the SHA-3 hardware does not support saving and restoring a hash context.
+
+{{#header-snippet sw/device/lib/crypto/include/sha1.h otcrypto_sha1_init }}
+{{#header-snippet sw/device/lib/crypto/include/sha1.h otcrypto_sha1_update }}
+{{#header-snippet sw/device/lib/crypto/include/sha1.h otcrypto_sha1_final }}
+{{#header-snippet sw/device/lib/crypto/include/sha2.h otcrypto_sha2_init }}
+{{#header-snippet sw/device/lib/crypto/include/sha2.h otcrypto_sha2_update }}
+{{#header-snippet sw/device/lib/crypto/include/sha2.h otcrypto_sha2_final }}
+{{#header-snippet sw/device/lib/crypto/include/sha2.h otcrypto_hash_init }}
+{{#header-snippet sw/device/lib/crypto/include/sha2.h otcrypto_hash_update }}
+{{#header-snippet sw/device/lib/crypto/include/sha2.h otcrypto_hash_final }}
+
+## Message Authentication
+
+OpenTitan supports two kinds of message authentication codes (MACs):
+- HMAC, a simple construction based on cryptographic hash functions
+- KMAC, a Keccak-based MAC
+- AES-CMAC, a block cipher-based MAC
+
+OpenTitan's [HMAC block][hmac] supports HMAC-SHA256, HMAC-SHA384, and HMAC-SHA512.
+For legacy compatibility, the cryptolib also provides a plain software implementation of **HMAC-SHA-1** (`otcrypto_hmac_sha1`, `otcrypto_hmac_sha1_init`, `otcrypto_hmac_sha1_update`, `otcrypto_hmac_sha1_final`).
+
+> **Security warning:** The HMAC-SHA-1 implementation runs in plain software without hardware acceleration and is **not** protected against fault injection (FI) or side-channel analysis (SCA) attacks. Key shares are unmasked in software memory and no SCA/FI countermeasures are applied regardless of the configured `security_level`.
+
+The [KMAC block][kmac] supports KMAC128 and KMAC256, with a key length of 128, 192, 256, 384, or 512 bits.
+AES-CMAC uses the AES block cipher and supports a key length of 128, 192, or 256 bits, as specified in NIST SP 800-38B. The output tag length must be between 64 and 128 bits (2 to 4 words).
+
+### One-shot mode
+
+{{#header-snippet sw/device/lib/crypto/include/hmac.h otcrypto_hmac }}
+{{#header-snippet sw/device/lib/crypto/include/sha1.h otcrypto_hmac_sha1 }}
+{{#header-snippet sw/device/lib/crypto/include/kmac.h otcrypto_kmac }}
+{{#header-snippet sw/device/lib/crypto/include/cmac.h otcrypto_cmac }}
+
+### Streaming mode
+
+The streaming mode API is used for incremental hashing use-case, where the data to be hashed is split and passed in multiple blocks.
+
+To avoid locking up the KMAC hardware, the streaming mode is supported only for HMAC (including HMAC-SHA-1) and CMAC.
+
+#### HMAC
+{{#header-snippet sw/device/lib/crypto/include/hmac.h otcrypto_hmac_init }}
+{{#header-snippet sw/device/lib/crypto/include/hmac.h otcrypto_hmac_update }}
+{{#header-snippet sw/device/lib/crypto/include/hmac.h otcrypto_hmac_final }}
+{{#header-snippet sw/device/lib/crypto/include/sha1.h otcrypto_hmac_sha1_init }}
+{{#header-snippet sw/device/lib/crypto/include/sha1.h otcrypto_hmac_sha1_update }}
+{{#header-snippet sw/device/lib/crypto/include/sha1.h otcrypto_hmac_sha1_final }}
+
+#### CMAC
+{{#header-snippet sw/device/lib/crypto/include/cmac.h otcrypto_cmac_init }}
+{{#header-snippet sw/device/lib/crypto/include/cmac.h otcrypto_cmac_update }}
+{{#header-snippet sw/device/lib/crypto/include/cmac.h otcrypto_cmac_final }}
+
+## RSA
+
+RSA (Rivest-Shamir-Adleman) is a family of asymmetric cryptographic algorithms supporting signatures and encryption.
+OpenTitan uses the [OpenTitan Big Number Accelerator][otbn] to speed up RSA operations.
+
+OpenTitan supports RSA key generation, signature generation, and signature verification for modulus lengths of 2048, 3072, and 4096 bits.
+Supported padding schemes are defined in the **otcrypto\_rsa\_padding\_t** structure in [this section](#rsa-data-structures).
+
+All RSA operations may be run [asynchronously](#asynchronous-operations) through a dedicated [asynchronous API](#rsa-asynchronous-api).
+
+### Security considerations
+
+RSA signatures use a hash function to compress the input message and a padding scheme to pad them to the length of the modulus.
+The algorithm can theoretically accept virtually any hash function or padding scheme, but not all are safe to use.
+In general, the hash function needs to have collision resistance that is at least as strong as the security strength of the RSA scheme.
+
+[NIST SP800-57][nist-sp800-57] specifies security strength for RSA as follows (table 2):
+
+| Security strength | RSA modulus length |
+|-------------------|--------------------|
+| <= 80 bits        | 1024               |
+| 112 bits          | 2048               |
+| 128 bits          | 3072               |
+| 192 bits          | 7680               |
+
+Hash function collision resistance strengths are in the same document (table 3).
+Usually, the collision resistance of a hash function is half the length of its digest.
+For example, SHA-256 has a 256-bit digest and 128-bit strength for collision resistance.
+
+The cryptolib will return an error if the hash function lacks enough collision resistance for the RSA length.
+
+Padding schemes are frequently critical for RSA security, and using RSA without a well-established padding scheme is very risky.
+Always ensure that you fully understand the security implications of the padding scheme you choose.
+
+### RSA Synchronous API
+
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_keygen }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_public_key_construct }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_private_key_from_exponents }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_sign }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_verify }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_hash_sign_verify_final }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_hash_verify_final }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_encrypt }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_decrypt }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_keypair_from_cofactor }}
+
+### RSA Asynchronous API
+
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_keygen_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_keygen_async_finalize }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_sign_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_sign_async_finalize }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_verify_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_verify_async_finalize }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_encrypt_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_encrypt_async_finalize }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_decrypt_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_decrypt_async_finalize }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_keypair_from_cofactor_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/rsa.h otcrypto_rsa_keypair_from_cofactor_async_finalize }}
+
+## Elliptic curve cryptography
+
+Elliptic curve cryptography (ECC) refers to a wide range of asymmetric cryptography based on elliptic curve operations.
+It is widely used for key agreement and signature schemes.
+Compared to RSA, ECC uses much shorter key-lengths to provide equivalent security.
+OpenTitan uses the [OpenTitan Big Number Accelerator][otbn] to speed up ECC operations.
+
+Elliptic-curve public keys are curve points; coordinates (x,y) that satisfy a particular equation that defines the curve.
+Elliptic curve private keys are scalar values, positive integers modulo the "curve order" (a large positive integer, usually denoted *n*).
+The specific value of *n* depends on the underlying curve.
+
+All ECC operations may be run [asynchronously](#asynchronous-operations) through a dedicated [asynchronous API](#ecc-asynchronous-api).
+
+### Supported Curves
+
+Elliptic curves of the short Weierstrass form, Montgomery form, and twisted Edward form are supported.
+- For short Weierstrass form, NIST P-256 and P-384 are supported.
+- For the Montgomery form, only X25519 is supported.
+- For twisted Edwards form only Ed25519 is supported.
+
+### Security considerations
+
+ECC signatures typically require a hash function.
+To avoid degrading security, the collision resistance of the hash function should be at least as good as the security strength of the ECC scheme.
+
+[NIST SP800-57][nist-sp800-57] specifies security strengths for ECC in table 2.
+The phrasing in that document is a bit cryptic, but essentially the security of ECC depends on the curve order, *n*.
+Usually the security is about *n/2*, but in some cases approximations are accepted.
+For example, the order of the edwards25519 curve is 253 bits, not 256, but FIPS standards specifically accept it as having "about 128 bits of security".
+Below are security strengths for the curves supported by the OpenTitan cryptolib, as well as sources for those values.
+
+
+|   Curve      | Security strength |     Schemes           |              Citation                   |
+|--------------|-------------------|-----------------------|-----------------------------------------|
+| P-256        | 128 bits          | ECDSA-P256, ECDH-P256 | [NIST SP800-57][nist-sp800-57], table 2 |
+| P-384        | 192 bits          | ECDSA-P384, ECDH-P384 | [NIST SP800-57][nist-sp800-57], table 2 |
+| edwards25519 | ~128 bits         | Ed25519               | [FIPS 186-5][fips-186], section 7.1     |
+| curve25519   | ~128 bits         | X25519                | same order as edwards25519              |
+
+A note on understanding the table above: ECDSA signatures and ECDH key exchange can use the same underlying elliptic curve.
+However, Ed25519 and X25519 operate on different underlying curves, because EdDSA (the generic framework underlying Ed25519) requires a "twisted Edwards" form curve and X25519 requires a "Montgomery" form curve.
+The two curves are birationally equivalent, in mathematical terms, so it is possible (but not trivial) to convert points from one to the other.
+
+### ECC Synchronous API
+
+#### ECDSA
+
+For ECDSA, the cryptography library supports keypair generation, signing, and signature verification.
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_keygen }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_dice_keygen }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_sign_config_k }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_sign }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_sign_verify }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_verify }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_hash_sign_verify_final }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_hash_verify_final }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdsa_p384_keygen }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdsa_p384_sign_config_k }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdsa_p384_sign }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdsa_p384_sign_verify }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdsa_p384_verify }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdsa_p384_hash_sign_verify_final }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdsa_p384_hash_verify_final }}
+
+#### ECDH
+
+For ECDH (elliptic-curve Diffie-Hellman) key exchange, the cryptography library supports keypair generation and shared-key generation.
+Each party should generate a key pair, exchange public keys, and then generate the shared key using their own private key and the other party's public key.
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdh_p256_keygen }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdh_p256 }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdh_p384_keygen }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdh_p384 }}
+
+#### Ed25519
+
+For Ed25519 (a curve-specialized version of EdDSA, the Edwards curve digital signature algorithm), the cryptography library supports keypair generation, public key derivation from an existing private key, signature generation, and signature verification.
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_ed25519_keygen }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_ed25519_public_key_from_private }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_ed25519_sign }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_ed25519_verify }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_ed25519_sign_verify }}
+
+#### X25519
+
+For x25519 key exchange, the cryptography library supports keypair generation and shared-key generation.
+Each party should generate a key pair, exchange public keys, and then generate the shared key using their own private key and the other party's public key.
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_x25519_keygen }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_x25519_public_key_from_private }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_x25519 }}
+
+### ECC Asynchronous API
+
+#### ECDSA
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_keygen_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_keygen_async_finalize }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_dice_keygen_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_dice_keygen_async_finalize }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_sign_config_k_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_sign_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_sign_async_finalize }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_dice_sign_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_dice_sign_async_finalize }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_verify_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdsa_p256_verify_async_finalize }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdsa_p384_keygen_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdsa_p384_keygen_async_finalize }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdsa_p384_sign_config_k_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdsa_p384_sign_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdsa_p384_sign_async_finalize }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdsa_p384_verify_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdsa_p384_verify_async_finalize }}
+
+#### ECDH
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdh_p256_keygen_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdh_p256_keygen_async_finalize }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdh_p256_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecdh_p256_async_finalize }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdh_p384_keygen_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdh_p384_keygen_async_finalize }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdh_p384_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecdh_p384_async_finalize }}
+
+#### Ed25519
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_ed25519_keygen_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_ed25519_keygen_async_finalize }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_ed25519_public_key_from_private_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_ed25519_public_key_from_private_async_finalize }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_ed25519_sign_part1_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_ed25519_sign_part2_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_ed25519_sign_async_finalize }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_ed25519_verify_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_ed25519_verify_async_finalize }}
+
+#### X25519
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_x25519_keygen_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_x25519_keygen_async_finalize }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_x25519_public_key_from_private_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_x25519_public_key_from_private_async_finalize }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_x25519_async_start }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_x25519_async_finalize }}
+
+### Generic ECC Functions
+
+In addition to the specific ECC functions, the cryptolib also offers more generic functions.
+
+The following key import, export, and sharing functions are available.
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecc_p256_private_key_import }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecc_p256_private_key_export }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecc_p256_public_key_import }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecc_p256_public_key_export }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecc_p256_arith_share_private_key }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecc_p384_private_key_import }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecc_p384_private_key_export }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecc_p384_public_key_import }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecc_p384_public_key_export }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecc_p384_arith_share_private_key }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_curve25519_private_key_import }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_curve25519_private_key_export }}
+
+Cryptolib also offers helper functions to check a given point as well as perform a base point multiplication.
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecc_p256_point_on_curve }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p256.h otcrypto_ecc_p256_base_point_mult }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecc_p384_point_on_curve }}
+{{#header-snippet sw/device/lib/crypto/include/ecc_p384.h otcrypto_ecc_p384_base_point_mult }}
+
+{{#header-snippet sw/device/lib/crypto/include/ecc_curve25519.h otcrypto_ed25519_point_on_curve }}
+
+## Deterministic random bit generation
+
+OpenTitan's random bit generator, [CSRNG][csrng] (Cryptographically Secure Random Number Generator) uses a block cipher based deterministic random bit generation (DRBG) mechanism (AES-CTR-DRBG) as specified in [NIST SP800-90A][nist-drbg-spec].
+OpenTitan's RNG targets compliance with both [BSI AIS31 recommendations for Common Criteria][bsi-ais31], as well as [NIST SP800-90A][nist-drbg-spec] and [NIST SP800-90C (second draft)][nist-rng-spec].
+The CSRNG operates at a 256-bit security strength.
+
+### Seeding the DRBG
+
+The DRBG can be seeded with new entropy from OpenTitan's hardware [entropy source][entropy-src], mixed with additional caller-provided entropy if desired.
+It is also possible to instantiate or reseed the DRBG with *only* caller-provided entropy ("manual instantiate" and "manual reseed").
+This is useful for testing, but undermines security guarantees and FIPS compliance until the DRBG is uninstantiated again, so it is best to use these operations with caution.
+
+### CSRNG Caching and Modes (Default vs Custom)
+
+The cryptolib distinguishes between two instantiation modes for CSRNG:
+
+1. **Default Instantiation (`otcrypto_drbg_instantiate(NULL)` or with empty string):** Instantiates the CSRNG using automatic hardware TRNG input without any personalization string or extra seed material.
+Redundant requests for default instantiation (such as internal calls during RSA padding and signature generation) detect this cached state and skip hardware re-instantiation for higher efficiency.
+2. **Custom Instantiation (`otcrypto_drbg_instantiate(perso_string)` with non-empty string, or manual operations):** Instantiates the CSRNG with custom personalization data or user-supplied entropy.
+Custom instantiations are not cached and will always perform a full re-instantiation of the hardware CSRNG.
+
+To learn more about DRBG details such as entropy requirements, seed construction, derivation functions and prediction resistance, please refer to the [NIST SP800-90A][nist-drbg-spec], [NIST SP800-90B][nist-entropy-spec], [NIST SP800-90C][nist-rng-spec], and [BSI AIS31][bsi-ais31] documents and the links in the [reference](#reference) section.
+
+### DRBG API
+
+{{#header-snippet sw/device/lib/crypto/include/drbg.h otcrypto_drbg_instantiate }}
+{{#header-snippet sw/device/lib/crypto/include/drbg.h otcrypto_drbg_reseed }}
+{{#header-snippet sw/device/lib/crypto/include/drbg.h otcrypto_drbg_generate }}
+{{#header-snippet sw/device/lib/crypto/include/drbg.h otcrypto_drbg_uninstantiate }}
+
+#### Manual Entropy Operations
+
+{{#header-snippet sw/device/lib/crypto/include/drbg.h otcrypto_drbg_manual_instantiate }}
+{{#header-snippet sw/device/lib/crypto/include/drbg.h otcrypto_drbg_manual_reseed }}
+{{#header-snippet sw/device/lib/crypto/include/drbg.h otcrypto_drbg_manual_generate }}
+
+### HMAC-DRBG
+
+In addition to the hardware-backed AES-CTR-DRBG, the cryptolib provides a stateful **HMAC-DRBG** implementation as specified in [NIST SP800-90A][nist-drbg-spec] Section 10.1.2 over SHA2-256, SHA2-384, and SHA2-512 (which can also be used for deterministic ECDSA nonce generation per RFC 6979).
+
+> **Security warning:** The HMAC-DRBG implementation is **not** protected against fault injection (FI) or side-channel analysis (SCA) attacks, and is not a FIPS-approved service (`kOtcryptoCmvpNotApprovedService`).
+
+{{#header-snippet sw/device/lib/crypto/include/hmac_drbg.h otcrypto_hmac_drbg_init }}
+{{#header-snippet sw/device/lib/crypto/include/hmac_drbg.h otcrypto_hmac_drbg_deinit }}
+{{#header-snippet sw/device/lib/crypto/include/hmac_drbg.h otcrypto_hmac_drbg_reseed }}
+{{#header-snippet sw/device/lib/crypto/include/hmac_drbg.h otcrypto_hmac_drbg_set_auto_reseed }}
+{{#header-snippet sw/device/lib/crypto/include/hmac_drbg.h otcrypto_hmac_drbg_generate }}
+
+## Key derivation
+
+Key derivation functions (KDFs) generate a new key from an existing key.
+
+### Supported Modes
+
+OpenTitan supports two different key derivation methods:
+- KDF-CTR following [NIST SP800-108][kdf-prf-spec] with HMAC, KMAC, or AES-CMAC as the PRF
+- HKDF following [IETF RFC 5869][hkdf-rfc], which is special case of [NIST SP800-56C][nist-kdf-key-establishment]
+
+To learn more about PRFs, various key derivation mechanisms and security considerations, please refer to the links in the [reference](#reference) section.
+
+### API
+
+#### HKDF
+
+{{#header-snippet sw/device/lib/crypto/include/hkdf.h otcrypto_hkdf }}
+{{#header-snippet sw/device/lib/crypto/include/hkdf.h otcrypto_hkdf_extract }}
+{{#header-snippet sw/device/lib/crypto/include/hkdf.h otcrypto_hkdf_expand }}
+
+#### KDF-CTR
+
+{{#header-snippet sw/device/lib/crypto/include/kdf_ctr.h otcrypto_kdf_ctr_hmac }}
+
+#### KMAC-KDF
+
+{{#header-snippet sw/device/lib/crypto/include/kmac_kdf.h otcrypto_kmac_kdf }}
+
+#### CMAC-KDF
+
+{{#header-snippet sw/device/lib/crypto/include/cmac_kdf.h otcrypto_cmac_kdf }}
+
+## Key transport
+
+This is the interface for generating, importing, and exporting crypto library symmetric keys.
+Asymmetric schemes (e.g. RSA or elliptic-curve cryptography) use algorithm-specific routines for key generation; refer to the RSA and ECC sections instead to generate, import, or export asymmetric keys.
+
+The crypto library represents private keys in masked form ("blinded keys").
+The internal structure of blinded keys is opaque to the user and may change in subsequent versions of the crypto library.
+The caller can control certain characteristics of the generated key via the key configuration.
+See the [key data structures](#key-data-structures) section for more details.
+
+### Generate random keys
+
+{{#header-snippet sw/device/lib/crypto/include/key_transport.h otcrypto_symmetric_keygen }}
+
+### Package hardware-backed keys
+
+Hardware-backed keys are keys whose material is derived based on hardware entropy using OpenTitan's [key manager block][keymgr].
+
+There are two primary modes for using hardware-backed keys:
+1. **Sideloaded Keys (Hardware-only):** The key manager provides the key directly into hardware registers (e.g. for AES or KMAC operations) without exposing the secret key material to software (Ibex CPU).
+2. **Software-Derived Keys (Ibex Software):** The key manager provides key shares and hands them over to software (Ibex CPU memory) in masked form (two XOR-split shares).
+
+To use hardware-backed keys, the caller first sets up an `otcrypto_blinded_key_t` structure with `config.hw_backed = kHardenedBoolTrue` and initializes the handle with key diversification parameters (version and salt):
+- `otcrypto_hw_backed_key` for the sealing key ladder (uses a 7-word salt).
+- `otcrypto_hw_backed_attestation_key` for the attestation key ladder (uses an 8-word salt).
+
+{{#header-snippet sw/device/lib/crypto/include/key_transport.h otcrypto_hw_backed_key }}
+{{#header-snippet sw/device/lib/crypto/include/key_transport.h otcrypto_hw_backed_attestation_key }}
+
+### Generate hardware-backed keys for software
+
+To generate a hardware-backed key whose shares are retrieved into Ibex software memory, use `otcrypto_hw_backed_keygen`.
+The key struct must first be initialized with `otcrypto_hw_backed_key` or `otcrypto_hw_backed_attestation_key`.
+When `otcrypto_hw_backed_keygen` runs, it calls Key Manager to derive the software shares, writes the shares into the keyblob, and morphs the key configuration `hw_backed` flag to `kHardenedBoolFalse`.
+
+{{#header-snippet sw/device/lib/crypto/include/key_transport.h otcrypto_hw_backed_keygen }}
+
+### Wrap and unwrap keys
+
+Secret keys can be encrypted (e.g. for storage) using the key wrap/unwrap routines.
+We use AES Key Wrapping with Padding (KWP), which is specified in [NIST SP800-38F][kwp-spec].
+
+{{#header-snippet sw/device/lib/crypto/include/key_transport.h otcrypto_wrapped_key_len }}
+{{#header-snippet sw/device/lib/crypto/include/key_transport.h otcrypto_key_wrap }}
+{{#header-snippet sw/device/lib/crypto/include/key_transport.h otcrypto_key_unwrap }}
+
+### Import Symmetric Keys
+
+{{#header-snippet sw/device/lib/crypto/include/key_transport.h otcrypto_import_blinded_key }}
+
+### Export Symmetric Keys
+
+{{#header-snippet sw/device/lib/crypto/include/key_transport.h otcrypto_export_blinded_key }}
+
+Some blinded keys are marked as non-exportable in their configurations.
+The crypto library will always refuse to export these keys.
+
+## Key destruction and zeroization
+
+Cryptographic key material in the OpenTitan cryptography library is managed using a combination of automatic hardware zeroization and caller-managed memory destruction.
+
+### Software Key Destruction and Randomization
+
+As documented in [Data structures](#key-data-structures), memory allocation for keys (`otcrypto_blinded_key_t`, `otcrypto_unblinded_key_t`, `keyblob` arrays, and user-provided share buffers) is left to the caller.
+The cryptolib does not dynamically allocate or manage memory for key material in RAM.
+
+Consequently:
+- **Caller Responsibility:** Destruction and randomization of software key material stored in RAM (such as the contents of `blinded_key.keyblob` or `unblinded_key.key`) is the responsibility of the caller when a key is no longer needed.
+- **Recommended Procedure:** Callers should securely randomize all key buffers in RAM (for example, using `hardened_memshred`) when the key structure is not longer needed.
+
+### Context and State Zeroization and Randomization
+
+- **DRBG Uninstantiation:** To destroy and zeroize the internal state of the Deterministic Random Bit Generator, callers can invoke `otcrypto_drbg_uninstantiate()`, which clears the internal DRBG context. For software HMAC-DRBG contexts (`otcrypto_hmac_drbg_context_t`), callers can invoke `otcrypto_hmac_drbg_deinit()` to shred the context.
+- **Streaming Contexts:** Intermediate states and keys held in streaming operation contexts (such as `otcrypto_hmac_context_t`, `otcrypto_cmac_context_t`, and `otcrypto_aes_gcm_context_t`) are randomized automatically when finalization routines (`*_final`) finish.
+
+## Asynchronous operations
+
+For some functions, OpenTitan's cryptolib supports asynchronous calls.
+All operations which take longer than 10ms should have an asynchronous interface.
+This is helpful for compatibility with TockOS, which has a low latency return call programming model.
+
+The OpenTitan cryptolib does not implement any thread management.
+Instead, it treats the OTBN coprocessor as a "separate thread" to achieve non-blocking operation with virtually zero overhead.
+OTBN sends an interrupt when processing is complete.
+
+All asynchronous operations have two functions:
+
+- **\<algorithm\>\_async\_start**
+    - Takes input arguments. Checks that OTBN is available and idle. If
+      so: does any necessary synchronous preprocessing, initializes
+      OTBN, and starts the OTBN routine.
+- **\<algorithm\>\_async\_finalize**
+    - Takes caller-allocated output buffers. Blocks until OTBN is done
+      processing if needed, then checks whether it had errors. If not, does any
+      necessary postprocessing and writes results to the buffers.
+
+The caller should call the `start` function, wait for the interrupt, and then call `finalize`.
+
+A few noteworthy aspects of this setup:
+- While an asynchronous operation is running, OTBN will be unavailable and attempts to use it will return errors.
+- Only one asynchronous operation may be in progress at any given time.
+- The caller is responsible for properly managing asynchronous calls, including ensuring that the entity receiving the `finalize` results is the same as the one who called `start`.
+
+The following operations can run asynchronously:
+
+| Scheme   | Operations           |
+|----------|----------------------|
+| ECDSA    | keygen, sign, verify |
+| ECDH     | keygen, key exchange |
+| Ed25519  | keygen, sign, verify |
+| X25519   | keygen, key exchange |
+| RSA      | keygen, sign, verify |
+
+### Receiving the OTBN Completion Interrupt
+
+The cryptolib does not configure the RISC-V Platform-Level Interrupt Controller (PLIC) or enable `OTBN_INTR_ENABLE`, leaving interrupt routing and ISR registration under the control of the caller.
+
+Internally, the cryptolib OTBN driver ensures that `OTBN_INTR_STATE.done` only signals the completion of the asynchronous operation itself:
+- Synchronous OTBN operations performed inside `*_async_start` and `*_async_finalize` (such as IMEM/DMEM secure wipes, curve-point validation, arithmetic key sharing, or intermediate SHA-2 hashing) temporarily mask `OTBN_INTR_ENABLE` and clear `OTBN_INTR_STATE.done` before returning.
+- Right before `<algorithm>_async_start` launches the asynchronous OTBN program, `otbn_execute()` clears any stale `OTBN_INTR_STATE.done` bit.
+- When `<algorithm>_async_finalize` runs, `otbn_busy_wait_for_done()` clears `OTBN_INTR_STATE.done` once OTBN is idle.
+
+*(Note: Ed25519 signing is split across two asynchronous OTBN stages—`otcrypto_ed25519_sign_part1_async_start`, `otcrypto_ed25519_sign_part2_async_start`, and `otcrypto_ed25519_sign_async_finalize`—so OTBN raises one `done` interrupt when Part 1 finishes and a second `done` interrupt when Part 2 finishes.)*
+
+To use interrupt-driven completion with the asynchronous API:
+
+1. **Configure OTBN and the PLIC (one-time setup):**
+   - Enable the `done` interrupt on OTBN by setting bit `OTBN_INTR_ENABLE_DONE_BIT` (`0`) in `OTBN_INTR_ENABLE` (for example, via `dif_otbn_irq_set_enabled(&otbn, kDifOtbnIrqDone, kDifToggleEnabled)`).
+   - Enable and set a non-zero priority for PLIC IRQ `kTopEarlgreyPlicIrqIdOtbnDone` (peripheral `kTopEarlgreyPlicPeripheralOtbn`) on `kTopEarlgreyPlicTargetIbex0`, and enable external interrupts on Ibex (`irq_global_ctrl(true)` and `irq_external_ctrl(true)`).
+2. **Acknowledge the interrupt in your ISR:**
+   - Claim the interrupt from the PLIC (`dif_rv_plic_irq_claim`).
+   - Clear `OTBN_INTR_STATE.done` (`rw1c`) by calling `dif_otbn_irq_acknowledge(&otbn, kDifOtbnIrqDone)` (or writing `1u << OTBN_INTR_STATE_DONE_BIT` to `OTBN_INTR_STATE_REG_OFFSET`).
+   - Complete the PLIC interrupt (`dif_rv_plic_irq_complete`) and signal your application state machine or scheduler.
+3. **Run the asynchronous operation:**
+   - Clear your completion flag and call `<algorithm>_async_start(...)`.
+   - Perform other CPU work or sleep (`wait_for_interrupt()`) until the ISR sets the completion flag.
+   - Call `<algorithm>_async_finalize(...)` to verify the execution status, read the result, and wipe OTBN DMEM.
+
+```c
+static volatile bool otbn_async_done = false;
+
+// Example ISR handling kTopEarlgreyPlicIrqIdOtbnDone:
+void external_isr(void) {
+  dif_rv_plic_irq_id_t irq_id;
+  CHECK_DIF_OK(dif_rv_plic_irq_claim(&plic, kTopEarlgreyPlicTargetIbex0, &irq_id));
+  if (irq_id == kTopEarlgreyPlicIrqIdOtbnDone) {
+    CHECK_DIF_OK(dif_otbn_irq_acknowledge(&otbn, kDifOtbnIrqDone));
+    otbn_async_done = true;
+  }
+  CHECK_DIF_OK(dif_rv_plic_irq_complete(&plic, kTopEarlgreyPlicTargetIbex0, irq_id));
+}
+
+// Example asynchronous ECDSA P-256 sign call:
+otcrypto_status_t sign_with_irq(const otcrypto_blinded_key_t *private_key,
+                                const otcrypto_hash_digest_t message_digest,
+                                otcrypto_word32_buf_t *signature) {
+  // Enable OTBN done interrupt (can also be left enabled across calls).
+  CHECK_DIF_OK(
+      dif_otbn_irq_set_enabled(&otbn, kDifOtbnIrqDone, kDifToggleEnabled));
+
+  otbn_async_done = false;
+  HARDENED_TRY(otcrypto_ecdsa_p256_sign_async_start(private_key, message_digest));
+
+  // Do other work on Ibex or sleep until the OTBN done interrupt fires.
+  ATOMIC_WAIT_FOR_INTERRUPT(otbn_async_done);
+
+  return otcrypto_ecdsa_p256_sign_async_finalize(signature);
+}
+```
+
+
+## Security Strength
+
+Security strength denotes the amount of work required to break a cryptographic algorithm.
+The security strength of an algorithm is expressed in "bits" where n-bit security means that the attacker would have to perform 2^n^ operations in expectation to break the algorithm.
+
+The table below summarizes the security strength for the supported [cryptographic algorithms](#supported-algorithms).
+
+| **Family**     | **Algorithm**  | **Security Strength (bits)**     | **Comments**                                          |
+|----------------|----------------|----------------------------------|-------------------------------------------------------|
+| Block cipher   | AES128         | 128                              |                                                       |
+| Block cipher   | AES192         | 192                              |                                                       |
+| Block cipher   | AES256         | 256                              |                                                       |
+| Block cipher   | TDES (2-key)   | <= 80                            | Legacy; plain software (not FI/SCA protected)         |
+| Block cipher   | TDES (3-key)   | 112                              | Legacy; plain software (not FI/SCA protected)         |
+| Hash function  | SHA-1          | < 80                             | Legacy only; plain software (not FI/SCA protected)    |
+| Hash function  | SHA256         | 128                              | 128 bits collision, 256 bits preimage                 |
+| Hash function  | SHA384         | 192                              | 192 bits collision, 384 bits preimage                 |
+| Hash function  | SHA512         | 256                              | 256 bits collision, 512 bits preimage                 |
+| Hash function  | SHA3-224       | 112                              | 112 bits collision, 224 bits preimage                 |
+| Hash function  | SHA3-256       | 128                              | 128 bits collision, 256 bits preimage                 |
+| Hash function  | SHA3-384       | 192                              | 192 bits collision, 384 bits preimage                 |
+| Hash function  | SHA3-512       | 256                              | 256 bits collision, 512 bits preimage                 |
+| Hash-XOF       | SHAKE128       | `min(d/2, 128)`                  | `min(d/2, 128)` collision; preimage >= `min(d, 128)`  |
+| Hash-XOF       | SHAKE256       | `min(d/2, 256)`                  | `min(d/2, 256)` collision; preimage >= `min(d, 256)`  |
+| Hash-XOF       | cSHAKE128      | `min(d/2, 128)`                  | `min(d/2, 128)` collision; preimage >= `min(d, 128)`  |
+| Hash-XOF       | cSHAKE256      | `min(d/2, 256)`                  | `min(d/2, 256)` collision; preimage >= `min(d, 256)`  |
+| MAC            | HMAC-SHA-1     | <= 160                           | Legacy only; plain software (not FI/SCA protected)    |
+| MAC            | HMAC-SHA256    | 256                              |                                                       |
+| MAC            | KMAC128        | 128                              |                                                       |
+| MAC            | KMAC256        | 256                              |                                                       |
+| MAC            | AES-CMAC       | `min(k, tag len)`                | `k` = AES key length, `tag len` = output MAC length   |
+| RSA            | RSA-2048       | 112                              |                                                       |
+| RSA            | RSA-3072       | 128                              |                                                       |
+| RSA            | RSA-4096       | \~144                            |                                                       |
+| ECC            | NIST P-256     | 128                              |                                                       |
+| ECC            | NIST P-384     | 192                              |                                                       |
+| ECC            | X25519/Ed25519 | 128                              |                                                       |
+| DRBG           | CTR_DRBG       | 256                              | Based on AES-CTR-256                                  |
+| DRBG           | HMAC_DRBG      | 256                              | Based on HMAC-SHA2 (not FI/SCA protected)             |
+| KDF            | KDF_CTR        | 128                              | With HMAC, KMAC, or AES-CMAC as PRF                   |
+
+Over time the cryptographic algorithms may become more vulnerable to successful attacks, requiring a transition to stronger algorithms or longer key lengths over time.
+The table below is a recommendation from [NIST SP800-57 Part 1][nist-sp800-57] about concrete time frames for different security strengths.
+
+<img src="nist_sec_strength_recommendations.png" style="width: 800px;">
+
+## Reference
+
+**AES**
+1. [FIPS 197][aes-spec]: Announcing the Advanced Encryption Standard (AES)
+2. [NIST SP800-38A][aes-basic-modes-spec]: Recommendation for Block Cipher Modes of Operation: Methods and Techniques
+3. [NIST SP800-38D][gcm-spec]: Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC
+4. [NIST SP800-38F][kwp-spec]: Recommendation for Block Cipher Modes of Operation: Methods for Key wrapping
+
+**TDES**
+1. [NIST SP800-67][tdes-spec]: Recommendation for the Triple Data Encryption Algorithm (TDEA) Block Cipher
+2. [NIST SP800-38A][aes-basic-modes-spec]: Recommendation for Block Cipher Modes of Operation: Methods and Techniques
+
+**Hash Functions**
+1. [FIPS 180-4][sha2-spec]: Secure Hash Standard
+2. [FIPS 202][sha3-spec]: SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions
+3. [NIST SP800-185][sha3-derived-spec]: SHA-3 Derived Functions: cSHAKE, KMAC, TupleHash, and ParallelHash
+
+**Message Authentication**
+1. [IETF RFC 2104][hmac-rfc]: HMAC: Keyed-Hashing for Message Authentication
+2. [IETF RFC 4231][hmac-testvectors-rfc]: Identifiers and Test Vectors for HMAC-SHA-224, HMAC-SHA-256, HMAC-SHA-384, and HMAC-SHA-512
+3. [IETF RFC 4868][hmac-usage-rfc]: Using HMAC-SHA-256, HMAC-SHA-384, and HMAC-SHA-512
+4. [NIST SP800-185][sha3-derived-spec]: SHA-3 Derived Functions: cSHAKE, KMAC, TupleHash, and ParallelHash
+5. [NIST SP800-38B][nist-sp800-38b] Recommendation for Block Cipher Modes of Operation: The CMAC Mode for Authentication
+
+**RSA**
+1. [IETF RFC 8017][rsa-rfc]: PKCS #1: RSA Cryptography Specifications Version 2.2
+2. [FIPS 186-5][fips-186]: Digital Signature Standard
+
+**Elliptic curve cryptography**
+1. [SEC1][sec1]: Elliptic Curve Cryptography
+2. [SEC2][sec2]: Recommended Elliptic Curve Domain Parameters
+3. [FIPS 186-5][fips-186]: Digital Signature Standard
+4. [NIST SP800-56A][ecdh-spec]: Recommendation for Pair-Wise Key-Establishment Schemes Using Discrete Logarithm Cryptography
+5. [IETF RFC 5639][brainpool-rfc]: Elliptic Curve Cryptography (ECC) Brainpool Standard Curves and Curve Generation
+6. [IETF RFC 4492][ecc-tls-rfc]: Elliptic Curve (ECC) Cipher Suites for Transport Layer Security (TLS)
+7. [Safe curves][safe-curves]: Choosing safe curves for elliptic-curve cryptography
+8. [IETF RFC 7448][ecc-rfc]: Elliptic Curves for Security
+9. [IETF RFC 8032][eddsa-rfc]: Edwards-Curve Digital Signature Algorithm (EdDSA)
+10. [NIST SP800-186][nist-ecc-domain-params]: Recommendations for Discrete Logarithm-Based Cryptography: Elliptic Curve Domain Parameters
+
+**Deterministic random bit generation**
+1. [NIST SP800-90A][nist-drbg-spec]: Recommendation for Random Number Generation Using Deterministic Random Bit Generators
+2. [NIST SP800-90B][nist-entropy-spec]: Recommendation for the Entropy Sources Used for Random Bit Generation
+3. [BSI-AIS31][bsi-ais31]: A proposal for: Functionality classes for random number generators
+4. OpenTitan [CSRNG block][csrng] technical specification
+
+**Key derivation**
+1. [NIST SP800-108][kdf-prf-spec]: Recommendation for Key Derivation using Pseudorandom Functions
+2. [NIST SP800-56C][nist-kdf-key-establishment]: Recommendation for Key-Derivation Methods in Key-Establishment Schemes
+3. [RFC 5869][hkdf-rfc]: HMAC-based Extract-and-Expand Key Derivation Function (HKDF)
+
+**Key management and security strength**
+1. [NIST SP800-131][nist-sp800-131a]: Transitioning the Use of Cryptographic Algorithms and Key Lengths
+2. [NIST-SP800-57][nist-sp800-57]: Recommendation for Key Management (Part 1 General)
+
+[aes]: ../../../hw/ip/aes/README.md
+[aes-spec]: https://csrc.nist.gov/publications/detail/fips/197/final
+[aes-basic-modes-spec]: https://csrc.nist.gov/publications/detail/sp/800-38a/final
+[brainpool-rfc]: https://datatracker.ietf.org/doc/html/rfc5639
+[bsi-ais31]: https://www.bsi.bund.de/SharedDocs/Downloads/EN/BSI/Certification/Interpretations/AIS_31_Functionality_classes_for_random_number_generators_e.html
+[csrng]:  ../../../hw/ip/csrng/README.md
+[ecc-rfc]: https://datatracker.ietf.org/doc/html/rfc7448
+[ecc-tls-rfc]: https://datatracker.ietf.org/doc/html/rfc4492
+[ecdh-spec]: https://csrc.nist.gov/publications/detail/sp/800-56a/rev-3/final
+[eddsa-rfc]: https://datatracker.ietf.org/doc/html/rfc8032
+[entropy-src]:  ../../../hw/ip/entropy_src/README.md
+[fips-186]: https://csrc.nist.gov/publications/detail/fips/186/5/final
+[gcm-spec]: https://csrc.nist.gov/publications/detail/sp/800-38d/final
+[hkdf-rfc]: https://datatracker.ietf.org/doc/html/rfc5869
+[hmac]:  ../../../hw/ip/hmac/README.md
+[hmac-rfc]: https://datatracker.ietf.org/doc/html/rfc2104
+[hmac-testvectors-rfc]: https://datatracker.ietf.org/doc/html/rfc4231
+[hmac-usage-rfc]: https://datatracker.ietf.org/doc/html/rfc4868
+[kdf-prf-spec]: https://csrc.nist.gov/publications/detail/sp/800-108/final
+[keymgr]:  ../../../hw/ip/keymgr/README.md
+[kmac]:  ../../../hw/ip/kmac/README.md
+[kwp-spec]: https://csrc.nist.gov/publications/detail/sp/800-38f/final
+[nist-drbg-spec]: https://csrc.nist.gov/publications/detail/sp/800-90a/rev-1/final
+[nist-ecc-domain-params]: https://csrc.nist.gov/publications/detail/sp/800-186/final
+[nist-entropy-spec]: https://csrc.nist.gov/publications/detail/sp/800-90b/final
+[nist-kdf-key-establishment]: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-56Cr2.pdf
+[nist-rng-spec]: https://csrc.nist.gov/CSRC/media/Publications/sp/800-90c/draft/documents/sp800_90c_second_draft.pdf
+[nist-sp800-131a]: https://csrc.nist.gov/publications/detail/sp/800-131a/rev-2/final
+[nist-sp800-38b]: https://www.google.com/search?q=https://csrc.nist.gov/publications/detail/sp/800-38b/final
+[nist-sp800-57]: https://csrc.nist.gov/publications/detail/sp/800-57-part-1/rev-5/final
+[otbn]: ../../../hw/ip/otbn/README.md
+[rsa-rfc]: https://datatracker.ietf.org/doc/html/rfc8017
+[safe-curves]: https://safecurves.cr.yp.to/
+[sec1]: https://www.secg.org/sec1-v2.pdf
+[sec2]: https://www.secg.org/sec2-v2.pdf
+[sha2-spec]: https://csrc.nist.gov/publications/detail/fips/180/4/final
+[tdes-spec]: https://csrc.nist.gov/publications/detail/sp/800-67/rev-2/final
+[sha3-spec]: https://csrc.nist.gov/publications/detail/fips/202/final
+[sha3-derived-spec]: https://csrc.nist.gov/publications/detail/sp/800-185/final
+[crypto-tests]: https://github.com/lowRISC/opentitan/tree/earlgrey_1.0.0/sw/device/tests/crypto
+[dummy-instruction]: https://ibex-core.readthedocs.io/en/latest/03_reference/security.html#dummy-instruction-insertion

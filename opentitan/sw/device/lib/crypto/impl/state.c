@@ -1,0 +1,148 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+#include "sw/device/lib/crypto/impl/state.h"
+
+#include "sw/device/lib/base/abs_mmio.h"
+#include "sw/device/lib/base/hardened.h"
+#include "sw/device/lib/crypto/drivers/rv_core_ibex.h"
+
+#include "entropy_src_regs.h"  // Generated
+#include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"
+
+static const uint32_t kBaseEntropySrc = TOP_EARLGREY_ENTROPY_SRC_BASE_ADDR;
+
+otcrypto_status_t init_state(otcrypto_state_t *state,
+                             otcrypto_key_security_level_t security_level) {
+  crypto_state_t *internal_state = (crypto_state_t *)state;
+  internal_state->imem_cache = 0;
+  internal_state->kat_state = 0;
+  internal_state->locked_state = kHardenedByteBoolFalse;
+  internal_state->self_check_state = kHardenedByteBoolFalse;
+  internal_state->csrng_instantiated = kHardenedByteBoolFalse;
+  internal_state->csrng_is_manual = kHardenedByteBoolFalse;
+#ifdef FIPS_MODE
+  internal_state->cmvp_service_indicator = kOtcryptoCmvpNoService;
+  internal_state->cmvp_call_depth = 0;
+#endif
+  internal_state->security_level = (uint16_t)security_level;
+  return OTCRYPTO_OK;
+}
+
+otcrypto_status_t store_state(otcrypto_state_t *state) {
+  if (state == NULL) {
+    // COVERAGE (SW ERR) Internal callers always provide a non-null state
+    // pointer.
+    return OTCRYPTO_BAD_ARGS;
+  }
+  uint32_t state_addr = (uint32_t)state;
+  uint16_t state_hi = (uint16_t)(state_addr >> 16);
+  uint16_t state_lo = (uint16_t)(state_addr & 0xFFFF);
+
+  abs_mmio_write32(
+      kBaseEntropySrc + ENTROPY_SRC_EXTHT_HI_THRESHOLDS_REG_OFFSET,
+      bitfield_field32_write(ENTROPY_SRC_EXTHT_HI_THRESHOLDS_REG_RESVAL,
+                             ENTROPY_SRC_EXTHT_HI_THRESHOLDS_FIPS_THRESH_FIELD,
+                             state_hi));
+  abs_mmio_write32(
+      kBaseEntropySrc + ENTROPY_SRC_EXTHT_LO_THRESHOLDS_REG_OFFSET,
+      bitfield_field32_write(ENTROPY_SRC_EXTHT_LO_THRESHOLDS_REG_RESVAL,
+                             ENTROPY_SRC_EXTHT_LO_THRESHOLDS_FIPS_THRESH_FIELD,
+                             state_lo));
+  return OTCRYPTO_OK;
+}
+
+status_t read_state_pointer(crypto_state_t **state) {
+  if (state == NULL) {
+    // COVERAGE (SW ERR) Internal callers always provide a non-null state
+    // pointer.
+    return OTCRYPTO_BAD_ARGS;
+  }
+
+  uint32_t reg_hi = abs_mmio_read32(kBaseEntropySrc +
+                                    ENTROPY_SRC_EXTHT_HI_THRESHOLDS_REG_OFFSET);
+  uint32_t reg_lo = abs_mmio_read32(kBaseEntropySrc +
+                                    ENTROPY_SRC_EXTHT_LO_THRESHOLDS_REG_OFFSET);
+
+  uint32_t val_hi = bitfield_field32_read(
+      reg_hi, ENTROPY_SRC_EXTHT_HI_THRESHOLDS_FIPS_THRESH_FIELD);
+  uint32_t val_lo = bitfield_field32_read(
+      reg_lo, ENTROPY_SRC_EXTHT_LO_THRESHOLDS_FIPS_THRESH_FIELD);
+
+  if (val_hi == 0xFFFF) {
+    *state = NULL;
+    return OTCRYPTO_RECOV_ERR;
+  }
+
+  uint32_t state_addr = (val_hi << 16) | val_lo;
+  *state = (crypto_state_t *)state_addr;
+
+  return OTCRYPTO_OK;
+}
+
+#ifdef FIPS_MODE
+
+otcrypto_status_t locked_state_check(void) {
+  crypto_state_t *state = NULL;
+
+  status_t res = read_state_pointer(&state);
+  if (res.value < 0) {
+    return res;
+  }
+
+  // If we are in a locked state (hard or entropy-locked), return a fatal error
+  if (launder32(state->locked_state) != kHardenedByteBoolFalse) {
+    return OTCRYPTO_FATAL_ERR;
+  }
+
+  if (state->self_check_state == kHardenedByteBoolFalse) {
+    return OTCRYPTO_RECOV_ERR;
+  }
+
+  return OTCRYPTO_OK;
+}
+
+otcrypto_status_t stateful_health_check(kat_bits_t kat_bit) {
+  crypto_state_t *state = NULL;
+
+  status_t res = read_state_pointer(&state);
+  if (res.value < 0) {
+    return res;
+  }
+
+  // If we are in a locked state (hard or entropy-locked), the health check
+  // returns a fatal error
+  if (launder32(state->locked_state) != kHardenedByteBoolFalse) {
+    return OTCRYPTO_FATAL_ERR;
+  }
+
+  // The self-integrity check uses SHA-2 and the RNG, so those KATs
+  // must be allowed to execute before the self-integrity check has completed.
+  if (kat_bit != kTestHashSha512Bit && kat_bit != kTestRngBit &&
+      state->self_check_state == kHardenedByteBoolFalse) {
+    return OTCRYPTO_RECOV_ERR;
+  }
+
+  uint32_t mask = (1UL << kat_bit);
+
+  if ((state->kat_state & mask) == 0) {
+    uint8_t saved_indicator = state->cmvp_service_indicator;
+    uint8_t saved_depth = state->cmvp_call_depth;
+    kat_id_t test_id = {.flags = mask};
+    status_t result = run_kats(test_id);
+
+    // If the KAT failed, lock the cryptolib
+    if (result.value != kHardenedBoolTrue) {
+      // COVERAGE (HW ERR) KAT failure only occurs on hardware fault or FI.
+      state->locked_state = kHardenedByteBoolTrue;
+      return result;
+    }
+    state->cmvp_service_indicator = saved_indicator;
+    state->cmvp_call_depth = saved_depth;
+  }
+
+  return OTCRYPTO_OK;
+}
+
+#endif  // FIPS_MODE

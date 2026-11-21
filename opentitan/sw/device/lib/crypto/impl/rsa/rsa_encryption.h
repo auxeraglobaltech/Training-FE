@@ -1,0 +1,131 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+#ifndef OPENTITAN_SW_DEVICE_LIB_CRYPTO_IMPL_RSA_RSA_ENCRYPTION_H_
+#define OPENTITAN_SW_DEVICE_LIB_CRYPTO_IMPL_RSA_RSA_ENCRYPTION_H_
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include "sw/device/lib/base/hardened.h"
+#include "sw/device/lib/crypto/impl/rsa/rsa_datatypes.h"
+#include "sw/device/lib/crypto/impl/status.h"
+#include "sw/device/lib/crypto/include/datatypes.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif  // __cplusplus
+
+/**
+ * Starts encrypting a message with RSA; returns immediately.
+ *
+ * The padding scheme is OAEP, and the mask generation function (MGF) is MGF1
+ * with the hash function indicated by `hash_mode` and a salt the same length
+ * as the hash function output.
+ *
+ * Returns an `OTCRYPTO_ASYNC_INCOMPLETE` error if OTBN is busy.
+ *
+ * @param size RSA size parameter (e.g. 2048, 3072, 4096).
+ * @param e RSA public exponent (0 for default F4=65537, or odd >= 3; note that
+ *          FIPS 186-5 requires e > 2^16).
+ * @param n RSA public modulus.
+ * @param hash_mode Hash function to use for message encoding.
+ * @param message Message to encrypt.
+ * @param message_bytelen Message length in bytes.
+ * @param label Label for OAEP padding.
+ * @param label_bytelen Length of label in bytes.
+ * @return Result of the operation (OK or error).
+ */
+OT_WARN_UNUSED_RESULT
+status_t rsa_encrypt_start(rsa_size_t size, uint32_t e, const uint32_t *n,
+                           otcrypto_key_mode_t key_mode,
+                           const otcrypto_hash_mode_t hash_mode,
+                           const uint8_t *message, size_t message_bytelen,
+                           const uint8_t *label, size_t label_bytelen);
+
+/**
+ * Waits for an RSA encryption to complete.
+ *
+ * Should be invoked only after a `rsa_encrypt_start` call. Blocks until
+ * OTBN is done processing.
+ *
+ * @param size RSA size parameter (e.g. 2048, 3072, 4096).
+ * @param[out] ciphertext Encrypted message.
+ * @return Result of the operation (OK or error).
+ */
+OT_WARN_UNUSED_RESULT
+status_t rsa_encrypt_finalize(rsa_size_t size, uint32_t *ciphertext);
+
+/**
+ * Start decrypting a message with RSA; returns immediately.
+ *
+ * Although RSA decryption raises the ciphertext to the secret exponent
+ * `d = d0 ^ d1`, OTBN's constant-time `modexp` uses the Ebeid-Lambert
+ * inverse-free base-blinding technique:
+ *   C^d = ((C * R^e)^(d - 1)) * (C * R^(e - 1)) mod n
+ * which avoids inverting the random blinding factor `R` by relying on
+ * `R^(e*d - 1) = 1 mod n`. Consequently, the public exponent `e` associated
+ * with `(d0, d1)` must be provided.
+ *
+ * Returns an `OTCRYPTO_ASYNC_INCOMPLETE` error if OTBN is busy.
+ *
+ * @param size RSA size parameter (e.g. 2048, 3072, 4096).
+ * @param d0 RSA private exponent share 0.
+ * @param d1 RSA private exponent share 1.
+ * @param e RSA public exponent associated with `d` (0 for default F4=65537,
+ *          or odd >= 3; note that FIPS 186-5 requires e > 2^16).
+ * @param n RSA public modulus.
+ * @param ciphertext Encrypted message.
+ * @param checksum Checksum over `d0`.
+ * @return Result of the operation (OK or error).
+ */
+OT_WARN_UNUSED_RESULT
+status_t rsa_decrypt_start(rsa_size_t size, otcrypto_key_mode_t key_mode,
+                           const uint32_t *d0, const uint32_t *d1, uint32_t e,
+                           const uint32_t *n, const uint32_t *ciphertext,
+                           uint32_t checksum);
+
+/**
+ * Waits for an RSA decryption to complete.
+ *
+ * Should be invoked only after an `rsa_decrypt_start`, but works for
+ * any RSA size. Blocks until OTBN is done processing, and then infers the size
+ * from the OTBN application mode.
+ *
+ * The only supported padding mode is OAEP (see IETF RFC 8017, section 7.1.2).
+ * Only SHA-1 and SHA-2 hash functions are supported. The mask generation
+ * function (MGF) is MGF1 with the hash function indicated by `hash_mode`.
+ *
+ * The caller must ensure that enough space is allocated at `plaintext` to hold
+ * the largest possible plaintext, which is (as described in IETF RFC 8017,
+ * section 7.1.2):
+ *   <length of modulus> - 2 * <length of hash function> - 2 bytes
+ *
+ * For example, if the hash function here is SHA-512 (64-byte digest), the
+ * maximum plaintext byte-length would be:
+ *   (2048 / 8) - 2 * 64 - 2 = 126 bytes
+ *
+ * This routine will not necessarily use all available bytes in the plaintext,
+ * and will write the actual length of the plaintext into `plaintext_bytelen`.
+ *
+ * @param hash_mode Hash function to use for message decoding.
+ * @param label Label for OAEP padding.
+ * @param label_bytelen Length of label in bytes.
+ * @param plaintext_max_bytelen Space allocated for the plaintext in bytes.
+ * @param[out] plaintext Decrypted message.
+ * @param[out] plaintext_bytelen Length of plaintext in bytes.
+ * @return Result of the operation (OK or error).
+ */
+OT_WARN_UNUSED_RESULT
+status_t rsa_decrypt_finalize(otcrypto_key_mode_t key_mode,
+                              const otcrypto_hash_mode_t hash_mode,
+                              const uint8_t *label, size_t label_bytelen,
+                              size_t plaintext_max_bytelen, uint8_t *plaintext,
+                              size_t *plaintext_bytelen);
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif  // __cplusplus
+
+#endif  // OPENTITAN_SW_DEVICE_LIB_CRYPTO_IMPL_RSA_RSA_ENCRYPTION_H_

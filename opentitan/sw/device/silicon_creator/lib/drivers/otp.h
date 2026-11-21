@@ -1,0 +1,235 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+#ifndef OPENTITAN_SW_DEVICE_SILICON_CREATOR_LIB_DRIVERS_OTP_H_
+#define OPENTITAN_SW_DEVICE_SILICON_CREATOR_LIB_DRIVERS_OTP_H_
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include "sw/device/lib/base/macros.h"
+#include "sw/device/silicon_creator/lib/drivers/lifecycle.h"
+#include "sw/device/silicon_creator/lib/error.h"
+
+#include "otp_ctrl_regs.h"  // Generated.
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * The following constants represent the expected number of sec_mmio register
+ * writes performed by functions provided by this module. See
+ * `SEC_MMIO_WRITE_INCREMENT()` for more details.
+ *
+ * Example:
+ * ```
+ *  otp_creator_sw_cfg_lockdown();
+ *  SEC_MMIO_WRITE_INCREMENT(kOtpSecMmioCreatorSwCfgLockDown);
+ * ```
+ */
+enum {
+  /**
+   * Individual register reads/writes.
+   */
+  kOtpSecMmioCreatorSwCfgLockDown = 1,
+};
+
+/**
+ * OTP partition information.
+ */
+typedef struct otp_partition_info {
+  /**
+   * The absolute OTP address at which this partition starts.
+   */
+  uint32_t start_addr;
+  /**
+   * Size (in bytes) of the partition, excluding the digest field.
+   */
+  size_t size;
+  /**
+   * The OTP digest CSR (where the digest is buffered) address for this
+   * partition.
+   */
+  uint32_t digest_reg_addr;
+  /**
+   * The alignment mask for this partition.
+   *
+   * A valid address for this partition must be such that
+   * `addr & align_mask == 0`.
+   */
+  uint32_t align_mask;
+} otp_partition_info_t;
+
+/**
+ * OTP partitions whose fields are readable after being locked.
+ */
+typedef enum otp_partition {
+  kOtpPartitionCreatorSwCfg = 0,
+  kOtpPartitionOwnerSwCfg = 1,
+  kOtpPartitionRotCreatorAuthCodesign = 2,
+  kOtpPartitionRotCreatorAuthState = 3,
+  kOtpPartitionHwCfg0 = 4,
+  kOtpPartitionHwCfg1 = 5,
+  kOtpPartitionSecret0 = 6,
+  kOtpPartitionSecret1 = 7,
+  kOtpPartitionSecret2 = 8,
+  kOtpPartitionNumPartitions = 9,
+} otp_partition_t;
+
+/**
+ * Table of OTP partition information.
+ */
+extern const otp_partition_info_t kOtpPartitions[];
+
+/**
+ * Perform a blocking 32-bit read from the memory mapped software config
+ * partitions.
+ *
+ * @param address The address to read from offset from the start of OTP memory.
+ * @return The 32-bit value from OTP.
+ */
+OT_WARN_UNUSED_RESULT
+uint32_t otp_read32(uint32_t address);
+
+/**
+ * Perform a blocking 64-bit read from the memory mapped software config
+ * partitions.
+ *
+ * @param address The address to read from offset from the start of OTP memory.
+ * @return The 64-bit value from OTP.
+ */
+OT_WARN_UNUSED_RESULT
+uint64_t otp_read64(uint32_t address);
+
+/**
+ * Perform a blocking read of `num_words` 32-bit words from the memory mapped
+ * software config partitions.
+ *
+ * @param address The address to read from offset from the start of OTP memory.
+ * @param data The output buffer of at least length `num_words`.
+ * @param num_words The number of 32-bit words to read from OTP.
+ */
+void otp_read(uint32_t address, uint32_t *data, size_t num_words);
+
+/**
+ * Read a partition's 64-bit digest from the corresponding CSRs.
+ *
+ * @param partition The OTP partition whose digest should be read.
+ * @return The 64-bit digest value.
+ */
+uint64_t otp_partition_digest_read(otp_partition_t partition);
+
+/**
+ * Check that the secret OTP partitions that are expected to be provisioned
+ * have a non-zero digest.
+ *
+ * The SECRET0 partition is provisioned during the TEST_UNLOCKED life-cycle
+ * stages, so its digest must be non-zero in every other life-cycle state.
+ *
+ * The SECRET1 and SECRET2 partitions are provisioned and locked before the
+ * CREATOR_SW_CFG partition is locked at the end of personalization, so a
+ * non-zero CREATOR_SW_CFG digest implies that both must have a non-zero
+ * digest.
+ *
+ * @param lc_state Life cycle state of the device.
+ * @return Result of the operation.
+ */
+OT_WARN_UNUSED_RESULT
+rom_error_t otp_secret_partitions_check(lifecycle_state_t lc_state);
+
+/**
+ * Perform a blocking 32-bit read from the Direct Access Interface (DAI).
+ *
+ * This enables reading any readable 32-bit OTP field that is not in the memory
+ * mapped software config partitions (i.e., partitions other than the
+ * {CREATOR,OWNER}_SW_CFG partitions).
+ *
+ * @param partition The OTP partition to read from.
+ * @param relative_address The address to read from, relative to the start of
+ *                         the OTP partition.
+ * @return The 32-bit value from OTP.
+ */
+uint32_t otp_dai_read32(otp_partition_t partition, uint32_t address);
+
+/**
+ * Perform a blocking 64-bit read from the Direct Access Interface (DAI).
+ *
+ * This enables reading any readable 64-bit OTP field that is not in the memory
+ * mapped software config partitions (i.e., partitions other than the
+ * {CREATOR,OWNER}_SW_CFG partitions).
+ *
+ * @param partition The OTP partition to read from.
+ * @param relative_address The address to read from, relative to the start of
+ *                         the OTP partition.
+ * @return The 64-bit value from OTP.
+ */
+uint64_t otp_dai_read64(otp_partition_t partition, uint32_t address);
+
+/**
+ * Perform a blocking read of `num_words` 32-bit words from the Direct Access
+ * Interface (DAI).
+ *
+ * Note: this should only be used to read 32-bit granule OTP regions.
+ *
+ * @param partition The OTP partition to read from.
+ * @param relative_address The address to read from, relative to the start of
+ *                         the OTP partition.
+ * @param data The output buffer of at least length `num_words`.
+ * @param num_words The number of 32-bit words to read from OTP.
+ */
+rom_error_t otp_dai_read(otp_partition_t partition, uint32_t address,
+                         uint32_t *data, size_t num_words);
+
+/**
+ * Disables read access to CREATOR_SW_CFG partition until next reset.
+ *
+ * This function must be called in ROM_EXT before handing over execution to the
+ * first owner boot stage.
+ */
+void otp_creator_sw_cfg_lockdown(void);
+
+/**
+ * Wait until the OTP Direct Access Interface (DAI) is idle.
+ */
+void wait_for_dai_idle(void);
+
+/**
+ * Perform a blocking 32-bit write to the Direct Access Interface (DAI).
+ *
+ * @param partition The OTP partition to write to.
+ * @param relative_address The address to write relative to the start of the
+ *                         OTP partition.
+ * @param value The 32-bit value to write.
+ * @return The status of the operation.
+ */
+rom_error_t otp_dai_write32(otp_partition_t partition, uint32_t address,
+                            uint32_t value);
+
+/**
+ * Perform a blocking raw 64-bit write to the Direct Access Interface (DAI).
+ *
+ * @param address The raw OTP address to write.
+ * @param buffer The input buffer of 64-bit secrets.
+ * @param len The number of 64-bit secrets to write.
+ * @return The status of the operation.
+ */
+rom_error_t otp_dai_write64(uint32_t address, const uint64_t *buffer,
+                            size_t len);
+
+/**
+ * Perform a blocking raw partition digest lock on the Direct Access Interface
+ * (DAI).
+ *
+ * @param digest_reg_addr The raw OTP address of the partition digest register.
+ * @param digest The 64-bit partition digest to write.
+ * @return The status of the operation.
+ */
+rom_error_t otp_dai_digest_lock(uint32_t digest_reg_addr, uint64_t digest);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif  // OPENTITAN_SW_DEVICE_SILICON_CREATOR_LIB_DRIVERS_OTP_H_

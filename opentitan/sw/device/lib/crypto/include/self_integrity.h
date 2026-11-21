@@ -1,0 +1,33 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+#ifndef OPENTITAN_SW_DEVICE_LIB_CRYPTO_INCLUDE_SELF_INTEGRITY_H_
+#define OPENTITAN_SW_DEVICE_LIB_CRYPTO_INCLUDE_SELF_INTEGRITY_H_
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include "datatypes.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif  // __cplusplus
+
+/**
+ * Check the cryptolib's self-integrity by verifying the hash of its binary
+ * blob.
+ *
+ * @return Result of the self-integrity check. Returns
+ * `kOtcryptoStatusValueOk` if the cryptolib's self-integrity check passed, or
+ * `kOtcryptoStatusValueFatalError` if the integrity check or internal state
+ * check fails.
+ */
+OT_WARN_UNUSED_RESULT
+otcrypto_status_t otcrypto_integrity_check(void);
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif  // __cplusplus
+
+#endif  // OPENTITAN_SW_DEVICE_LIB_CRYPTO_INCLUDE_SELF_INTEGRITY_H_

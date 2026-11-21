@@ -1,0 +1,344 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+#include "sw/device/silicon_creator/lib/otbn_boot_services.h"
+
+#include "sw/device/lib/base/memory.h"
+#include "sw/device/silicon_creator/lib/attestation.h"
+#include "sw/device/silicon_creator/lib/base/sec_mmio.h"
+#include "sw/device/silicon_creator/lib/base/util.h"
+#include "sw/device/silicon_creator/lib/cert/seeds.h"
+#include "sw/device/silicon_creator/lib/dbg_print.h"
+#include "sw/device/silicon_creator/lib/drivers/flash_ctrl.h"
+#include "sw/device/silicon_creator/lib/drivers/hmac.h"
+#include "sw/device/silicon_creator/lib/drivers/keymgr.h"
+#include "sw/device/silicon_creator/lib/drivers/otbn.h"
+
+#include "otbn_regs.h"  // Generated.
+
+static_assert(kAttestationSeedWords <= 16,
+              "Additional attestation seed needs must be <= 516 bits.");
+
+OTBN_DECLARE_APP_SYMBOLS(boot);        // The OTBN boot-services app.
+OTBN_DECLARE_SYMBOL_ADDR(boot, mode);  // Application mode.
+OTBN_DECLARE_SYMBOL_ADDR(boot, msg);   // ECDSA message digest.
+OTBN_DECLARE_SYMBOL_ADDR(boot, x);     // ECDSA public key x-coordinate.
+OTBN_DECLARE_SYMBOL_ADDR(boot, y);     // ECDSA public key y-coordinate.
+OTBN_DECLARE_SYMBOL_ADDR(boot, r);     // ECDSA signature component r.
+OTBN_DECLARE_SYMBOL_ADDR(boot, s);     // ECDSA signature component s.
+OTBN_DECLARE_SYMBOL_ADDR(boot, x_r);   // ECDSA verification result.
+OTBN_DECLARE_SYMBOL_ADDR(boot, ok);    // ECDSA verification status.
+OTBN_DECLARE_SYMBOL_ADDR(
+    boot, attestation_additional_seed);  // Additional seed for ECDSA keygen.
+
+static const sc_otbn_app_t kOtbnAppBoot = OTBN_APP_T_INIT(boot);
+static const sc_otbn_addr_t kOtbnVarBootMode = OTBN_ADDR_T_INIT(boot, mode);
+static const sc_otbn_addr_t kOtbnVarBootMsg = OTBN_ADDR_T_INIT(boot, msg);
+static const sc_otbn_addr_t kOtbnVarBootX = OTBN_ADDR_T_INIT(boot, x);
+static const sc_otbn_addr_t kOtbnVarBootY = OTBN_ADDR_T_INIT(boot, y);
+static const sc_otbn_addr_t kOtbnVarBootR = OTBN_ADDR_T_INIT(boot, r);
+static const sc_otbn_addr_t kOtbnVarBootS = OTBN_ADDR_T_INIT(boot, s);
+static const sc_otbn_addr_t kOtbnVarBootXr = OTBN_ADDR_T_INIT(boot, x_r);
+static const sc_otbn_addr_t kOtbnVarBootOk = OTBN_ADDR_T_INIT(boot, ok);
+static const sc_otbn_addr_t kOtbnVarBootAttestationAdditionalSeed =
+    OTBN_ADDR_T_INIT(boot, attestation_additional_seed);
+
+enum {
+  /*
+   * Mode is represented by a single word.
+   */
+  kOtbnBootModeWords = 1,
+  /*
+   * Mode to run signature verification.
+   *
+   * Value taken from `boot.s`.
+   */
+  kOtbnBootModeSigverify = 0x7d3,
+  /*
+   * Mode to generate an attestation keypair.
+   *
+   * Value taken from `boot.s`.
+   */
+  kOtbnBootModeAttestationKeygen = 0x2bf,
+  /*
+   * Mode to endorse a message with a saved private key.
+   *
+   * Value taken from `boot.s`.
+   */
+  kOtbnBootModeAttestationEndorse = 0x5e8,
+  /*
+   * Mode to save an attesation private key.
+   *
+   * Value taken from `boot.s`.
+   */
+  kOtbnBootModeAttestationKeySave = 0x64d,
+  /* Size of the OTBN attestation seed buffer in 32-bit words (rounding the
+     attestation seed size up to the next OTBN wide word). */
+  kOtbnAttestationSeedBufferWords =
+      ((kAttestationSeedWords + kScOtbnWideWordNumWords - 1) /
+       kScOtbnWideWordNumWords) *
+      kScOtbnWideWordNumWords,
+  /**
+   * Size of the OTBN boot app DMEM data section in 32-bit words.
+   *
+   * This is the size in the Earlgrey-PROD-A2-M6-ROM-RC1 taped-out ROM.
+   */
+  kOtbnBootDmemDataWords = 224 / sizeof(uint32_t),
+};
+
+rom_error_t otbn_boot_app_load(void) { return sc_otbn_load_app(kOtbnAppBoot); }
+
+/**
+ * Helper to sideload a keymgr key, write the additional flash seed, execute an
+ * OTBN attestation mode (`keygen` or `key_save`), and immediately clear the
+ * sideload slot and DMEM seed buffer.
+ */
+static rom_error_t otbn_boot_keygen_or_save(
+    uint32_t additional_seed_idx, sc_keymgr_key_type_t key_type,
+    sc_keymgr_diversification_t diversification, uint32_t mode) {
+  HARDENED_RETURN_IF_ERROR(
+      sc_otbn_dmem_write(kOtbnBootModeWords, &mode, kOtbnVarBootMode));
+
+  // Load the additional seed from flash info and pad the remaining wide-word
+  // DMEM field with zeros to prevent a DMEM integrity error.
+  uint32_t seed[kOtbnAttestationSeedBufferWords] = {0};
+  HARDENED_RETURN_IF_ERROR(
+      load_attestation_keygen_seed(additional_seed_idx, seed));
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_write(
+      ARRAYSIZE(seed), seed, kOtbnVarBootAttestationAdditionalSeed));
+  memset(seed, 0, sizeof(seed));
+
+  // Trigger key manager to sideload the attestation key into OTBN and run the
+  // OTBN program (blocks until OTBN is done).
+  HARDENED_RETURN_IF_ERROR(
+      sc_keymgr_generate_key_otbn(key_type, diversification));
+  rom_error_t err = sc_otbn_execute();
+  SEC_MMIO_WRITE_INCREMENT(kScOtbnSecMmioExecute);
+
+  // Immediately clear the sideload slot and DMEM seed buffer.
+  HARDENED_RETURN_IF_ERROR(sc_keymgr_sideload_clear_otbn());
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_write(
+      ARRAYSIZE(seed), seed, kOtbnVarBootAttestationAdditionalSeed));
+  return err;
+}
+
+rom_error_t otbn_boot_attestation_keygen(
+    uint32_t additional_seed_idx, sc_keymgr_key_type_t key_type,
+    sc_keymgr_diversification_t diversification,
+    ecdsa_p256_public_key_t *public_key) {
+  HARDENED_RETURN_IF_ERROR(
+      otbn_boot_keygen_or_save(additional_seed_idx, key_type, diversification,
+                               kOtbnBootModeAttestationKeygen));
+
+  // Verify the OTBN instruction count to mitigate FI.
+  uint32_t insn_cnt = sc_otbn_instruction_count_get();
+  if (launder32(insn_cnt) != kOtbnInsnCountKeygenROM) {
+    HARDENED_CHECK_EQ(insn_cnt, kOtbnInsnCountKeygen);
+  } else {
+    HARDENED_CHECK_EQ(insn_cnt, kOtbnInsnCountKeygenROM);
+  }
+
+  // Retrieve the public key.
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_read(kEcdsaP256PublicKeyCoordWords,
+                                             kOtbnVarBootX, public_key->x));
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_read(kEcdsaP256PublicKeyCoordWords,
+                                             kOtbnVarBootY, public_key->y));
+
+  return kErrorOk;
+}
+
+/**
+ * Helper function to convert an ECC P256 public key from little to big endian
+ * in place.
+ */
+static void pubkey_le_to_be_convert(ecdsa_p256_public_key_t *pubkey) {
+  util_reverse_bytes(pubkey->x, kEcdsaP256PublicKeyCoordBytes);
+  util_reverse_bytes(pubkey->y, kEcdsaP256PublicKeyCoordBytes);
+}
+
+rom_error_t otbn_boot_cert_ecc_p256_keygen(sc_keymgr_ecc_key_t key,
+                                           hmac_digest_t *pubkey_id,
+                                           ecdsa_p256_public_key_t *pubkey) {
+  HARDENED_RETURN_IF_ERROR(sc_keymgr_state_check(key.required_keymgr_state));
+
+  // Generate / sideload key material into OTBN, and generate the ECC keypair.
+  HARDENED_RETURN_IF_ERROR(otbn_boot_attestation_keygen(
+      key.keygen_seed_idx, key.type, *key.keymgr_diversifier, pubkey));
+
+  // Keys are represented in certificates in big endian format, but the key is
+  // output from OTBN in little endian format, so we convert the key to
+  // big endian format.
+  pubkey_le_to_be_convert(pubkey);
+
+  // Generate the key ID.
+  //
+  // Note: the certificate generation functions expect the digest to be in big
+  // endian form, but the HMAC driver returns the digest in little endian, so we
+  // re-format it.
+  hmac_sha256(pubkey, sizeof(*pubkey), pubkey_id);
+  util_reverse_bytes(pubkey_id, sizeof(*pubkey_id));
+
+  return kErrorOk;
+}
+
+rom_error_t otbn_boot_attestation_key_save(
+    uint32_t additional_seed_idx, sc_keymgr_key_type_t key_type,
+    sc_keymgr_diversification_t diversification) {
+  HARDENED_RETURN_IF_ERROR(
+      otbn_boot_keygen_or_save(additional_seed_idx, key_type, diversification,
+                               kOtbnBootModeAttestationKeySave));
+
+  // Verify the OTBN instruction count to mitigate FI.
+  uint32_t insn_cnt = sc_otbn_instruction_count_get();
+  if (launder32(insn_cnt) != kOtbnInsnCountKeySaveROM) {
+    HARDENED_CHECK_EQ(insn_cnt, kOtbnInsnCountKeySave);
+  } else {
+    HARDENED_CHECK_EQ(insn_cnt, kOtbnInsnCountKeySaveROM);
+  }
+
+  return kErrorOk;
+}
+
+rom_error_t otbn_boot_attestation_key_clear(void) {
+  HARDENED_RETURN_IF_ERROR(sc_keymgr_sideload_clear_otbn());
+
+  const size_t data_num_words =
+      (size_t)(kOtbnAppBoot.dmem_data_end - kOtbnAppBoot.dmem_data_start);
+  if (data_num_words != kOtbnBootDmemDataWords) {
+    return kErrorOtbnInvalidArgument;
+  }
+
+  // Backup the app read-only data from OTBN before wiping.
+  // The data is embedded in and loaded by ROM. It is not embedded in ROM_EXT
+  // to save firmware size, so we need to back it up from DMEM first.
+  uint32_t dmem_backup[kOtbnBootDmemDataWords];
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_read(
+      kOtbnBootDmemDataWords, kOtbnAppBoot.dmem_data_start_addr, dmem_backup));
+
+  // Trigger a full DMEM wipe.
+  RETURN_IF_ERROR(sc_otbn_dmem_sec_wipe());
+  HARDENED_RETURN_IF_ERROR(sc_otbn_busy_wait_for_done());
+
+  // Re-load the read-only data portion of the boot services app from the
+  // backup.
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_write(
+      kOtbnBootDmemDataWords, dmem_backup, kOtbnAppBoot.dmem_data_start_addr));
+  return kErrorOk;
+}
+
+void otbn_boot_attestation_key_scope_clear(uint32_t *unused) {
+  (void)unused;
+  HARDENED_CHECK_EQ(otbn_boot_attestation_key_clear(), kErrorOk);
+}
+
+rom_error_t otbn_boot_attestation_endorse(const hmac_digest_t *digest,
+                                          ecdsa_p256_signature_t *sig,
+                                          const ecdsa_p256_public_key_t *key) {
+  // Write the mode.
+  uint32_t mode = kOtbnBootModeAttestationEndorse;
+  HARDENED_RETURN_IF_ERROR(
+      sc_otbn_dmem_write(kOtbnBootModeWords, &mode, kOtbnVarBootMode));
+
+  // Write the message digest.
+  HARDENED_RETURN_IF_ERROR(
+      sc_otbn_dmem_write(kHmacDigestNumWords, digest->digest, kOtbnVarBootMsg));
+
+  // Run the OTBN program (blocks until OTBN is done).
+  HARDENED_RETURN_IF_ERROR(sc_otbn_execute());
+  SEC_MMIO_WRITE_INCREMENT(kScOtbnSecMmioExecute);
+
+  // Verify the OTBN instruction count to mitigate FI.
+  uint32_t insn_cnt = sc_otbn_instruction_count_get();
+  if (launder32(insn_cnt) != kOtbnInsnCountEndorseROM) {
+    HARDENED_CHECK_EQ(insn_cnt, kOtbnInsnCountEndorse);
+  } else {
+    HARDENED_CHECK_EQ(insn_cnt, kOtbnInsnCountEndorseROM);
+  }
+
+  // Retrieve the signature (in two parts, r and s).
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_read(kEcdsaP256SignatureComponentWords,
+                                             kOtbnVarBootR, sig->r));
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_read(kEcdsaP256SignatureComponentWords,
+                                             kOtbnVarBootS, sig->s));
+
+  // Clear all secrets in the scratchpad.
+  HARDENED_RETURN_IF_ERROR(otbn_boot_attestation_key_clear());
+
+  // Verify the signature.
+  uint32_t recovered_r[kEcdsaP256SignatureComponentWords];
+  HARDENED_RETURN_IF_ERROR(otbn_boot_sigverify(key, sig, digest, recovered_r));
+
+  uint32_t diff = 0;
+  size_t i = 0;
+  for (; launder32(i) < kEcdsaP256SignatureComponentWords; ++i) {
+    diff |= recovered_r[i] ^ sig->r[i];
+  }
+  HARDENED_CHECK_EQ(i, kEcdsaP256SignatureComponentWords);
+
+  if (launder32(diff) != 0) {
+    return kErrorSigverifyBadEcdsaSignature;
+  }
+  HARDENED_CHECK_EQ(diff, 0);
+
+  return kErrorOk;
+}
+
+rom_error_t otbn_boot_sigverify_start(const ecdsa_p256_public_key_t *key,
+                                      const ecdsa_p256_signature_t *sig,
+                                      const hmac_digest_t *digest) {
+  // Write the mode.
+  uint32_t mode = kOtbnBootModeSigverify;
+  HARDENED_RETURN_IF_ERROR(
+      sc_otbn_dmem_write(kOtbnBootModeWords, &mode, kOtbnVarBootMode));
+
+  // Write the public key.
+  HARDENED_RETURN_IF_ERROR(
+      sc_otbn_dmem_write(kEcdsaP256PublicKeyCoordWords, key->x, kOtbnVarBootX));
+  HARDENED_RETURN_IF_ERROR(
+      sc_otbn_dmem_write(kEcdsaP256PublicKeyCoordWords, key->y, kOtbnVarBootY));
+
+  // Write the message digest.
+  HARDENED_RETURN_IF_ERROR(
+      sc_otbn_dmem_write(kHmacDigestNumWords, digest->digest, kOtbnVarBootMsg));
+
+  // Write the signature.
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_write(kEcdsaP256SignatureComponentWords,
+                                              sig->r, kOtbnVarBootR));
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_write(kEcdsaP256SignatureComponentWords,
+                                              sig->s, kOtbnVarBootS));
+
+  // Start the OTBN routine.
+  SEC_MMIO_WRITE_INCREMENT(kScOtbnSecMmioExecute);
+  return sc_otbn_execute_start();
+}
+
+rom_error_t otbn_boot_sigverify_finish(uint32_t *recovered_r) {
+  HARDENED_RETURN_IF_ERROR(sc_otbn_execute_finish());
+  // Check if the signature passed basic checks.
+  uint32_t ok;
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_read(1, kOtbnVarBootOk, &ok));
+  if (launder32(ok) != kHardenedBoolTrue) {
+    return kErrorSigverifyBadEcdsaSignature;
+  }
+
+  // Read the status value again as an extra hardening measure.
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_read(1, kOtbnVarBootOk, &ok));
+  HARDENED_CHECK_EQ(ok, kHardenedBoolTrue);
+
+  // Clear the status in OTBN.
+  uint32_t zero = 0;
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_write(1, &zero, kOtbnVarBootOk));
+
+  // Read the recovered `r` value from DMEM.
+  return sc_otbn_dmem_read(kEcdsaP256SignatureComponentWords, kOtbnVarBootXr,
+                           recovered_r);
+}
+
+rom_error_t otbn_boot_sigverify(const ecdsa_p256_public_key_t *key,
+                                const ecdsa_p256_signature_t *sig,
+                                const hmac_digest_t *digest,
+                                uint32_t *recovered_r) {
+  HARDENED_RETURN_IF_ERROR(otbn_boot_sigverify_start(key, sig, digest));
+  return otbn_boot_sigverify_finish(recovered_r);
+}

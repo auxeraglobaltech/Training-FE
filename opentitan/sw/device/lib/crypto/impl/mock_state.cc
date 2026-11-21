@@ -1,0 +1,69 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+#include "sw/device/lib/base/hardened.h"
+#include "sw/device/lib/base/memory.h"
+#include "sw/device/lib/crypto/impl/state.h"
+
+namespace test {
+extern "C" {
+
+static crypto_state_t *stored_state = nullptr;
+static crypto_state_t default_state = {
+    .imem_cache = 0,
+    .kat_state = 0,
+    .security_level = kOtcryptoKeySecurityLevelLow,
+    .self_check_state = kHardenedByteBoolFalse,
+    .locked_state = kHardenedByteBoolFalse,
+    .csrng_instantiated = kHardenedByteBoolFalse,
+    .csrng_is_manual = kHardenedByteBoolFalse,
+#ifdef FIPS_MODE
+    .cmvp_service_indicator = kOtcryptoCmvpNoService,
+    .cmvp_call_depth = 0,
+#endif
+};
+
+otcrypto_status_t init_state(otcrypto_state_t *state,
+                             otcrypto_key_security_level_t security_level) {
+  crypto_state_t *internal_state = (crypto_state_t *)state;
+  memset(internal_state, 0, sizeof(*internal_state));
+  internal_state->locked_state = kHardenedByteBoolFalse;
+  internal_state->self_check_state = kHardenedByteBoolFalse;
+  internal_state->csrng_instantiated = kHardenedByteBoolFalse;
+  internal_state->csrng_is_manual = kHardenedByteBoolFalse;
+#ifdef FIPS_MODE
+  internal_state->cmvp_service_indicator = kOtcryptoCmvpNoService;
+  internal_state->cmvp_call_depth = 0;
+#endif
+  internal_state->security_level = (uint16_t)security_level;
+  return OTCRYPTO_OK;
+}
+
+otcrypto_status_t store_state(otcrypto_state_t *state) {
+  stored_state = (crypto_state_t *)state;
+  return OTCRYPTO_OK;
+}
+
+status_t read_state_pointer(crypto_state_t **state) {
+  if (state == NULL) {
+    return OTCRYPTO_BAD_ARGS;
+  }
+  if (stored_state == nullptr) {
+    *state = &default_state;
+  } else {
+    *state = stored_state;
+  }
+  return OTCRYPTO_OK;
+}
+
+#ifdef FIPS_MODE
+otcrypto_status_t locked_state_check(void) { return OTCRYPTO_OK; }
+
+otcrypto_status_t stateful_health_check(kat_bits_t kat_bit) {
+  return OTCRYPTO_OK;
+}
+#endif
+
+}  // extern "C"
+}  // namespace test

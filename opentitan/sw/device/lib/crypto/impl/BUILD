@@ -1,0 +1,804 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+package(
+    default_visibility = ["//visibility:public"],
+    features = ["cryptolib_warnings"],
+)
+
+load("//rules/opentitan:defs.bzl", "OPENTITAN_CPU")
+load(
+    "//rules/opentitan:defs.bzl",
+    "EARLGREY_TEST_ENVS",
+    "cw310_params",
+    "fpga_params",
+    "opentitan_test",
+    "verilator_params",
+)
+load("//rules:cross_platform.bzl", "dual_cc_library", "dual_inputs")
+
+cc_library(
+    name = "tdes",
+    srcs = ["tdes.c"],
+    hdrs = ["//sw/device/lib/crypto/include:tdes.h"],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":integrity",
+        ":keyblob",
+        ":state",
+        ":status",
+        "//sw/device/lib/base:hardened",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/base:math",
+        "//sw/device/lib/base:memory",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "aes",
+    srcs = ["aes.c"],
+    hdrs = ["//sw/device/lib/crypto/include:aes.h"],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":integrity",
+        ":keyblob",
+        ":state",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/base:memory",
+        "//sw/device/lib/crypto/drivers:aes",
+        "//sw/device/lib/crypto/drivers:rv_core_ibex",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "aes_gcm",
+    srcs = ["aes_gcm.c"],
+    hdrs = ["//sw/device/lib/crypto/include:aes_gcm.h"],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":integrity",
+        ":keyblob",
+        ":state",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/base:memory",
+        "//sw/device/lib/crypto/drivers:aes",
+        "//sw/device/lib/crypto/drivers:rv_core_ibex",
+        "//sw/device/lib/crypto/impl/aes_gcm",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "cryptolib_build_info",
+    srcs = ["cryptolib_build_info.c"],
+    hdrs = ["//sw/device/lib/crypto/include:cryptolib_build_info.h"],
+    defines = select({
+        "//rules:stamp_flag_config": ["CRYPTOLIB_IS_RELEASED=true"],
+        "//conditions:default": ["CRYPTOLIB_IS_RELEASED=false"],
+    }),
+    deps = [
+        ":integrity",
+        ":status",
+        "//hw/ip/rom_ctrl/data:rom_ctrl_c_regs",
+        "//hw/top_earlgrey/sw/autogen:top_earlgrey",
+        "//sw/device/lib/base:abs_mmio",
+        "//sw/device/lib/base:hardened",
+        "//sw/device/lib/base:macros",
+        "//sw/device/lib/base:memory",
+        "//sw/device/lib/crypto/drivers:cryptolib_build_info",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "drbg",
+    srcs = ["drbg.c"],
+    hdrs = ["//sw/device/lib/crypto/include:drbg.h"],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":integrity",
+        ":state",
+        ":status",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/base:math",
+        "//sw/device/lib/crypto/drivers:entropy",
+        "//sw/device/lib/crypto/drivers:rv_core_ibex",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "cmac",
+    srcs = ["cmac.c"],
+    hdrs = ["//sw/device/lib/crypto/include:cmac.h"],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":integrity",
+        ":keyblob",
+        ":state",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/base:memory",
+        "//sw/device/lib/crypto/drivers:aes",
+        "//sw/device/lib/crypto/drivers:rv_core_ibex",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "cmac_kdf",
+    srcs = ["cmac_kdf.c"],
+    hdrs = ["//sw/device/lib/crypto/include:cmac_kdf.h"],
+    deps = [
+        ":cmac",
+        ":cmvp",
+        ":config",
+        ":integrity",
+        ":keyblob",
+        ":state",
+        ":status",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/base:math",
+        "//sw/device/lib/crypto/drivers:aes",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "ecc_curve25519",
+    srcs = ["ecc_curve25519.c"],
+    hdrs = ["//sw/device/lib/crypto/include:ecc_curve25519.h"],
+    local_defines = select({
+        "//sw/device/lib/crypto/configs:hashed": [
+            "FIPS_MODE",
+        ],
+        "//conditions:default": [],
+    }),
+    target_compatible_with = [OPENTITAN_CPU],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":hash",
+        ":hmac",
+        ":integrity",
+        ":keyblob",
+        ":sha2",
+        ":state",
+        ":status",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/crypto/drivers:entropy",
+        "//sw/device/lib/crypto/impl/ecc:curve25519",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "ecc_p256",
+    srcs = ["ecc_p256.c"],
+    hdrs = ["//sw/device/lib/crypto/include:ecc_p256.h"],
+    local_defines = select({
+        "//sw/device/lib/crypto/configs:hashed": [
+            "FIPS_MODE",
+        ],
+        "//conditions:default": [],
+    }),
+    target_compatible_with = [OPENTITAN_CPU],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":hash",
+        ":keyblob",
+        ":state",
+        "//sw/device/lib/crypto/drivers:hmac",
+        "//sw/device/lib/crypto/impl/ecc:p256",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "ecc_p384",
+    srcs = ["ecc_p384.c"],
+    hdrs = ["//sw/device/lib/crypto/include:ecc_p384.h"],
+    local_defines = select({
+        "//sw/device/lib/crypto/configs:hashed": [
+            "FIPS_MODE",
+        ],
+        "//conditions:default": [],
+    }),
+    target_compatible_with = [OPENTITAN_CPU],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":hash",
+        ":keyblob",
+        ":state",
+        "//sw/device/lib/crypto/drivers:hmac",
+        "//sw/device/lib/crypto/impl/ecc:p384",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "hkdf",
+    srcs = ["hkdf.c"],
+    hdrs = ["//sw/device/lib/crypto/include:hkdf.h"],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":cryptolib_build_info",
+        ":hmac",
+        ":integrity",
+        ":keyblob",
+        ":state",
+        ":status",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/base:math",
+        "//sw/device/lib/crypto/drivers:hmac",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "hmac_drbg",
+    srcs = ["hmac_drbg.c"],
+    hdrs = ["//sw/device/lib/crypto/include:hmac_drbg.h"],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":cryptolib_build_info",
+        ":drbg",
+        ":hmac",
+        ":integrity",
+        ":keyblob",
+        ":state",
+        ":status",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/base:math",
+        "//sw/device/lib/base:memory",
+        "//sw/device/lib/crypto/drivers:hmac",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "integrity",
+    srcs = ["integrity.c"],
+    hdrs = ["//sw/device/lib/crypto/include:integrity.h"],
+    deps = [
+        ":state",
+        "//sw/device/lib/base:crc32_device_library",  # force non-mock version in unit tests
+        "//sw/device/lib/base:hardened",
+        "//sw/device/lib/crypto/drivers:cryptolib_build_info_hdrs",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "self_integrity",
+    srcs = ["self_integrity.c"],
+    hdrs = ["//sw/device/lib/crypto/include:self_integrity.h"],
+    local_defines = select({
+        "//sw/device/lib/crypto/configs:hashed": ["FIPS_MODE"],
+        "//conditions:default": [],
+    }) + select({
+        "//sw/device/lib/crypto/configs:type_binary_blob": ["OTCRYPTO_BINARY_BLOB"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":cmvp",
+        ":state",
+        ":status",
+        "//sw/device/lib/base:hardened",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/crypto/drivers:hmac",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_test(
+    name = "integrity_unittest",
+    srcs = ["integrity_unittest.cc"],
+    deps = [
+        ":cryptolib_build_info",
+        ":integrity",
+        "//hw/ip/rom_ctrl/data:rom_ctrl_c_regs",
+        "//hw/top_earlgrey/sw/autogen:top_earlgrey",
+        "//sw/device/lib/base:abs_mmio",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# Created to deal with the circular dependency (the KATs need the crypto dependencies, but crypto needs to call the KAT)
+cc_library(
+    name = "kats_hdrs",
+    hdrs = ["kats.h"],
+    deps = [
+        ":status",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "kats",
+    srcs = ["kats.c"],
+    deps = [
+        ":aes",
+        ":aes_gcm",
+        ":config",
+        ":cryptolib_build_info",
+        ":drbg",
+        ":ecc_curve25519",
+        ":ecc_p256",
+        ":ecc_p384",
+        ":hash",
+        ":hmac",
+        ":integrity",
+        ":kats_hdrs",
+        ":kdf_ctr",
+        ":keyblob",
+        ":kmac",
+        ":kmac_kdf",
+        ":rsa",
+        ":sha2",
+        ":sha3",
+        ":state",
+        ":status",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/crypto/drivers:entropy",
+        "//sw/device/lib/crypto/drivers:entropy_kat",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+    alwayslink = True,
+)
+
+cc_library(
+    name = "kdf_ctr",
+    srcs = ["kdf_ctr.c"],
+    hdrs = ["//sw/device/lib/crypto/include:kdf_ctr.h"],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":hmac",
+        ":integrity",
+        ":keyblob",
+        ":state",
+        ":status",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/base:math",
+        "//sw/device/lib/crypto/drivers:hmac",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "keyblob",
+    srcs = ["keyblob.c"],
+    hdrs = ["keyblob.h"],
+    deps = [
+        ":integrity",
+        ":status",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/base:math",
+        "//sw/device/lib/crypto/drivers:keymgr",
+        "//sw/device/lib/crypto/drivers:rv_core_ibex",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_test(
+    name = "keyblob_unittest",
+    srcs = ["keyblob_unittest.cc"],
+    deps = [
+        ":cryptolib_build_info",
+        ":keyblob",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "key_transport",
+    srcs = ["key_transport.c"],
+    hdrs = ["//sw/device/lib/crypto/include:key_transport.h"],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":state",
+        ":status",
+        "//sw/device/lib/crypto/drivers:aes",
+        "//sw/device/lib/crypto/drivers:rv_core_ibex",
+        "//sw/device/lib/crypto/impl:drbg",
+        "//sw/device/lib/crypto/impl:integrity",
+        "//sw/device/lib/crypto/impl:keyblob",
+        "//sw/device/lib/crypto/impl/aes_kwp",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_test(
+    name = "key_transport_unittest",
+    srcs = ["key_transport_unittest.cc"],
+    deps = [
+        ":cryptolib_build_info",
+        ":key_transport",
+        "//hw/ip/aes/data:aes_c_regs",
+        "//hw/ip/keymgr/data:keymgr_c_regs",
+        "//hw/top_earlgrey/sw/autogen:top_earlgrey",
+        "//sw/device/lib/base:abs_mmio",
+        "//sw/device/lib/crypto/impl/aes_kwp",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "kmac_kdf",
+    srcs = ["kmac_kdf.c"],
+    hdrs = ["//sw/device/lib/crypto/include:kmac_kdf.h"],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":integrity",
+        ":keyblob",
+        ":state",
+        ":status",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/base:math",
+        "//sw/device/lib/crypto/drivers:keymgr",
+        "//sw/device/lib/crypto/drivers:kmac",
+        "//sw/device/lib/crypto/drivers:rv_core_ibex",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "rsa",
+    srcs = ["rsa.c"],
+    hdrs = ["//sw/device/lib/crypto/include:rsa.h"],
+    local_defines = select({
+        "//sw/device/lib/crypto/configs:hashed": [
+            "FIPS_MODE",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":cmvp",
+        ":config",
+        ":hash",
+        ":integrity",
+        ":keyblob",
+        ":state",
+        ":status",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/base:macros",
+        "//sw/device/lib/crypto/drivers:entropy",
+        "//sw/device/lib/crypto/drivers:rv_core_ibex",
+        "//sw/device/lib/crypto/impl/rsa:rsa_encryption",
+        "//sw/device/lib/crypto/impl/rsa:rsa_signature",
+        "//sw/device/lib/crypto/impl/rsa:run_rsa_key_from_cofactor",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "config",
+    srcs = ["config.c"],
+    hdrs = ["//sw/device/lib/crypto/include:config.h"],
+    defines = select({
+        "//sw/device/lib/crypto/configs:hashed": ["FIPS_MODE"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":cmvp",
+        ":cryptolib_build_info",
+        ":entropy_src",
+        ":integrity",
+        ":self_integrity",
+        ":state",
+        ":status",
+        "//hw/top_earlgrey/ip_autogen/clkmgr:clkmgr_c_regs",
+        "//hw/top_earlgrey/sw/autogen:top_earlgrey",
+        "//sw/device/lib/base:abs_mmio",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/crypto/drivers:alert",
+        "//sw/device/lib/crypto/drivers:entropy",
+        "//sw/device/lib/crypto/drivers:keymgr",
+        "//sw/device/lib/crypto/drivers:kmac",
+        "//sw/device/lib/crypto/drivers:otbn",
+        "//sw/device/lib/crypto/drivers:rv_core_ibex",
+    ],
+)
+
+dual_cc_library(
+    name = "state",
+    srcs = dual_inputs(
+        device = ["state.c"],
+        host = ["mock_state.cc"],
+    ),
+    hdrs = ["state.h"],
+    defines = select({
+        "//sw/device/lib/crypto/configs:hashed": ["FIPS_MODE"],
+        "//conditions:default": [],
+    }),
+    deps = dual_inputs(
+        device = [
+            "//hw/ip/entropy_src/data:entropy_src_c_regs",
+            "//hw/top_earlgrey/sw/autogen:top_earlgrey",
+            "//sw/device/lib/base:abs_mmio",
+        ],
+        host = [
+            "//sw/device/lib/base:hardened",
+            "//sw/device/lib/base:memory",
+        ],
+        shared = [
+            ":kats_hdrs",
+            "//sw/device/lib/base:hardened_memory",
+        ],
+    ),
+)
+
+dual_cc_library(
+    name = "cmvp",
+    srcs = dual_inputs(
+        device = ["cmvp.c"],
+        host = ["cmvp.c"],
+    ),
+    hdrs = [
+        "cmvp.h",
+        "//sw/device/lib/crypto/include:cmvp.h",
+    ],
+    defines = select({
+        "//sw/device/lib/crypto/configs:hashed": ["FIPS_MODE"],
+        "//conditions:default": [],
+    }),
+    deps = dual_inputs(
+        shared = [
+            ":state",
+            ":status",
+            "//sw/device/lib/crypto/include:datatypes",
+        ],
+    ),
+)
+
+dual_cc_library(
+    name = "cmvp_fips",
+    srcs = dual_inputs(
+        device = ["cmvp.c"],
+        host = ["cmvp.c"],
+    ),
+    hdrs = [
+        "cmvp.h",
+        "//sw/device/lib/crypto/include:cmvp.h",
+    ],
+    defines = ["FIPS_MODE"],
+    deps = dual_inputs(
+        shared = [
+            ":state",
+            ":status",
+            "//sw/device/lib/crypto/include:datatypes",
+        ],
+    ),
+)
+
+cc_library(
+    name = "hash",
+    srcs = ["hash.c"],
+    hdrs = ["hash.h"],
+    target_compatible_with = [OPENTITAN_CPU],
+    deps = [
+        ":integrity",
+        ":sha2",
+        ":state",
+        ":status",
+        "//sw/device/lib/base:hardened",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/crypto/drivers:hmac",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "sha1",
+    srcs = ["sha1.c"],
+    hdrs = [
+        "//sw/device/lib/crypto/include:sha1.h",
+    ],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":integrity",
+        ":keyblob",
+        ":state",
+        ":status",
+        "//sw/device/lib/base:hardened",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/base:macros",
+        "//sw/device/lib/base:math",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "sha2",
+    srcs = ["sha2.c"],
+    hdrs = [
+        "//sw/device/lib/crypto/include:sha2.h",
+    ],
+    target_compatible_with = [OPENTITAN_CPU],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":integrity",
+        ":sha1",
+        ":status",
+        "//sw/device/lib/base:hardened",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/base:macros",
+        "//sw/device/lib/crypto/drivers:hmac",
+        "//sw/device/lib/crypto/drivers:rv_core_ibex",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "sha3",
+    srcs = ["sha3.c"],
+    hdrs = [
+        "//sw/device/lib/crypto/include:sha3.h",
+    ],
+    target_compatible_with = [OPENTITAN_CPU],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":status",
+        "//sw/device/lib/base:hardened",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/crypto/drivers:kmac",
+        "//sw/device/lib/crypto/drivers:rv_core_ibex",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_library(
+    name = "status",
+    hdrs = [
+        "status.h",
+    ],
+    defines = select({
+        # Turn debugging on only if the `--crypto_status_debug` command-line option
+        # is set.
+        "//sw/device/lib/crypto/configs:crypto_status_debug": ["OTCRYPTO_STATUS_DEBUG"],
+        "//conditions:default": [],
+    }) + select({
+        # This disables NULL checks on API input to save code size.
+        # Activate it by building the library with `--disable_null_checks=true`.
+        # The status header is used in all API functions to pass a bad status hence it propagates to where the flag is needed.
+        "//sw/device/lib/crypto/configs:disable_null_checks": ["OTCRYPTO_DISABLE_NULL_CHECKS"],
+        "//conditions:default": [],
+    }) + select({
+        # This replaces the redundant branch sequences in HARDENED_TRY and
+        # HARDENED_CHECK_* with a single check to save code size.
+        # Activate it by building the library with `--disable_hardening=true`.
+        "//sw/device/lib/crypto/configs:disable_hardening": ["OT_DISABLE_HARDENING"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//sw/device/lib/base:status",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_test(
+    name = "status_unittest",
+    srcs = ["status_unittest.cc"],
+    deps = [
+        ":status",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# Status-code unit tests with debugging information always on.
+cc_test(
+    name = "status_debug_unittest",
+    srcs = ["status_debug_unittest.cc"],
+    defines = ["OTCRYPTO_STATUS_DEBUG"],
+    deps = [
+        ":status",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "hmac",
+    srcs = ["hmac.c"],
+    hdrs = [
+        "//sw/device/lib/crypto/include:hmac.h",
+    ],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":hash",
+        ":integrity",
+        ":keyblob",
+        ":sha2",
+        "//sw/device/lib/base:hardened",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/crypto/drivers:hmac",
+        "//sw/device/lib/crypto/drivers:rv_core_ibex",
+    ],
+)
+
+cc_library(
+    name = "kmac",
+    srcs = ["kmac.c"],
+    hdrs = [
+        "//sw/device/lib/crypto/include:kmac.h",
+    ],
+    deps = [
+        ":cmvp",
+        ":config",
+        ":integrity",
+        ":keyblob",
+        "//sw/device/lib/base:hardened",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/crypto/drivers:kmac",
+        "//sw/device/lib/crypto/drivers:rv_core_ibex",
+    ],
+)
+
+cc_library(
+    name = "entropy_src",
+    srcs = ["entropy_src.c"],
+    hdrs = ["//sw/device/lib/crypto/include:entropy_src.h"],
+    deps = [
+        ":state",
+        "//sw/device/lib/base:hardened_memory",
+        "//sw/device/lib/crypto/drivers:entropy",
+        "//sw/device/lib/crypto/drivers:entropy_kat",
+        "//sw/device/lib/crypto/include:datatypes",
+    ],
+)
+
+cc_test(
+    name = "cmvp_unittest",
+    srcs = ["cmvp_unittest.cc"],
+    defines = ["FIPS_MODE"],
+    deps = [
+        ":cmvp_fips",
+        ":state",
+        ":status",
+        "//sw/device/lib/crypto/include:datatypes",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "cmvp_nofips_unittest",
+    srcs = ["cmvp_unittest.cc"],
+    deps = [
+        ":cmvp",
+        ":state",
+        ":status",
+        "//sw/device/lib/crypto/include:datatypes",
+        "@googletest//:gtest_main",
+    ],
+)
+
+test_suite(
+    name = "impl_unittest_suite",
+    tests = [
+        ":cmvp_nofips_unittest",
+        ":cmvp_unittest",
+        ":integrity_unittest",
+        ":key_transport_unittest",
+        ":keyblob_unittest",
+        ":status_debug_unittest",
+        ":status_unittest",
+        "//sw/device/lib/crypto/impl/aes_gcm:ghash_unittest",
+    ],
+)

@@ -1,0 +1,822 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+#include "sw/device/lib/crypto/impl/aes_gcm/aes_gcm.h"
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include "sw/device/lib/base/hardened.h"
+#include "sw/device/lib/base/hardened_memory.h"
+#include "sw/device/lib/base/macros.h"
+#include "sw/device/lib/base/memory.h"
+#include "sw/device/lib/base/random_order.h"
+#include "sw/device/lib/crypto/drivers/aes.h"
+#include "sw/device/lib/crypto/drivers/keymgr.h"
+#include "sw/device/lib/crypto/impl/aes_gcm/ghash.h"
+#include "sw/device/lib/crypto/impl/keyblob.h"
+#include "sw/device/lib/crypto/impl/status.h"
+#include "sw/device/lib/crypto/include/integrity.h"
+
+// Module ID for status codes.
+#define MODULE_ID MAKE_MODULE_ID('g', 'c', 'm')
+
+enum {
+  /**
+   * Log2 of the number of bytes in an AES block.
+   */
+  kAesBlockLog2NumBytes = 4,
+};
+static_assert(kAesBlockNumBytes == (1 << kAesBlockLog2NumBytes),
+              "kAesBlockLog2NumBytes does not match kAesBlockNumBytes");
+
+/**
+ * Increment a 32-bit big-endian word.
+ *
+ * This operation theoretically increments the "rightmost" (last) 32 bits of
+ * the input modulo 2^32. However, NIST treats all bitvectors as big-endian and
+ * the processor is little-endian. In order to increment we first need to
+ * reverse the bytes of the 32-bit word, then increment, then reverse it back.
+ *
+ * @param word Input word in big-endian form.
+ * @param inc Increment value.
+ * @returns (word + inc) mod 2^32 in big-endian form.
+ */
+static inline uint32_t word_inc32(const uint32_t word, const uint32_t inc) {
+  // Reverse the bytes, increment, and reverse back.
+  return __builtin_bswap32(__builtin_bswap32(word) + inc);
+}
+
+/**
+ * Implements the inc32() function on blocks from NIST SP800-38D.
+ *
+ * Interprets the last (rightmost) 32 bits of the block as a big-endian integer
+ * and increments this value modulo 2^32 in-place.
+ *
+ * @param block AES block, modified in place.
+ */
+static inline void block_inc32(aes_block_t *block) {
+  // Set the last word to the incremented value.
+  random_order_t order;
+  random_order_init(&order, kAesBlockNumWords);
+
+  size_t count = 0;
+  for (; launderw(count) < kAesBlockNumWords; count = launderw(count) + 1) {
+    size_t idx = launderw(random_order_advance(&order));
+    barrierw(idx);
+
+    uint32_t inc = idx / (kAesBlockNumWords - 1);
+    block->data[idx] = word_inc32(block->data[idx], inc);
+  }
+  RANDOM_ORDER_HARDENED_CHECK_DONE(order);
+  HARDENED_CHECK_EQ(count, kAesBlockNumWords);
+}
+
+/**
+ * Overwrite an AES block with random data; used as a cleanup guard.
+ *
+ * @param block AES block to shred.
+ */
+OT_USED static void aes_block_shred(aes_block_t *block) {
+  hardened_memshred(block->data, kAesBlockNumWords);
+}
+
+/**
+ * Actuate the key manager to generate a sideloaded AES-GCM key if needed.
+ */
+static status_t load_key_if_sideloaded(const aes_key_t key) {
+  if (launder32(key.sideload) == kHardenedBoolFalse) {
+    return OTCRYPTO_OK;
+  }
+  HARDENED_CHECK_EQ(key.sideload, kHardenedBoolTrue);
+  keymgr_diversification_t diversification;
+  HARDENED_TRY(keyblob_buffer_to_keymgr_diversification(
+      key.key_shares[0], kOtcryptoKeyModeAesGcm, &diversification));
+  HARDENED_TRY(keymgr_sideload_clear_aes());
+  return keymgr_generate_key_aes(diversification);
+}
+
+/**
+ * One-shot version of the AES encryption API for a single block.
+ */
+OT_WARN_UNUSED_RESULT
+static status_t aes_encrypt_block(
+    const aes_key_t key, const aes_block_t *iv, const aes_block_t *input,
+    aes_block_t *output, otcrypto_key_security_level_t security_level) {
+  if (launder32(security_level) == kOtcryptoKeySecurityLevelLow) {
+    HARDENED_CHECK_EQ(security_level, kOtcryptoKeySecurityLevelLow);
+    // No additional FI protection.
+    HARDENED_TRY(load_key_if_sideloaded(key));
+    HARDENED_TRY(aes_encrypt_begin(key, iv));
+    HARDENED_TRY(aes_update(/*dest=*/NULL, input));
+    HARDENED_TRY(aes_update(output, /*src=*/NULL));
+    return aes_end(NULL);
+  } else {
+    HARDENED_CHECK_NE(security_level, kOtcryptoKeySecurityLevelLow);
+    // Additional FI hardening.
+    // First AES operation. Encrypt the input.
+    HARDENED_TRY(load_key_if_sideloaded(key));
+    HARDENED_TRY(aes_encrypt_begin(key, iv));
+    HARDENED_TRY(aes_update(/*dest=*/NULL, input));
+    HARDENED_TRY(aes_update(output, /*src=*/NULL));
+
+    // Verify the CTRL and CTRL_AUX registers of the encryption.
+    HARDENED_TRY(aes_verify_ctrl_reg(key, kHardenedBoolTrue));
+    HARDENED_TRY(aes_verify_ctrl_aux_reg());
+    HARDENED_TRY(aes_end(NULL));
+
+    // Second AES operation. Decrypt the output of the first AES operation and
+    // check whether the same input is retrieved.
+    aes_block_t input_recalculated = (aes_block_t){.data = {0}};
+    HARDENED_TRY(load_key_if_sideloaded(key));
+    HARDENED_TRY(aes_decrypt_begin(key, iv));
+    HARDENED_TRY(aes_update(/*dest=*/NULL, output));
+    HARDENED_TRY(aes_update(&input_recalculated, /*src=*/NULL));
+    HARDENED_TRY(aes_end(NULL));
+
+    HARDENED_CHECK_EQ(
+        hardened_memeq((const uint32_t *)input_recalculated.data,
+                       (const uint32_t *)input->data, kAesBlockNumWords),
+        kHardenedBoolTrue);
+
+    return OTCRYPTO_OK;
+  }
+}
+
+/**
+ * Run GCTR on exactly one block of input.
+ *
+ * Updates the IV in-place.
+ *
+ * @param key The AES key
+ * @param iv Initialization vector, 128 bits
+ * @param input Input block
+ * @param security_level Security level configuration
+ * @param[out] output Output block
+ */
+OT_WARN_UNUSED_RESULT
+static status_t gctr_process_block(const aes_key_t key, aes_block_t *iv,
+                                   aes_block_t *input,
+                                   otcrypto_key_security_level_t security_level,
+                                   aes_block_t *output) {
+  HARDENED_TRY(aes_encrypt_block(key, iv, input, output, security_level));
+  block_inc32(iv);
+  return OTCRYPTO_OK;
+}
+
+/**
+ * Implements the GCTR function as specified in SP800-38D, section 6.5.
+ *
+ * The block cipher is fixed to AES. Note that the GCTR function is a modified
+ * version of the AES-CTR mode of encryption.
+ *
+ * Appends the new data to the partial data and then processes any resulting
+ * full blocks. Finally, updates the partial data to hold any data that was
+ * left over. The partial block may be empty, but should never be full;
+ * `partial_len` should always be less than `kAesBlockNumBytes`.
+ *
+ * The output buffer should have enough space to hold all full blocks of
+ * partial data + input data. The partial data length after this function will
+ * always be `(partial_len + input_len) % kAesBlockNumBytes`.
+ *
+ * Updates the IV and partial block in-place; it is possible to call this
+ * function again with the updated IV and partial data on additional data to
+ * generate more output, and the result should be the same as if all the data
+ * was passed in one call.
+ *
+ * @param key The AES key
+ * @param iv Initialization vector, 128 bits
+ * @param partial_len Length of partial block data in bytes.
+ * @param partial Partial AES block.
+ * @param input_len Number of bytes for input and output
+ * @param input Pointer to input buffer (may be NULL if `len` is 0)
+ * @param security_level Security level of the key
+ * @param[out] output_len Number of output bytes written
+ * @param[out] output Pointer to output buffer
+ */
+OT_WARN_UNUSED_RESULT
+static status_t aes_gcm_gctr(const aes_key_t key, aes_block_t *iv,
+                             size_t partial_len, aes_block_t *partial,
+                             size_t input_len, const uint8_t *input,
+                             otcrypto_key_security_level_t security_level,
+                             size_t *output_len, uint8_t *output) {
+  // Key must be intended for CTR mode.
+  if (key.mode != kAesCipherModeCtr) {
+    return OTCRYPTO_BAD_ARGS;
+  }
+
+  if (input_len < kAesBlockNumBytes - partial_len) {
+    // Not enough data for a full block; copy into the partial block.
+    unsigned char *partial_bytes = (unsigned char *)partial->data;
+    randomized_bytecopy(partial_bytes + partial_len, input, input_len);
+    *output_len = 0;
+  } else {
+    // Construct a block from the partial data and the start of the new data.
+    unsigned char *partial_bytes = (unsigned char *)partial->data;
+    randomized_bytecopy(partial_bytes + partial_len, input,
+                        kAesBlockNumBytes - partial_len);
+    input += kAesBlockNumBytes - partial_len;
+    input_len -= kAesBlockNumBytes - partial_len;
+
+    // Process the block.
+    aes_block_t block_out;
+    HARDENED_TRY(
+        gctr_process_block(key, iv, partial, security_level, &block_out));
+    *output_len = kAesBlockNumBytes;
+
+    // Process any remaining full blocks of input. Read the next input block
+    // into `partial` before writing `block_out` to `output` so that in-place
+    // operation (`output == input`) with `partial_len > 0` does not overwrite
+    // unread input bytes.
+    while (launder32(input_len) >= kAesBlockNumBytes) {
+      randomized_bytecopy(partial->data, input, kAesBlockNumBytes);
+      input += kAesBlockNumBytes;
+      input_len -= kAesBlockNumBytes;
+      randomized_bytecopy(output, block_out.data, kAesBlockNumBytes);
+      output += kAesBlockNumBytes;
+      HARDENED_TRY(
+          gctr_process_block(key, iv, partial, security_level, &block_out));
+      *output_len += kAesBlockNumBytes;
+    }
+    HARDENED_CHECK_LT(input_len, kAesBlockNumBytes);
+
+    // Copy any remaining input into the partial block before writing the final
+    // full output block.
+    randomized_bytecopy(partial->data, input, input_len);
+    randomized_bytecopy(output, block_out.data, kAesBlockNumBytes);
+  }
+
+  return OTCRYPTO_OK;
+}
+
+/**
+ * Compute and set the hash subkey for AES-GCM.
+ *
+ * If any step in this process fails, the function returns an error and the
+ * output should not be used.
+ *
+ * @param key AES key
+ * @param security_level The security level of the key
+ * @param[out] ctx Destination GHASH context object
+ * @return OK or error
+ */
+OT_WARN_UNUSED_RESULT
+static status_t aes_gcm_hash_subkey(
+    const aes_key_t key, otcrypto_key_security_level_t security_level,
+    ghash_context_t *ctx) {
+  // Compute the initial hash subkey H = AES_K(0). Note that to get this
+  // result from AES_CTR, we set both the IV and plaintext to zero; this way,
+  // AES-CTR's final XOR with the plaintext does nothing.
+  aes_block_t zero;
+  memset(zero.data, 0, kAesBlockNumBytes);
+  aes_block_t hash_subkey __attribute__((cleanup(aes_block_shred)));
+  HARDENED_TRY(
+      aes_encrypt_block(key, &zero, &zero, &hash_subkey, security_level));
+
+  // Create two shares of the hash subkey.
+  aes_block_t hash_subkey_share0 __attribute__((cleanup(aes_block_shred)));
+  aes_block_t hash_subkey_share1 __attribute__((cleanup(aes_block_shred)));
+
+  // Share 0: random data.
+  hardened_memshred(hash_subkey_share0.data, kAesBlockNumWords);
+
+  // Share 1: hash_subkey ^ hash_subkey_share0
+  hardened_xor(hash_subkey_share0.data, hash_subkey.data, kAesBlockNumWords,
+               hash_subkey_share1.data);
+
+  // Set the key for the GHASH context.
+  HARDENED_TRY(ghash_init_subkey(hash_subkey_share0.data, ctx->tbl0));
+  ghash_init_subkey(hash_subkey_share1.data, ctx->tbl1);
+
+  return OTCRYPTO_OK;
+}
+
+/**
+ * Compute the counter block based on the given IV and hash subkey.
+ *
+ * This block is called J0 in the NIST documentation, and is the same for both
+ * encryption and decryption.
+ *
+ * @param iv IV buffer
+ * @param ctx GHASH context with product table for hash subkey H
+ * @param[out] j0 Destination for the output counter block
+ * @return OK or error
+ */
+OT_WARN_UNUSED_RESULT
+static status_t aes_gcm_counter(const otcrypto_const_word32_buf_t *iv,
+                                ghash_context_t *ctx, aes_block_t *j0) {
+  if (iv->len == 3) {
+    // If the IV is 96 bits, then J0 = (IV || {0}^31 || 1).
+    HARDENED_TRY(hardened_memcpy(j0->data, iv->data, iv->len));
+    // Set the last word to 1 (as a big-endian integer).
+    j0->data[kAesBlockNumWords - 1] = __builtin_bswap32(1);
+  } else if (iv->len == 4) {
+    // If the IV is 128 bits, then J0 = GHASH(H, IV || {0}^120 || 0x80), where
+    // {0}^120 means 120 zero bits (15 0x00 bytes).
+
+    // As the encrypted initial counter block S only can be computed AFTER
+    // aes_gcm_counter(), set S0 and S1 to random.
+    aes_block_t enc_initial_counter_block;
+    hardened_memshred(enc_initial_counter_block.data, kAesBlockNumWords);
+
+    // Split the initial counter block S into two shares S0 and S1.
+    // S0: random data.
+    aes_block_t enc_initial_counter_block0;
+    hardened_memshred(enc_initial_counter_block0.data, kAesBlockNumWords);
+
+    // S1: S ^ S0
+    aes_block_t enc_initial_counter_block1;
+    hardened_xor(enc_initial_counter_block0.data,
+                 enc_initial_counter_block.data, kAesBlockNumWords,
+                 enc_initial_counter_block1.data);
+
+    // Calculate the masking correction terms and store the encrypted initial
+    // counter blocks S0 and S1.
+    HARDENED_TRY(ghash_handle_enc_initial_counter_block(
+        enc_initial_counter_block0.data, enc_initial_counter_block1.data, ctx));
+
+    HARDENED_TRY(ghash_init(ctx));
+    otcrypto_const_byte_buf_t iv_byte_buf = otcrypto_make_const_byte_buf(
+        (const uint8_t *)iv->data, iv->len * sizeof(uint32_t));
+    HARDENED_TRY(ghash_update(ctx, &iv_byte_buf));
+    uint8_t padding[kAesBlockNumBytes];
+    memset(padding, 0, kAesBlockNumBytes);
+    padding[kAesBlockNumBytes - 1] = 0x80;
+    otcrypto_const_byte_buf_t padding_buf = OTCRYPTO_MAKE_BUF(
+        otcrypto_const_byte_buf_t, padding, kAesBlockNumBytes);
+    HARDENED_TRY(ghash_update(ctx, &padding_buf));
+    HARDENED_TRY(ghash_final(ctx, j0->data));
+    // In the masking scheme, the GHASH function now actually XORs the initial
+    // counter block S to the output. As we do not want to have this for J0,
+    // correct the output.
+    hardened_xor_in_place(j0->data, enc_initial_counter_block.data,
+                          kAesBlockNumWords);
+  } else {
+    // Should not happen; invalid IV length.
+    return OTCRYPTO_BAD_ARGS;
+  }
+
+  return OTCRYPTO_OK;
+}
+
+/**
+ * Compute the AES-GCM authentication tag.
+ *
+ * Expects the GHASH context parameter of `ctx` to represent GHASH(H, expand(A)
+ * || expand(C)), where A is the aad, C is the ciphertext, and expand(x) pads x
+ * to a multiple of 128 bits by adding zeroes to the right-hand side.
+ *
+ * @param ctx AES-GCM context
+ * @param[out] tag Buffer for output tag (len is used as input).
+ */
+OT_WARN_UNUSED_RESULT
+OT_NOINLINE
+static status_t aes_gcm_get_tag(aes_gcm_context_t *ctx,
+                                otcrypto_word32_buf_t *tag) {
+  // Compute len64(A) and len64(C) by computing the length in *bits* (shift by
+  // 3) and then converting to big-endian.
+  uint64_t last_block[2] = {
+      __builtin_bswap64(((uint64_t)ctx->aad_len) * 8),
+      __builtin_bswap64(((uint64_t)ctx->input_len) * 8),
+  };
+
+  otcrypto_const_byte_buf_t last_block_buf =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_byte_buf_t, (unsigned char *)last_block,
+                        kAesBlockNumBytes);
+
+  // Append (len64(A) || len64(C)) and XOR the result with S1 to get the final
+  // tag.
+  if (launder32(ctx->security_level) != kOtcryptoKeySecurityLevelLow) {
+    // To mitigate FI, perform the GHASH update twice and compare the result.
+    HARDENED_TRY(ghash_update_redundant(&ctx->ghash_ctx, &last_block_buf));
+  } else {
+    HARDENED_CHECK_EQ(ctx->security_level, kOtcryptoKeySecurityLevelLow);
+    ghash_update(&ctx->ghash_ctx, &last_block_buf);
+  }
+
+  aes_block_t full_tag __attribute__((cleanup(aes_block_shred)));
+  HARDENED_TRY(ghash_final(&ctx->ghash_ctx, full_tag.data));
+
+  // Truncate the tag if needed. NIST requires we take the most significant
+  // bits in big-endian representation, which corresponds to the least
+  // significant bits in Ibex's little-endian representation.
+  HARDENED_TRY(hardened_memcpy(tag->data, full_tag.data, tag->len));
+
+  HARDENED_CHECK_EQ(kHardenedBoolTrue, OTCRYPTO_CHECK_BUF(tag));
+
+  return OTCRYPTO_OK;
+}
+
+status_t aes_gcm_encrypt(const aes_key_t key,
+                         const otcrypto_const_word32_buf_t *iv,
+                         const otcrypto_const_byte_buf_t *plaintext,
+                         const otcrypto_const_byte_buf_t *aad,
+                         otcrypto_word32_buf_t *tag,
+                         otcrypto_key_security_level_t security_level,
+                         otcrypto_byte_buf_t *ciphertext) {
+  aes_gcm_context_t ctx __attribute__((cleanup(aes_gcm_context_shred)));
+  ctx.security_level = security_level;
+  HARDENED_TRY(aes_gcm_encrypt_init(key, iv, &ctx));
+  HARDENED_TRY(aes_gcm_update_aad(&ctx, aad));
+  size_t ciphertext_bytes_written;
+  HARDENED_TRY(aes_gcm_update_encrypted_data(&ctx, plaintext, ciphertext,
+                                             &ciphertext_bytes_written));
+  otcrypto_byte_buf_t final_part = OTCRYPTO_MAKE_BUF(
+      otcrypto_byte_buf_t, ciphertext->data + ciphertext_bytes_written,
+      ciphertext->len - ciphertext_bytes_written);
+
+  size_t final_written;
+  return aes_gcm_encrypt_final(&ctx, tag, &final_part, &final_written);
+}
+
+/**
+ * Starts an AES-GCM operation.
+ *
+ * This process is actually the same for both encryption and decryption.
+ *
+ * @param key Underlying AES-CTR key.
+ * @param iv Initialization vector (nonce).
+ * @param[out] ctx Initialized context object.
+ * @return Error status; OK if no errors.
+ */
+static status_t aes_gcm_init(const aes_key_t key,
+                             const otcrypto_const_word32_buf_t *iv,
+                             aes_gcm_context_t *ctx) {
+  HARDENED_CHECK_EQ(key.checksum, aes_key_integrity_checksum(&key));
+
+  // Initialize the hash subkey H.
+  HARDENED_TRY(aes_gcm_hash_subkey(key, ctx->security_level, &ctx->ghash_ctx));
+
+  // Compute the counter block (called J0 in the NIST specification).
+  aes_block_t initial_counter_block;
+  HARDENED_TRY(aes_gcm_counter(iv, &ctx->ghash_ctx, &initial_counter_block));
+
+  // Create the encrypted initial counter block S.
+  aes_block_t zero;
+  memset(zero.data, 0, kAesBlockNumBytes);
+  aes_block_t enc_initial_counter_block
+      __attribute__((cleanup(aes_block_shred)));
+  HARDENED_TRY(aes_encrypt_block(key, &initial_counter_block, &zero,
+                                 &enc_initial_counter_block,
+                                 ctx->security_level));
+
+  // Split the initial counter block S into two shares S0 and S1.
+  // S0: random data.
+  aes_block_t enc_initial_counter_block0
+      __attribute__((cleanup(aes_block_shred)));
+  hardened_memshred(enc_initial_counter_block0.data, kAesBlockNumWords);
+
+  // S1: S ^ S0
+  aes_block_t enc_initial_counter_block1
+      __attribute__((cleanup(aes_block_shred)));
+  hardened_xor(enc_initial_counter_block0.data, enc_initial_counter_block.data,
+               kAesBlockNumWords, enc_initial_counter_block1.data);
+
+  // Calculate the masking correction terms and store the encrypted initial
+  // counter blocks.
+  ghash_handle_enc_initial_counter_block(enc_initial_counter_block0.data,
+                                         enc_initial_counter_block1.data,
+                                         &ctx->ghash_ctx);
+
+  // Set the initial IV for GCTR to inc32(J0).
+  // The eventual ciphertext is C = GCTR(K, inc32(J0), plaintext).
+  randomized_bytecopy(ctx->gctr_iv.data, initial_counter_block.data,
+                      kAesBlockNumBytes);
+  block_inc32(&ctx->gctr_iv);
+
+  // Initialize the GHASH context. We will eventually compute
+  //   S = GHASH(H, expand(A) || expand(C) || len64(A) || len64(C))
+  // where:
+  //   * A is the aad, C is the ciphertext
+  //   * expand(x) pads x to a multiple of 128 bits by adding zeroes to the
+  //     right-hand side
+  //   * len64(x) is the length of x in bits expressed as a
+  //     big-endian 64-bit integer.
+  //
+  // The tag will eventually be T = GCTR(K, J0, S).
+  HARDENED_TRY(ghash_init(&ctx->ghash_ctx));
+
+  // Initialize the key and lengths.
+  HARDENED_CHECK_LE(key.key_len, ARRAYSIZE(ctx->key_shares[0]));
+  ctx->key_mode = key.mode;
+  ctx->sideload = key.sideload;
+  ctx->key_len = (uint32_t)key.key_len;
+  ctx->key_checksum = key.checksum;
+  hardened_memshred(ctx->key_shares[0], ARRAYSIZE(ctx->key_shares[0]));
+  hardened_memshred(ctx->key_shares[1], ARRAYSIZE(ctx->key_shares[1]));
+  if (launder32(key.sideload) == kHardenedBoolFalse) {
+    HARDENED_CHECK_EQ(key.sideload, kHardenedBoolFalse);
+    HARDENED_TRY(
+        hardened_memcpy(ctx->key_shares[0], key.key_shares[0], key.key_len));
+    HARDENED_TRY(
+        hardened_memcpy(ctx->key_shares[1], key.key_shares[1], key.key_len));
+  } else {
+    HARDENED_CHECK_EQ(key.sideload, kHardenedBoolTrue);
+    static_assert(kKeyblobHwBackedWords <= ARRAYSIZE(ctx->key_shares[0]),
+                  "key_shares[0] must fit a hardware-backed keyblob");
+    HARDENED_TRY(hardened_memcpy(ctx->key_shares[0], key.key_shares[0],
+                                 kKeyblobHwBackedWords));
+  }
+  ctx->aad_len = 0;
+  ctx->input_len = 0;
+
+  // Zeroize the partial blocks.
+  ctx->partial_ghash_block = (ghash_block_t){.data = {0}};
+  ctx->partial_aes_block = (aes_block_t){.data = {0}};
+
+  HARDENED_CHECK_EQ(kHardenedBoolTrue, OTCRYPTO_CHECK_BUF(iv));
+
+  return OTCRYPTO_OK;
+}
+
+status_t aes_gcm_encrypt_init(const aes_key_t key,
+                              const otcrypto_const_word32_buf_t *iv,
+                              aes_gcm_context_t *ctx) {
+  ctx->is_encrypt = kHardenedBoolTrue;
+  return aes_gcm_init(key, iv, ctx);
+}
+
+status_t aes_gcm_update_aad(aes_gcm_context_t *ctx,
+                            const otcrypto_const_byte_buf_t *aad) {
+  // Check for null pointers and ensure we are in the expected state. Once
+  // we've started accumulating encrypted data, we can't add more associated
+  // data because of the structure of the tag's GHASH operation.
+  if (ctx == NULL || aad == NULL || ctx->input_len > 0) {
+    return OTCRYPTO_BAD_ARGS;
+  }
+
+  // If the length is 0, we have nothing to do.
+  if (aad->len == 0) {
+    return OTCRYPTO_OK;
+  }
+
+  // Check that the total AAD length is < 2^32 bytes. This is stricter than
+  // NIST requires, but SP800-38D also allows implementations to stipulate
+  // lower length limits.
+  if (aad->len > UINT32_MAX - ctx->aad_len) {
+    return OTCRYPTO_BAD_ARGS;
+  }
+
+  // Accumulate any full blocks of AAD into the tag's GHASH computation.
+  size_t partial_ghash_block_len = ctx->aad_len % kGhashBlockNumBytes;
+  HARDENED_TRY(ghash_process_full_blocks(&ctx->ghash_ctx,
+                                         partial_ghash_block_len,
+                                         &ctx->partial_ghash_block, aad));
+  ctx->aad_len += aad->len;
+
+  HARDENED_CHECK_EQ(kHardenedBoolTrue, OTCRYPTO_CHECK_BUF(aad));
+
+  return OTCRYPTO_OK;
+}
+
+status_t aes_gcm_update_encrypted_data(aes_gcm_context_t *ctx,
+                                       const otcrypto_const_byte_buf_t *input,
+                                       otcrypto_byte_buf_t *output,
+                                       size_t *bytes_written) {
+  // If the length is 0, we have nothing to do.
+  if (input->len == 0) {
+    return OTCRYPTO_OK;
+  }
+
+  // Check that the total input length is < 2^32 bytes. This is stricter
+  // than NIST requires, but SP800-38D also allows implementations to stipulate
+  // lower length limits.
+  if (input->len > UINT32_MAX - ctx->input_len) {
+    // COVERAGE (MISSING) We do not cover too large inputs.
+    return OTCRYPTO_BAD_ARGS;
+  }
+
+  // If this is the first part of the plaintext and we haven't finished the AAD
+  // yet, process the remaining partial AAD and update the state.
+  size_t partial_aad_block_len = ctx->aad_len % kGhashBlockNumBytes;
+  otcrypto_const_byte_buf_t partial_aad_block_buf = OTCRYPTO_MAKE_BUF(
+      otcrypto_const_byte_buf_t, (unsigned char *)ctx->partial_ghash_block.data,
+      partial_aad_block_len);
+  if (ctx->input_len == 0 && partial_aad_block_len != 0) {
+    if (launder32(ctx->security_level) != kOtcryptoKeySecurityLevelLow) {
+      // To mitigate FI, perform the GHASH update twice and compare the result.
+      HARDENED_TRY(
+          ghash_update_redundant(&ctx->ghash_ctx, &partial_aad_block_buf));
+    } else {
+      HARDENED_CHECK_EQ(ctx->security_level, kOtcryptoKeySecurityLevelLow);
+      ghash_update(&ctx->ghash_ctx, &partial_aad_block_buf);
+    }
+  }
+
+  // Process any full blocks of input with GCTR and accumulate any new
+  // ciphertext to the GHASH context. The ciphertext is the output for
+  // encryption, and the input for decryption.
+  size_t partial_aes_block_len = ctx->input_len % kAesBlockNumBytes;
+  if (ctx->is_encrypt == kHardenedBoolTrue) {
+    HARDENED_TRY(aes_gcm_gctr(aes_gcm_context_key(ctx), &ctx->gctr_iv,
+                              partial_aes_block_len, &ctx->partial_aes_block,
+                              input->len, input->data, ctx->security_level,
+                              bytes_written, output->data));
+
+    // Since we only generate ciphertext in full-block increments, no partial
+    // blocks are possible in this case.
+    if (*bytes_written % kGhashBlockNumBytes != 0) {
+      // COVERAGE (SW ERR) Since we call aes_gcm_gctr before, this should
+      // normally not be called.
+      return OTCRYPTO_RECOV_ERR;
+    }
+    otcrypto_const_byte_buf_t written_buf = OTCRYPTO_MAKE_BUF(
+        otcrypto_const_byte_buf_t, output->data, *bytes_written);
+    HARDENED_TRY(ghash_process_full_blocks(&ctx->ghash_ctx, /*partial_len=*/0,
+                                           &ctx->partial_ghash_block,
+                                           &written_buf));
+  } else if (ctx->is_encrypt == kHardenedBoolFalse) {
+    // Accumulate the input ciphertext into GHASH before calling GCTR so that
+    // in-place decryption does not overwrite the ciphertext before hashing.
+    size_t partial_ghash_block_len = ctx->input_len % kGhashBlockNumBytes;
+    HARDENED_TRY(ghash_process_full_blocks(&ctx->ghash_ctx,
+                                           partial_ghash_block_len,
+                                           &ctx->partial_ghash_block, input));
+    HARDENED_TRY(aes_gcm_gctr(aes_gcm_context_key(ctx), &ctx->gctr_iv,
+                              partial_aes_block_len, &ctx->partial_aes_block,
+                              input->len, input->data, ctx->security_level,
+                              bytes_written, output->data));
+  } else {
+    return OTCRYPTO_BAD_ARGS;
+  }
+
+  ctx->input_len += input->len;
+
+  HARDENED_CHECK_EQ(kHardenedBoolTrue, OTCRYPTO_CHECK_BUF(output));
+
+  return OTCRYPTO_OK;
+}
+
+/**
+ * Finalize an AES-GCM operation: process remaining data and get the tag.
+ *
+ * This procedure is the same for encryption and decryption, although
+ * decryption must compare the tag afterwards.
+ *
+ * @param ctx AES-GCM context.
+ * @param[out] tag Buffer for the tag (len is used as input).
+ * @param[out] output Buffer for output data.
+ * @param[out] bytes_written Number of bytes written to `output`.
+ */
+status_t aes_gcm_final(aes_gcm_context_t *ctx, otcrypto_word32_buf_t *tag,
+                       size_t *output_len, otcrypto_byte_buf_t *output) {
+  // If there was no input (we never entered the "update encrypted data"
+  // stage), process the remaining partial AAD and update the state.
+  size_t partial_aad_block_len = ctx->aad_len % kGhashBlockNumBytes;
+  otcrypto_const_byte_buf_t partial_aad_block_buf = OTCRYPTO_MAKE_BUF(
+      otcrypto_const_byte_buf_t, (unsigned char *)ctx->partial_ghash_block.data,
+      partial_aad_block_len);
+  if (ctx->input_len == 0 && partial_aad_block_len != 0) {
+    if (launder32(ctx->security_level) != kOtcryptoKeySecurityLevelLow) {
+      // To mitigate FI, perform the GHASH update twice and compare the result.
+      HARDENED_TRY(
+          ghash_update_redundant(&ctx->ghash_ctx, &partial_aad_block_buf));
+    } else {
+      HARDENED_CHECK_EQ(ctx->security_level, kOtcryptoKeySecurityLevelLow);
+      ghash_update(&ctx->ghash_ctx, &partial_aad_block_buf);
+    }
+  }
+
+  // If a partial block of input data remains, pad it with zeroes and generate
+  // one last block of output, which is then truncated to match the input
+  // length.
+  size_t partial_aes_block_len = ctx->input_len % kAesBlockNumBytes;
+  if (partial_aes_block_len == 0) {
+    *output_len = 0;
+  } else {
+    uint8_t *out_ptr = output->data;
+    unsigned char *partial_aes_block_bytes =
+        (unsigned char *)ctx->partial_aes_block.data;
+    memset(partial_aes_block_bytes + partial_aes_block_len, 0,
+           kAesBlockNumBytes - partial_aes_block_len);
+    aes_block_t block_out;
+    HARDENED_TRY(gctr_process_block(aes_gcm_context_key(ctx), &ctx->gctr_iv,
+                                    &ctx->partial_aes_block,
+                                    ctx->security_level, &block_out));
+    HARDENED_TRY(
+        randomized_bytecopy(out_ptr, block_out.data, partial_aes_block_len));
+    *output_len = partial_aes_block_len;
+  }
+
+  if (ctx->is_encrypt == kHardenedBoolTrue) {
+    // If a partial block of ciphertext (output for encryption) was generated,
+    // accumulate in GHASH.
+    if (*output_len > 0) {
+      otcrypto_const_byte_buf_t out_buf = OTCRYPTO_MAKE_BUF(
+          otcrypto_const_byte_buf_t, output->data, *output_len);
+
+      if (launder32(ctx->security_level) != kOtcryptoKeySecurityLevelLow) {
+        // To mitigate FI, perform the GHASH update twice and compare the
+        // result.
+        HARDENED_TRY(ghash_update_redundant(&ctx->ghash_ctx, &out_buf));
+      } else {
+        HARDENED_CHECK_EQ(ctx->security_level, kOtcryptoKeySecurityLevelLow);
+        ghash_update(&ctx->ghash_ctx, &out_buf);
+      }
+    }
+  } else if (ctx->is_encrypt == kHardenedBoolFalse) {
+    // If a partial block of ciphertext (input for decryption) remains,
+    // accumulate it in GHASH.
+    size_t partial_ghash_block_len = ctx->input_len % kGhashBlockNumBytes;
+    otcrypto_const_byte_buf_t partial_ghash_block_buf =
+        OTCRYPTO_MAKE_BUF(otcrypto_const_byte_buf_t,
+                          (unsigned char *)ctx->partial_ghash_block.data,
+                          partial_ghash_block_len);
+    if (launder32(ctx->security_level) != kOtcryptoKeySecurityLevelLow) {
+      // To mitigate FI, perform the GHASH update twice and compare the result.
+      HARDENED_TRY(
+          ghash_update_redundant(&ctx->ghash_ctx, &partial_ghash_block_buf));
+    } else {
+      HARDENED_CHECK_EQ(ctx->security_level, kOtcryptoKeySecurityLevelLow);
+      ghash_update(&ctx->ghash_ctx, &partial_ghash_block_buf);
+    }
+
+  } else {
+    // COVERAGE (SW ERR) Callers always verify output->len >= partial_block_len
+    // before calling aes_gcm_final.
+    return OTCRYPTO_BAD_ARGS;
+  }
+
+  return aes_gcm_get_tag(ctx, tag);
+}
+
+status_t aes_gcm_encrypt_final(aes_gcm_context_t *ctx,
+                               otcrypto_word32_buf_t *tag,
+                               otcrypto_byte_buf_t *output,
+                               size_t *bytes_written) {
+  return aes_gcm_final(ctx, tag, bytes_written, output);
+}
+
+status_t aes_gcm_decrypt(const aes_key_t key,
+                         const otcrypto_const_word32_buf_t *iv,
+                         const otcrypto_const_byte_buf_t *ciphertext,
+                         const otcrypto_const_byte_buf_t *aad,
+                         const otcrypto_const_word32_buf_t *tag,
+                         otcrypto_byte_buf_t *plaintext,
+                         otcrypto_key_security_level_t security_level,
+                         hardened_bool_t *success) {
+  aes_gcm_context_t ctx __attribute__((cleanup(aes_gcm_context_shred)));
+  ctx.security_level = security_level;
+  HARDENED_TRY(aes_gcm_decrypt_init(key, iv, &ctx));
+  HARDENED_TRY(aes_gcm_update_aad(&ctx, aad));
+  uint8_t *plaintext_base = plaintext->data;
+  size_t plaintext_bytes_written;
+  HARDENED_TRY(aes_gcm_update_encrypted_data(&ctx, ciphertext, plaintext,
+                                             &plaintext_bytes_written));
+  otcrypto_byte_buf_t final_part = OTCRYPTO_MAKE_BUF(
+      otcrypto_byte_buf_t, plaintext->data + plaintext_bytes_written,
+      plaintext->len - plaintext_bytes_written);
+
+  size_t final_written;
+  status_t result =
+      aes_gcm_decrypt_final(&ctx, tag, &final_part, &final_written, success);
+  if (*success != kHardenedBoolTrue) {
+    // If authentication fails, zero the plaintext so that the caller does not
+    // use the unauthenticated decrypted data. We still use `OTCRYPTO_OK`
+    // because there was no internal error during the authentication check.
+    volatile uint8_t *p = plaintext_base;
+    // Use a volatile loop instead of a memset to ensure that the code persists
+    // even when compiler optimizations are enabled.
+    for (size_t i = 0; i < ciphertext->len; i++) {
+      p[i] = 0;
+    }
+  }
+  return result;
+}
+
+status_t aes_gcm_decrypt_init(const aes_key_t key,
+                              const otcrypto_const_word32_buf_t *iv,
+                              aes_gcm_context_t *ctx) {
+  ctx->is_encrypt = kHardenedBoolFalse;
+  return aes_gcm_init(key, iv, ctx);
+}
+
+status_t aes_gcm_decrypt_final(aes_gcm_context_t *ctx,
+                               const otcrypto_const_word32_buf_t *tag,
+                               otcrypto_byte_buf_t *output,
+                               size_t *bytes_written,
+                               hardened_bool_t *success) {
+  // Get the expected authentication tag.
+  aes_block_t expected_tag __attribute__((cleanup(aes_block_shred)));
+
+  otcrypto_word32_buf_t expected_tag_buf =
+      OTCRYPTO_MAKE_BUF(otcrypto_word32_buf_t, expected_tag.data, tag->len);
+
+  HARDENED_TRY(aes_gcm_final(ctx, &expected_tag_buf, bytes_written, output));
+
+  // Compare the expected tag to the actual tag (in constant time).
+  *success = hardened_memeq(expected_tag.data, tag->data, tag->len);
+  if (*success != kHardenedBoolTrue) {
+    *success = kHardenedBoolFalse;
+  }
+
+  HARDENED_CHECK_EQ(kHardenedBoolTrue, OTCRYPTO_CHECK_BUF(tag));
+
+  return OTCRYPTO_OK;
+}
+
+void aes_gcm_context_shred(aes_gcm_context_t *ctx) {
+  hardened_memshred((uint32_t *)ctx,
+                    sizeof(aes_gcm_context_t) / sizeof(uint32_t));
+}

@@ -1,0 +1,276 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+#include "sw/device/silicon_creator/lib/drivers/otp.h"
+
+#include <stddef.h>
+
+#include "sw/device/lib/base/abs_mmio.h"
+#include "sw/device/lib/base/bitfield.h"
+#include "sw/device/lib/base/memory.h"
+#include "sw/device/silicon_creator/lib/base/sec_mmio.h"
+#include "sw/device/silicon_creator/lib/error.h"
+
+#include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"
+#include "otp_ctrl_regs.h"  // Generated.
+
+enum {
+  kBase = TOP_EARLGREY_OTP_CTRL_CORE_BASE_ADDR,
+};
+
+// This is generates too many lines with different formatting variants, so
+// We opt to just disable formatting.
+// clang-format off
+const otp_partition_info_t kOtpPartitions[] = {
+    [kOtpPartitionCreatorSwCfg] = {
+        .start_addr = OTP_CTRL_PARAM_CREATOR_SW_CFG_OFFSET,
+        .size = OTP_CTRL_PARAM_CREATOR_SW_CFG_SIZE -
+                OTP_CTRL_PARAM_CREATOR_SW_CFG_DIGEST_SIZE,
+        .digest_reg_addr = OTP_CTRL_CREATOR_SW_CFG_DIGEST_0_REG_OFFSET,
+        .align_mask = 0x3},
+    [kOtpPartitionOwnerSwCfg] = {
+        .start_addr = OTP_CTRL_PARAM_OWNER_SW_CFG_OFFSET,
+        .size = OTP_CTRL_PARAM_OWNER_SW_CFG_SIZE -
+                OTP_CTRL_PARAM_OWNER_SW_CFG_DIGEST_SIZE,
+        .digest_reg_addr = OTP_CTRL_OWNER_SW_CFG_DIGEST_0_REG_OFFSET,
+        .align_mask = 0x3},
+    [kOtpPartitionRotCreatorAuthCodesign] = {
+        .start_addr = OTP_CTRL_PARAM_ROT_CREATOR_AUTH_CODESIGN_OFFSET,
+        .size = OTP_CTRL_PARAM_ROT_CREATOR_AUTH_CODESIGN_SIZE -
+                OTP_CTRL_PARAM_ROT_CREATOR_AUTH_CODESIGN_DIGEST_SIZE,
+        .digest_reg_addr = OTP_CTRL_ROT_CREATOR_AUTH_CODESIGN_DIGEST_0_REG_OFFSET,
+        .align_mask = 0x3},
+    [kOtpPartitionRotCreatorAuthState] = {
+        .start_addr = OTP_CTRL_PARAM_ROT_CREATOR_AUTH_STATE_OFFSET,
+        .size = OTP_CTRL_PARAM_ROT_CREATOR_AUTH_STATE_SIZE -
+                OTP_CTRL_PARAM_ROT_CREATOR_AUTH_STATE_DIGEST_SIZE,
+        .digest_reg_addr = OTP_CTRL_ROT_CREATOR_AUTH_STATE_DIGEST_0_REG_OFFSET,
+        .align_mask = 0x3},
+    [kOtpPartitionHwCfg0] = {
+        .start_addr = OTP_CTRL_PARAM_HW_CFG0_OFFSET,
+        .size = OTP_CTRL_PARAM_HW_CFG0_SIZE -
+                OTP_CTRL_PARAM_HW_CFG0_DIGEST_SIZE,
+        .digest_reg_addr = OTP_CTRL_HW_CFG0_DIGEST_0_REG_OFFSET,
+        .align_mask = 0x3},
+    [kOtpPartitionHwCfg1] = {
+        .start_addr = OTP_CTRL_PARAM_HW_CFG1_OFFSET,
+        .size = OTP_CTRL_PARAM_HW_CFG1_SIZE -
+                OTP_CTRL_PARAM_HW_CFG1_DIGEST_SIZE,
+        .digest_reg_addr = OTP_CTRL_HW_CFG1_DIGEST_0_REG_OFFSET,
+        .align_mask = 0x3},
+    [kOtpPartitionSecret0] = {
+        .start_addr = OTP_CTRL_PARAM_SECRET0_OFFSET,
+        .size = OTP_CTRL_PARAM_SECRET0_SIZE -
+                OTP_CTRL_PARAM_SECRET0_DIGEST_SIZE,
+        .digest_reg_addr = OTP_CTRL_SECRET0_DIGEST_0_REG_OFFSET,
+        .align_mask = 0x7},
+    [kOtpPartitionSecret1] = {
+        .start_addr = OTP_CTRL_PARAM_SECRET1_OFFSET,
+        .size = OTP_CTRL_PARAM_SECRET1_SIZE -
+                OTP_CTRL_PARAM_SECRET1_DIGEST_SIZE,
+        .digest_reg_addr = OTP_CTRL_SECRET1_DIGEST_0_REG_OFFSET,
+        .align_mask = 0x7},
+    [kOtpPartitionSecret2] = {
+        .start_addr = OTP_CTRL_PARAM_SECRET2_OFFSET,
+        .size = OTP_CTRL_PARAM_SECRET2_SIZE -
+                OTP_CTRL_PARAM_SECRET2_DIGEST_SIZE,
+        .digest_reg_addr = OTP_CTRL_SECRET2_DIGEST_0_REG_OFFSET,
+        .align_mask = 0x7},
+};
+// clang-format on
+
+uint32_t otp_read32(uint32_t address) {
+  return sec_mmio_read32(kBase + OTP_CTRL_SW_CFG_WINDOW_REG_OFFSET + address);
+}
+
+uint64_t otp_read64(uint32_t address) {
+  uint32_t reg_offset = OTP_CTRL_SW_CFG_WINDOW_REG_OFFSET + address;
+  uint64_t value = sec_mmio_read32(kBase + reg_offset + sizeof(uint32_t));
+  value <<= 32;
+  value |= sec_mmio_read32(kBase + reg_offset);
+
+  return value;
+}
+
+void otp_read(uint32_t address, uint32_t *data, size_t num_words) {
+  uint32_t reg_offset = OTP_CTRL_SW_CFG_WINDOW_REG_OFFSET + address;
+  size_t i = 0, r = num_words - 1;
+  for (; launder32(i) < num_words && launder32(r) < num_words; ++i, --r) {
+    data[i] = sec_mmio_read32(kBase + reg_offset + i * sizeof(uint32_t));
+  }
+  HARDENED_CHECK_EQ(i, num_words);
+  HARDENED_CHECK_EQ(r, SIZE_MAX);
+}
+
+uint64_t otp_partition_digest_read(otp_partition_t partition) {
+  uint32_t reg_offset = kBase + kOtpPartitions[partition].digest_reg_addr;
+  uint64_t value = sec_mmio_read32(reg_offset + sizeof(uint32_t));
+  value <<= 32;
+  value |= sec_mmio_read32(reg_offset);
+  return value;
+}
+
+OT_ALWAYS_INLINE uint32_t otp_fold_digest(uint64_t digest) {
+  return (uint32_t)digest | (uint32_t)(digest >> 32);
+}
+
+rom_error_t otp_secret_partitions_check(lifecycle_state_t lc_state) {
+  // SECRET0 is provisioned during the TEST_UNLOCKED life-cycle stages, so its
+  // digest must be non-zero in every other life-cycle state.
+  if (launder32(lc_state) != kLcStateTest) {
+    HARDENED_CHECK_NE(lc_state, kLcStateTest);
+    uint32_t secret0_digest =
+        otp_fold_digest(otp_partition_digest_read(kOtpPartitionSecret0));
+    if (launder32(secret0_digest) == 0) {
+      return kErrorOtpSecretNotProvisioned;
+    }
+    HARDENED_CHECK_NE(secret0_digest, 0);
+  } else {
+    HARDENED_CHECK_EQ(launder32(lc_state), kLcStateTest);
+  }
+
+  // SECRET1 and SECRET2 are provisioned and locked before the CREATOR_SW_CFG
+  // partition is locked at the end of the device personalization, so a
+  // non-zero CREATOR_SW_CFG digest implies that both must have a non-zero
+  // digest.
+  uint32_t creator_sw_cfg_digest =
+      otp_fold_digest(otp_partition_digest_read(kOtpPartitionCreatorSwCfg));
+  if (launder32(creator_sw_cfg_digest) != 0) {
+    HARDENED_CHECK_NE(creator_sw_cfg_digest, 0);
+    uint32_t secret1_digest =
+        otp_fold_digest(otp_partition_digest_read(kOtpPartitionSecret1));
+    uint32_t secret2_digest =
+        otp_fold_digest(otp_partition_digest_read(kOtpPartitionSecret2));
+    if (launder32(secret1_digest) == 0 || launder32(secret2_digest) == 0) {
+      return kErrorOtpSecretNotProvisioned;
+    }
+    HARDENED_CHECK_NE(launder32(secret1_digest), 0);
+    HARDENED_CHECK_NE(launder32(secret2_digest), 0);
+  } else {
+    HARDENED_CHECK_EQ(launder32(creator_sw_cfg_digest), 0);
+  }
+
+  return kErrorOk;
+}
+
+void wait_for_dai_idle(void) {
+  uint32_t status = 0;
+  bool idle = false;
+  do {
+    status = abs_mmio_read32(kBase + OTP_CTRL_STATUS_REG_OFFSET);
+    idle = bitfield_bit32_read(status, OTP_CTRL_STATUS_DAI_IDLE_BIT);
+  } while (!idle);
+}
+
+static void dai_read_blocking(otp_partition_t partition,
+                              uint32_t relative_address) {
+  wait_for_dai_idle();
+  HARDENED_CHECK_EQ(relative_address & kOtpPartitions[partition].align_mask, 0);
+  abs_mmio_write32(kBase + OTP_CTRL_DIRECT_ACCESS_ADDRESS_REG_OFFSET,
+                   kOtpPartitions[partition].start_addr + relative_address);
+  uint32_t cmd =
+      bitfield_bit32_write(0, OTP_CTRL_DIRECT_ACCESS_CMD_RD_BIT, true);
+  abs_mmio_write32(kBase + OTP_CTRL_DIRECT_ACCESS_CMD_REG_OFFSET, cmd);
+  wait_for_dai_idle();
+}
+
+uint32_t otp_dai_read32(otp_partition_t partition, uint32_t relative_address) {
+  dai_read_blocking(partition, relative_address);
+  return abs_mmio_read32(kBase + OTP_CTRL_DIRECT_ACCESS_RDATA_0_REG_OFFSET);
+}
+
+uint64_t otp_dai_read64(otp_partition_t partition, uint32_t relative_address) {
+  dai_read_blocking(partition, relative_address);
+  uint64_t value =
+      abs_mmio_read32(kBase + OTP_CTRL_DIRECT_ACCESS_RDATA_1_REG_OFFSET);
+  value <<= 32;
+  value |= abs_mmio_read32(kBase + OTP_CTRL_DIRECT_ACCESS_RDATA_0_REG_OFFSET);
+  return value;
+}
+
+rom_error_t otp_dai_read(otp_partition_t partition, uint32_t relative_address,
+                         uint32_t *data, size_t num_words) {
+  HARDENED_CHECK_LT(partition, ARRAYSIZE(kOtpPartitions));
+  size_t i = 0, r = num_words - 1;
+  uint32_t addr = relative_address;
+  for (; launder32(i) < num_words && launder32(r) < num_words; ++i, --r) {
+    data[i] = otp_dai_read32(partition, addr);
+    addr += sizeof(uint32_t);
+  }
+  HARDENED_CHECK_EQ(i, num_words);
+  HARDENED_CHECK_EQ(r, SIZE_MAX);
+  return kErrorOk;
+}
+
+void otp_creator_sw_cfg_lockdown(void) {
+  SEC_MMIO_ASSERT_WRITE_INCREMENT(kOtpSecMmioCreatorSwCfgLockDown, 1);
+  sec_mmio_write32(kBase + OTP_CTRL_CREATOR_SW_CFG_READ_LOCK_REG_OFFSET, 0);
+}
+
+// Exposed for manufacturing-time provisioning.
+rom_error_t otp_dai_write32(otp_partition_t partition,
+                            uint32_t relative_address, uint32_t value) {
+  HARDENED_CHECK_LT(partition, ARRAYSIZE(kOtpPartitions));
+  HARDENED_CHECK_EQ(relative_address & kOtpPartitions[partition].align_mask, 0);
+
+  wait_for_dai_idle();
+  abs_mmio_write32(kBase + OTP_CTRL_DIRECT_ACCESS_ADDRESS_REG_OFFSET,
+                   kOtpPartitions[partition].start_addr + relative_address);
+  abs_mmio_write32(kBase + OTP_CTRL_DIRECT_ACCESS_WDATA_0_REG_OFFSET, value);
+  uint32_t cmd =
+      bitfield_bit32_write(0, OTP_CTRL_DIRECT_ACCESS_CMD_WR_BIT, true);
+  abs_mmio_write32(kBase + OTP_CTRL_DIRECT_ACCESS_CMD_REG_OFFSET, cmd);
+  wait_for_dai_idle();
+
+  uint32_t status = abs_mmio_read32(kBase + OTP_CTRL_STATUS_REG_OFFSET);
+  if (bitfield_bit32_read(status, OTP_CTRL_STATUS_DAI_ERROR_BIT)) {
+    return kErrorUnknown;
+  }
+  return kErrorOk;
+}
+
+// Exposed for raw manufacturing-time secret provisioning.
+rom_error_t otp_dai_write64(uint32_t address, const uint64_t *buffer,
+                            size_t len) {
+  for (size_t i = 0; i < len; ++i) {
+    wait_for_dai_idle();
+    abs_mmio_write32(kBase + OTP_CTRL_DIRECT_ACCESS_ADDRESS_REG_OFFSET,
+                     address + (i * sizeof(uint64_t)));
+    abs_mmio_write32(kBase + OTP_CTRL_DIRECT_ACCESS_WDATA_0_REG_OFFSET,
+                     (uint32_t)buffer[i]);
+    abs_mmio_write32(kBase + OTP_CTRL_DIRECT_ACCESS_WDATA_1_REG_OFFSET,
+                     (uint32_t)(buffer[i] >> 32));
+    uint32_t cmd =
+        bitfield_bit32_write(0, OTP_CTRL_DIRECT_ACCESS_CMD_WR_BIT, true);
+    abs_mmio_write32(kBase + OTP_CTRL_DIRECT_ACCESS_CMD_REG_OFFSET, cmd);
+    wait_for_dai_idle();
+
+    uint32_t status = abs_mmio_read32(kBase + OTP_CTRL_STATUS_REG_OFFSET);
+    if (bitfield_bit32_read(status, OTP_CTRL_STATUS_DAI_ERROR_BIT)) {
+      return kErrorUnknown;
+    }
+  }
+  return kErrorOk;
+}
+
+// Exposed for raw manufacturing-time partition digest lock.
+rom_error_t otp_dai_digest_lock(uint32_t digest_reg_addr, uint64_t digest) {
+  wait_for_dai_idle();
+  abs_mmio_write32(kBase + OTP_CTRL_DIRECT_ACCESS_ADDRESS_REG_OFFSET,
+                   digest_reg_addr);
+  abs_mmio_write32(kBase + OTP_CTRL_DIRECT_ACCESS_WDATA_0_REG_OFFSET,
+                   (uint32_t)digest);
+  abs_mmio_write32(kBase + OTP_CTRL_DIRECT_ACCESS_WDATA_1_REG_OFFSET,
+                   (uint32_t)(digest >> 32));
+  uint32_t cmd =
+      bitfield_bit32_write(0, OTP_CTRL_DIRECT_ACCESS_CMD_DIGEST_BIT, true);
+  abs_mmio_write32(kBase + OTP_CTRL_DIRECT_ACCESS_CMD_REG_OFFSET, cmd);
+  wait_for_dai_idle();
+
+  uint32_t status = abs_mmio_read32(kBase + OTP_CTRL_STATUS_REG_OFFSET);
+  if (bitfield_bit32_read(status, OTP_CTRL_STATUS_DAI_ERROR_BIT)) {
+    return kErrorUnknown;
+  }
+  return kErrorOk;
+}

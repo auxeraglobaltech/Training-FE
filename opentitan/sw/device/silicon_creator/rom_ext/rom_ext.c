@@ -1,0 +1,717 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+#include "sw/device/silicon_creator/rom_ext/rom_ext.h"
+
+#include "sw/device/lib/arch/device.h"
+#include "sw/device/lib/base/csr.h"
+#include "sw/device/lib/base/macros.h"
+#include "sw/device/lib/base/memory.h"
+#include "sw/device/lib/base/multibits.h"
+#include "sw/device/lib/base/stdasm.h"
+#include "sw/device/lib/coverage/api.h"
+#include "sw/device/lib/runtime/hart.h"
+#include "sw/device/silicon_creator/lib/base/boot_measurements.h"
+#include "sw/device/silicon_creator/lib/base/chip.h"
+#include "sw/device/silicon_creator/lib/base/sec_mmio.h"
+#include "sw/device/silicon_creator/lib/base/util.h"
+#include "sw/device/silicon_creator/lib/boot_data.h"
+#include "sw/device/silicon_creator/lib/boot_log.h"
+#include "sw/device/silicon_creator/lib/boot_svc/boot_svc_empty.h"
+#include "sw/device/silicon_creator/lib/boot_svc/boot_svc_header.h"
+#include "sw/device/silicon_creator/lib/boot_svc/boot_svc_msg.h"
+#include "sw/device/silicon_creator/lib/cert/dice.h"
+#include "sw/device/silicon_creator/lib/dbg_print.h"
+#include "sw/device/silicon_creator/lib/drivers/ast.h"
+#include "sw/device/silicon_creator/lib/drivers/epmp.h"
+#include "sw/device/silicon_creator/lib/drivers/flash_ctrl.h"
+#include "sw/device/silicon_creator/lib/drivers/hmac.h"
+#include "sw/device/silicon_creator/lib/drivers/ibex.h"
+#include "sw/device/silicon_creator/lib/drivers/keymgr.h"
+#include "sw/device/silicon_creator/lib/drivers/lifecycle.h"
+#include "sw/device/silicon_creator/lib/drivers/otp.h"
+#include "sw/device/silicon_creator/lib/drivers/pinmux.h"
+#include "sw/device/silicon_creator/lib/drivers/retention_sram.h"
+#include "sw/device/silicon_creator/lib/drivers/rnd.h"
+#include "sw/device/silicon_creator/lib/drivers/rstmgr.h"
+#include "sw/device/silicon_creator/lib/drivers/uart.h"
+#include "sw/device/silicon_creator/lib/drivers/watchdog.h"
+#include "sw/device/silicon_creator/lib/epmp_state.h"
+#include "sw/device/silicon_creator/lib/manifest.h"
+#include "sw/device/silicon_creator/lib/manifest_def.h"
+#include "sw/device/silicon_creator/lib/otbn_boot_services.h"
+#include "sw/device/silicon_creator/lib/ownership/isfb.h"
+#include "sw/device/silicon_creator/lib/ownership/owner_block.h"
+#include "sw/device/silicon_creator/lib/ownership/owner_verify.h"
+#include "sw/device/silicon_creator/lib/ownership/ownership.h"
+#include "sw/device/silicon_creator/lib/ownership/ownership_activate.h"
+#include "sw/device/silicon_creator/lib/ownership/ownership_key.h"
+#include "sw/device/silicon_creator/lib/ownership/ownership_unlock.h"
+#include "sw/device/silicon_creator/lib/rescue/rescue.h"
+#include "sw/device/silicon_creator/lib/shutdown.h"
+#include "sw/device/silicon_creator/lib/sigverify/ecdsa_p256_key.h"
+#include "sw/device/silicon_creator/lib/sigverify/flash_exec.h"
+#include "sw/device/silicon_creator/lib/sigverify/sigverify.h"
+#include "sw/device/silicon_creator/lib/sigverify/sphincsplus/verify.h"
+#include "sw/device/silicon_creator/rom_ext/imm_section/imm_section_version.h"
+#include "sw/device/silicon_creator/rom_ext/rom_ext_boot_policy.h"
+#include "sw/device/silicon_creator/rom_ext/rom_ext_boot_policy_ptrs.h"
+#include "sw/device/silicon_creator/rom_ext/rom_ext_boot_services.h"
+#include "sw/device/silicon_creator/rom_ext/rom_ext_manifest.h"
+#include "sw/device/silicon_creator/rom_ext/rom_ext_verify.h"
+
+#include "flash_ctrl_regs.h"                          // Generated.
+#include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"  // Generated.
+#include "otp_ctrl_regs.h"                            // Generated.
+#include "sram_ctrl_regs.h"                           // Generated.
+
+// Useful constants for flash sizes and ROM_EXT locations.
+enum {
+  kFlashBankSize = FLASH_CTRL_PARAM_REG_PAGES_PER_BANK,
+  kFlashPageSize = FLASH_CTRL_PARAM_BYTES_PER_PAGE,
+  kFlashTotalSize = 2 * kFlashBankSize,
+
+  kRomExtAStart = 0 / kFlashPageSize,
+  kRomExtBStart = kFlashBankSize + kRomExtAStart,
+};
+
+// Declaration for the ROM_EXT manifest start address, populated by the linker
+extern char _rom_ext_start_address[];
+// Declaration for the chip_info structure stored in ROM.
+extern const char _chip_info_start[];
+// Declaration for the imm_section end address, populated by the linker
+extern char _rom_ext_immutable_end[];
+// Declaration for the imm_section size, populated by the linker
+extern char _rom_ext_immutable_size[];
+
+// Life cycle state of the chip.
+lifecycle_state_t lc_state;
+
+// A ram copy of the OTP word controlling how to handle flash ECC errors.
+uint32_t flash_ecc_exc_handler_en;
+
+// Owner configuration details parsed from the onwer info pages.
+owner_config_t owner_config;
+
+// The number of strike words and product extensions parsed from the ISFB
+// configuration. Used to implement redundancy in the ISFB checks.
+uint32_t isfb_check_count;
+
+// Owner application keys.
+owner_application_keyring_t keyring;
+
+// Hash chain of all previous owners.
+hmac_digest_t owner_history_hash;
+
+// Verifying key index
+size_t verify_key;
+
+OT_WARN_UNUSED_RESULT
+static uint32_t rom_ext_current_slot(void) {
+  uint32_t pc = ibex_addr_remap_get(0);
+  if (pc == 0) {
+    // If the remap window has address zero, we're running from flash and we can
+    // simply read the program counter.
+    asm("auipc %[pc], 0;" : [pc] "=r"(pc));
+  }
+
+  const uint32_t kFlashSlotA = TOP_EARLGREY_FLASH_CTRL_MEM_BASE_ADDR;
+  const uint32_t kFlashSlotB =
+      kFlashSlotA + TOP_EARLGREY_FLASH_CTRL_MEM_SIZE_BYTES / 2;
+  const uint32_t kFlashSlotEnd =
+      kFlashSlotA + TOP_EARLGREY_FLASH_CTRL_MEM_SIZE_BYTES;
+  uint32_t side = 0;
+  if (pc >= kFlashSlotA && pc < kFlashSlotB) {
+    // Running in Slot A.
+    side = kBootSlotA;
+  } else if (pc >= kFlashSlotB && pc < kFlashSlotEnd) {
+    // Running in Slot B.
+    side = kBootSlotB;
+  } else {
+    // Not running in flash: impossible.
+    HARDENED_TRAP();
+  }
+  return side;
+}
+
+void rom_ext_check_rom_expectations(void) {
+  // Check the ePMP state.
+  SHUTDOWN_IF_ERROR(epmp_state_check());
+  // Check sec_mmio expectations.
+  // We don't check the counters since we don't want to tie ROM_EXT to a
+  // specific ROM version.
+  sec_mmio_check_values(rnd_uint32());
+}
+
+static void rom_ext_flash_protect_self(uint32_t rom_ext_slot) {
+  uint32_t actual_size = (uint32_t)_rom_ext_protected_size;
+  uint32_t pages = (actual_size + kFlashPageSize - 1) / kFlashPageSize;
+
+  flash_ctrl_cfg_t cfg = flash_ctrl_data_default_cfg_get();
+  static const flash_ctrl_perms_t read = {
+      .read = kMultiBitBool4True,
+      .write = kMultiBitBool4False,
+      .erase = kMultiBitBool4False,
+  };
+  flash_ctrl_data_region_protect(
+      0, rom_ext_slot == kBootSlotA ? kRomExtAStart : kRomExtBStart, pages,
+      read, cfg, kHardenedBoolFalse);
+}
+
+static void rom_ext_flash_lockdown(uint32_t rom_ext_slot) {
+  uint32_t active_pages =
+      ((uint32_t)_rom_ext_size + kFlashPageSize - 1) / kFlashPageSize;
+
+  const manifest_t *opposite_manifest =
+      rom_ext_slot == kBootSlotA ? rom_ext_boot_policy_slot_b_manifest
+                                 : rom_ext_boot_policy_slot_a_manifest;
+  rom_error_t opposite_status =
+      rom_ext_slot == kBootSlotA ? rom_ext_boot_policy_slot_b_manifest_status
+                                 : rom_ext_boot_policy_slot_a_manifest_status;
+
+  uint32_t inactive_size = (uint32_t)_rom_ext_size;
+  if (opposite_status == kErrorOk) {
+    // The inactive ROM_EXT extends up to the opposite slot's BL0, whatever
+    // our own size. This lets a 64k ROM_EXT stage an 88k ROM_EXT opposite
+    // an 88k BL0, and keeps an 88k ROM_EXT off a 64k BL0's manifest.
+    inactive_size = (uint32_t)((uintptr_t)opposite_manifest %
+                               (kFlashBankSize * kFlashPageSize));
+  }
+  uint32_t inactive_pages =
+      (inactive_size + kFlashPageSize - 1) / kFlashPageSize;
+
+  flash_ctrl_cfg_t cfg = flash_ctrl_data_default_cfg_get();
+  static const flash_ctrl_perms_t read = {
+      .read = kMultiBitBool4True,
+      .write = kMultiBitBool4False,
+      .erase = kMultiBitBool4False,
+  };
+  static const flash_ctrl_perms_t write = {
+      .read = kMultiBitBool4True,
+      .write = kMultiBitBool4True,
+      .erase = kMultiBitBool4True,
+  };
+  flash_ctrl_data_region_protect(
+      0, rom_ext_slot == kBootSlotA ? kRomExtAStart : kRomExtBStart,
+      active_pages, read, cfg, kHardenedBoolTrue);
+  flash_ctrl_data_region_protect(
+      1, rom_ext_slot == kBootSlotA ? kRomExtBStart : kRomExtAStart,
+      inactive_pages, write, cfg, kHardenedBoolTrue);
+}
+
+static void rom_ext_regwen_lockdown(void) { flash_ctrl_prim_lockdown(); }
+
+OT_WARN_UNUSED_RESULT
+static rom_error_t rom_ext_init(boot_data_t *boot_data) {
+  sec_mmio_next_stage_init();
+  lc_state = lifecycle_state_get();
+
+  // Check that secret OTP partitions that are expected to be provisioned have
+  // a non-zero digest.
+  HARDENED_RETURN_IF_ERROR(otp_secret_partitions_check(lc_state));
+
+  // Defensive clear to be sure no key material is left after the immutable
+  // ROM_EXT section.
+  HARDENED_RETURN_IF_ERROR(otbn_boot_attestation_key_clear());
+
+  rom_ext_regwen_lockdown();
+  SEC_MMIO_WRITE_INCREMENT(kFlashCtrlSecMmioPrimLockdown);
+
+  flash_ecc_exc_handler_en = otp_read32(
+      OTP_CTRL_PARAM_OWNER_SW_CFG_ROM_FLASH_ECC_EXC_HANDLER_EN_OFFSET);
+  pinmux_init();
+  // Configure UART0 as stdout.
+  uart_init(kUartNCOValue);
+
+  // Check that the retention RAM is initialized.
+  // TODO(lowrisc#22387): Check if return-if-error here is a potential
+  // boot-loop.
+  HARDENED_RETURN_IF_ERROR(retention_sram_check_version());
+
+  // Get the boot_data record
+  HARDENED_RETURN_IF_ERROR(boot_data_read(lc_state, boot_data));
+
+  return kErrorOk;
+}
+
+void rom_ext_sram_exec(owner_sram_exec_mode_t mode) {
+  switch (launder32(mode)) {
+    case kOwnerSramExecModeEnabled:
+      // In enabled mode, we do not lock the register so owner code can disable
+      // SRAM exec at some later time.
+      HARDENED_CHECK_EQ(mode, kOwnerSramExecModeEnabled);
+      sec_mmio_write32(TOP_EARLGREY_SRAM_CTRL_MAIN_REGS_BASE_ADDR +
+                           SRAM_CTRL_EXEC_REG_OFFSET,
+                       kMultiBitBool4True);
+      break;
+    case kOwnerSramExecModeDisabled:
+      // In disabled mode, we do not lock the register so owner code can enable
+      // SRAM exec at some later time.
+      HARDENED_CHECK_EQ(mode, kOwnerSramExecModeDisabled);
+      sec_mmio_write32(TOP_EARLGREY_SRAM_CTRL_MAIN_REGS_BASE_ADDR +
+                           SRAM_CTRL_EXEC_REG_OFFSET,
+                       kMultiBitBool4False);
+      break;
+    case kOwnerSramExecModeDisabledLocked:
+    default:
+      // In disabled locked mode, we lock the register so the mode cannot be
+      // changed.
+      sec_mmio_write32(TOP_EARLGREY_SRAM_CTRL_MAIN_REGS_BASE_ADDR +
+                           SRAM_CTRL_EXEC_REG_OFFSET,
+                       kMultiBitBool4False);
+      sec_mmio_write32(TOP_EARLGREY_SRAM_CTRL_MAIN_REGS_BASE_ADDR +
+                           SRAM_CTRL_EXEC_REGWEN_REG_OFFSET,
+                       0);
+      break;
+  }
+}
+
+OT_WARN_UNUSED_RESULT
+static rom_error_t rom_ext_boot(boot_data_t *boot_data, boot_log_t *boot_log,
+                                const manifest_t *manifest,
+                                const owner_application_key_t *key,
+                                uint32_t *flash_exec) {
+  // Determine which owner block the key came from and measure that block.
+  hmac_digest_t owner_measurement;
+  owner_block_measurement(owner_block_key_page(key), &owner_measurement);
+
+  keymgr_binding_value_t sealing_binding;
+  if (launder32(boot_data->ownership_state) == kOwnershipStateLockedOwner) {
+    HARDENED_CHECK_EQ(boot_data->ownership_state, kOwnershipStateLockedOwner);
+    // If we're in LockedOwner, initialize the sealing binding with the
+    // diversification constant associated with key applicaiton key that
+    // validated the owner firmware payload.
+    static_assert(
+        sizeof(key->raw_diversifier) == sizeof(keymgr_binding_value_t),
+        "Expect the keymgr binding value to be the same size as an application "
+        "key diversifier");
+    memcpy(&sealing_binding, key->raw_diversifier, sizeof(sealing_binding));
+  } else {
+    // If we're not in LockedOwner state, we don't want to derive any valid
+    // sealing keys, so set the binding constant to a nonsense value.
+    memset(&sealing_binding, 0x55, sizeof(sealing_binding));
+  }
+
+  // Generate CDI_1 attestation keys and certificate.
+  HARDENED_RETURN_IF_ERROR(dice_attest_cdi_1(
+      manifest, &boot_measurements.bl0, &owner_measurement, &owner_history_hash,
+      &sealing_binding, key->key_domain));
+
+  // Reclaim entries 0 ~ 7 from ROM and ROM_EXT IMM_SECTION now that
+  // CDI_1 attestation using imm_section is complete.
+  for (int8_t i = 7; i >= 0; --i) {
+    epmp_clear((uint8_t)i);
+  }
+  HARDENED_RETURN_IF_ERROR(epmp_state_check());
+
+  // Configure and lockdown rom_ext flash settings over the full rom_ext_size
+  // range (or up to manifest offset for the inactive slot).
+  rom_ext_flash_lockdown(boot_log->rom_ext_slot);
+
+  // Remove write and erase access to the certificate pages before handing over
+  // execution to the owner firmware (owner firmware can still read).
+  flash_ctrl_cert_info_page_owner_restrict(&kFlashCtrlInfoPageDiceCerts);
+
+  // Disable access to silicon creator info pages, the OTP creator partition
+  // and the OTP direct access interface until the next reset.
+  flash_ctrl_creator_info_pages_lockdown();
+  otp_creator_sw_cfg_lockdown();
+  // Explicitly disable the OTP digest check CSRs because hardware consistency
+  // checks can cause a race condition with concurrent software OTP read
+  // requests.
+  sec_mmio_write32(
+      TOP_EARLGREY_OTP_CTRL_CORE_BASE_ADDR + OTP_CTRL_CHECK_TIMEOUT_REG_OFFSET,
+      0);
+  sec_mmio_write32(TOP_EARLGREY_OTP_CTRL_CORE_BASE_ADDR +
+                       OTP_CTRL_INTEGRITY_CHECK_PERIOD_REG_OFFSET,
+                   0);
+  sec_mmio_write32(TOP_EARLGREY_OTP_CTRL_CORE_BASE_ADDR +
+                       OTP_CTRL_CONSISTENCY_CHECK_PERIOD_REG_OFFSET,
+                   0);
+  SEC_MMIO_WRITE_INCREMENT(kFlashCtrlSecMmioCreatorInfoPagesLockdown +
+                           kOtpSecMmioCreatorSwCfgLockDown + 3);
+
+  epmp_clear_lock_bits();
+
+  HARDENED_RETURN_IF_ERROR(epmp_state_check());
+
+  // Configure address translation, compute the epmp regions and the entry
+  // point for the virtual address in case the address translation is enabled.
+  // Otherwise, compute the epmp regions and the entry point for the load
+  // address.
+  //
+  // We'll map the owner code TOR region as ePMP entries 2/3. If using address
+  // translation, we'll configure ePMP entry 4 as the read-only region.
+  epmp_region_t text_region = manifest_code_region_get(manifest);
+  uintptr_t entry_point = manifest_entry_point_get(manifest);
+  switch (launder32(manifest->address_translation)) {
+    case kHardenedBoolTrue:
+      HARDENED_CHECK_EQ(manifest->address_translation, kHardenedBoolTrue);
+      ibex_addr_remap_1_set((uintptr_t)_owner_virtual_start_address,
+                            (uintptr_t)manifest, (size_t)_owner_virtual_size);
+      SEC_MMIO_WRITE_INCREMENT(kAddressTranslationSecMmioConfigure);
+
+      // Unlock read-only for the whole rom_ext virtual memory.
+      HARDENED_RETURN_IF_ERROR(epmp_state_check());
+      epmp_set_napot(
+          4,
+          (epmp_region_t){.start = (uintptr_t)_owner_virtual_start_address,
+                          .end = (uintptr_t)_owner_virtual_start_address +
+                                 (uintptr_t)_owner_virtual_size},
+          kEpmpPermReadOnly);
+      HARDENED_RETURN_IF_ERROR(epmp_state_check());
+
+      // Move the ROM_EXT execution section from the load address to the virtual
+      // address.
+      // TODO(#13513): Harden these calculations.
+      text_region.start = owner_vma_get(text_region.start);
+      text_region.end = owner_vma_get(text_region.end);
+      entry_point = owner_vma_get(entry_point);
+      break;
+    case kHardenedBoolFalse:
+      HARDENED_CHECK_EQ(manifest->address_translation, kHardenedBoolFalse);
+      break;
+    default:
+      HARDENED_TRAP();
+  }
+
+  // Allow execution of owner stage executable code (text) sections.
+  epmp_set_tor(2, text_region, kEpmpPermReadExecute);
+  HARDENED_RETURN_IF_ERROR(epmp_state_check());
+
+  // Lock the address translation windows.
+  ibex_addr_remap_lockdown(0);
+  ibex_addr_remap_lockdown(1);
+
+  HARDENED_RETURN_IF_ERROR(isfb_boot_verify(manifest, &owner_config, &keyring,
+                                            verify_key, boot_data,
+                                            isfb_check_count));
+
+  // Lock the flash according to the ownership configuration.
+  HARDENED_RETURN_IF_ERROR(
+      ownership_flash_lockdown(boot_data, boot_log, &owner_config));
+  // Lock the ownership info pages.
+  ownership_pages_lockdown(boot_data, /*rescue=*/kHardenedBoolFalse);
+
+  // Verify expectations before jumping to owner code.
+  // TODO: we really want to call rnd_uint32 here to select a random starting
+  // location for checking expectations.  However, rnd_uint32 read from OTP
+  // to know if it's allowed to used the CSRNG and OTP is locked down.
+  sec_mmio_check_values_except_otp(/*rnd_uint32()*/ 0,
+                                   TOP_EARLGREY_OTP_CTRL_CORE_BASE_ADDR);
+
+  HARDENED_CHECK_EQ(*flash_exec, kSigverifyFlashExec);
+
+  // Jump to OWNER entry point.
+  dbg_printf("entry: 0x%x\r\n", (unsigned int)entry_point);
+  coverage_report();
+  coverage_invalidate();
+  ((owner_stage_entry_point *)entry_point)();
+  coverage_init();  // re-init after invalidate.
+
+  return kErrorRomExtBootFailed;
+}
+
+OT_WARN_UNUSED_RESULT
+static rom_error_t rom_ext_try_next_stage(boot_data_t *boot_data,
+                                          boot_log_t *boot_log) {
+  rom_ext_boot_policy_manifest_search(boot_data);
+  rom_ext_boot_policy_manifests_t manifests =
+      rom_ext_boot_policy_manifests_get(boot_data);
+  rom_error_t error = kErrorRomExtBootFailed;
+  rom_error_t slot[2] = {0, 0};
+  boot_log->bl0_failure_reason = kErrorOk;
+  boot_log->bl0_firmware_domain = 0;
+  for (size_t i = 0; i < ARRAYSIZE(manifests.ordered); ++i) {
+    uint32_t flash_exec = 0;
+    char slot_id =
+        (manifests.ordered[i] == rom_ext_boot_policy_manifest_a_get()) ? 'A'
+                                                                       : 'B';
+    error =
+        rom_ext_verify(manifests.ordered[i], slot_id, boot_data, &flash_exec,
+                       &keyring, &verify_key, &owner_config, &isfb_check_count);
+    slot[i] = error;
+    if (error != kErrorOk) {
+      dbg_printf("verifyfail: Slot%c;%x\r\n", slot_id, error);
+      boot_log->bl0_failure_reason = error;
+      boot_log_digest_update(boot_log);
+      continue;
+    }
+    HARDENED_CHECK_EQ(flash_exec, kSigverifyFlashExec);
+
+    if (manifests.ordered[i] == rom_ext_boot_policy_manifest_a_get()) {
+      boot_log->bl0_slot = kBootSlotA;
+    } else if (manifests.ordered[i] == rom_ext_boot_policy_manifest_b_get()) {
+      boot_log->bl0_slot = kBootSlotB;
+    } else {
+      return kErrorRomExtBootFailed;
+    }
+    const owner_application_key_t *key = keyring.key[verify_key];
+    boot_log->bl0_firmware_domain = key->key_domain;
+    boot_log_digest_update(boot_log);
+
+    // Boot fails if a verified ROM_EXT cannot be booted.
+    RETURN_IF_ERROR(rom_ext_boot(boot_data, boot_log, manifests.ordered[i], key,
+                                 &flash_exec));
+    // `rom_ext_boot()` should never return `kErrorOk`, but if it does
+    // we must shut down the chip instead of trying the next ROM_EXT.
+    return kErrorRomExtBootFailed;
+  }
+
+  // If we get here, the loop exited after trying both slots.
+  // If we see kErrorBootPolicyBadIdentifier as the error, we probably have an
+  // empty slot.  In that case, the "bad identifier" error is not helpful, so
+  // maybe choose the error from the other slot.
+  if (error == kErrorBootPolicyBadIdentifier && error == slot[1]) {
+    // If the bad identifier error comes from the non-primary slot, prefer
+    // the error from the primary slot.
+    error = slot[0];
+  }
+  return error;
+}
+
+static void rom_ext_rescue_lockdown(boot_data_t *boot_data) {
+  // Forbid SRAM execution.
+  rom_ext_sram_exec(kOwnerSramExecModeDisabledLocked);
+  // Set the keymgr to disabled and clear all sideloaded keys.
+  sc_keymgr_disable();
+  // Lock out OTP.
+  otp_creator_sw_cfg_lockdown();
+  // Lock the ePMP so it cannot be changed.
+  epmp_set_lock_bits();
+  epmp_clear_rlb();
+  // Disable access to creator-level INFO pages.
+  flash_ctrl_creator_info_pages_lockdown();
+  // Set the OWNER_CONFIG pages for rescue mode (page0=ro, page1=rw).
+  ownership_pages_lockdown(boot_data, /*rescue=*/kHardenedBoolTrue);
+  // Lock access to owner-level INFO pages.  During normal boot, this
+  // is performed by `ownership_flash_lockdown`, but we can't call that
+  // function when entering rescue because rescue needs the flash DATA
+  // segments to be writable.  Rescue has no need to access the INFO
+  // pages, so we want to lock them for safety.
+  owner_block_info_lockdown(owner_config.info);
+}
+
+static rom_error_t rom_ext_advance_secver(boot_data_t *boot_data,
+                                          const manifest_t *manifest) {
+  const manifest_ext_secver_write_t *secver;
+  rom_error_t error;
+  error = manifest_ext_get_secver_write(manifest, &secver);
+  if (error == kErrorOk) {
+    if (secver->write == kHardenedBoolTrue &&
+        manifest->security_version > boot_data->min_security_version_rom_ext) {
+      // If our security version is greater than the minimum security version
+      // advance the minimum version to our version.
+      boot_data->min_security_version_rom_ext = manifest->security_version;
+      return boot_data_write(boot_data);
+    }
+  }
+  return kErrorOk;
+}
+
+// This weak function allows downstream ROM_EXT builds to override whether or
+// not boot_svc runs after a low-power wakeup.  This is a mitigation for a
+// late-added confiuration item to the owner configuration.
+OT_WEAK
+hardened_bool_t rom_ext_allow_boot_svc_after_wakeup(void) {
+  return owner_config.boot_svc_after_wakeup;
+}
+
+// This weak function allows downstream ROM_EXT builds to provide
+// sku-specific initialization.
+OT_WEAK
+void rom_ext_sku_init(void) {}
+
+static rom_error_t rom_ext_start(boot_data_t *boot_data, boot_log_t *boot_log) {
+  HARDENED_RETURN_IF_ERROR(rom_ext_init(boot_data));
+  const manifest_t *self = rom_ext_manifest();
+
+  // Security version self-check
+  HARDENED_CHECK_GE(self->security_version,
+                    boot_data->min_security_version_rom_ext);
+
+  lifecycle_claim(kMultiBitBool8True);
+  lifecycle_set_status(kLifecycleStatusWordRomExtVersion, self->version_minor);
+  lifecycle_set_status(kLifecycleStatusWordRomExtSecVersion,
+                       self->security_version);
+  lifecycle_set_status(kLifecycleStatusWordOwnerVersion, 0);
+  lifecycle_set_status(kLifecycleStatusWordDeviceStatus,
+                       kLifecycleDeviceStatusRomExtStart);
+  lifecycle_claim(kMultiBitBool8False);
+
+  dbg_printf("ROM_EXT:%u.%u\r\n", self->version_major, self->version_minor);
+
+  // Print the version of immutable section if exists.
+  if ((size_t)_rom_ext_immutable_size > kImmVersionSize) {
+    imm_section_version_t *version =
+        (imm_section_version_t *)((char *)_rom_ext_immutable_end -
+                                  kImmVersionSize);
+    dbg_printf("IMM_SECTION:%u.%u-%x%c\r\n", version->major, version->minor,
+               version->commit_hash, version->build_status);
+  }
+
+  uint32_t hash_enforcement =
+      otp_read32(OTP_CTRL_PARAM_CREATOR_SW_CFG_IMMUTABLE_ROM_EXT_EN_OFFSET);
+  if (hash_enforcement != kHardenedBoolTrue) {
+    // CAUTION: The message below should match the message defined in:
+    //   //sw/device/silicon_creator/rom_ext/imm_section/defs.bzl
+    dbg_printf("info: imm_section hash unenforced\r\n");
+  }
+
+  // Maybe advance the security version.
+  HARDENED_RETURN_IF_ERROR(rom_ext_advance_secver(boot_data, self));
+
+  // Disable and lock bank erase.
+  flash_ctrl_bank_erase_disable();
+
+  rom_ext_sku_init();
+
+  // Fix the boot data if needed
+  rom_error_t boot_data_validity = boot_data_redundancy_check();
+  if (boot_data_validity != kErrorOk) {
+    // Ignore the result to prevent unnecessary bootloop.
+    OT_DISCARD(boot_data_write(boot_data));
+  }
+
+  // Initialize the boot_log in retention RAM.
+  const build_info_t *rom_chip_info = (const build_info_t *)_chip_info_start;
+  boot_log_check_or_init(boot_log, rom_ext_current_slot(), rom_chip_info);
+  boot_log->rom_ext_major = self->version_major;
+  boot_log->rom_ext_minor = self->version_minor;
+  boot_log->rom_ext_size = (uint32_t)_rom_ext_size;
+  // Even though `primary_bl0_slot` can be changed by boot svc, we initialize
+  // it here so the "SetNextBl0" can do a one-time override of the RAM copy
+  // of `boot_data`.
+  boot_log->primary_bl0_slot = boot_data->primary_bl0_slot;
+  boot_log->events =
+      bitfield_bit32_write(boot_log->events, BOOT_LOG_EVENT_REDUNDANCY,
+                           boot_data_validity != kErrorOk);
+
+  // Protect the flash pages where the ROM_EXT is located.
+  rom_ext_flash_protect_self(boot_log->rom_ext_slot);
+
+  // Initialize the chip ownership state.
+  rom_error_t error;
+  error = ownership_init(boot_data, &owner_config, &keyring);
+  dbg_printf("owner_page: %u-%C/%u-%C\r\n", owner_page[0].config_version,
+             owner_page_valid[0], owner_page[1].config_version,
+             owner_page_valid[1]);
+  if (error == kErrorWriteBootdataThenReboot) {
+    return error;
+  }
+  // TODO(cfrantz): evaluate permissible ownership init failure conditions
+  // and change this to HARDENED_RETURN_IF_ERROR.
+  if (error != kErrorOk) {
+    dbg_printf("error: ownership_init=%x\r\n", error);
+  }
+
+  // Configure SRAM execution as the owner requested.
+  rom_ext_sram_exec(owner_config.sram_exec);
+
+  // Get the ownership history.  We discard the error because there is no
+  // meaningful action we could take in the event of an error.  If there
+  // was an error, ownership_history_get will default history hash result to
+  // all ones.
+  OT_DISCARD(ownership_history_get(&owner_history_hash));
+
+  // Handle any pending boot_svc commands.
+  uint32_t reset_reasons = retention_sram_get()->creator.reset_reasons;
+  hardened_bool_t waking_from_low_power =
+      reset_reasons & (1 << kRstmgrReasonLowPowerExit) ? kHardenedBoolTrue
+                                                       : kHardenedBoolFalse;
+
+  // Determine if we want to execute boot_svc requests if this is a low-power
+  // wakeup.
+  hardened_bool_t want_boot_svc = waking_from_low_power == kHardenedBoolTrue
+                                      ? rom_ext_allow_boot_svc_after_wakeup()
+                                      : kHardenedBoolTrue;
+
+  if (want_boot_svc == kHardenedBoolTrue) {
+    boot_svc_msg_t *boot_svc_msg = &retention_sram_get()->creator.boot_svc_msg;
+    if (boot_svc_msg->header.type == kBootSvcMinBl0SecVerReqType) {
+      rom_ext_boot_policy_manifest_search(boot_data);
+    }
+    error =
+        boot_svc_handler(boot_svc_msg, boot_data, boot_log, lc_state, &keyring,
+                         &verify_key, &owner_config, &isfb_check_count);
+    if (error == kErrorWriteBootdataThenReboot) {
+      // Boot services reports errors by writing a status code into the reply
+      // messages.  Regardless of whether a boot service request produced an
+      // error, we want to continue booting unless the error specifically asks
+      // for a reboot.
+      return error;
+    }
+  }
+
+  // Detect if ISFB is required by owner block but missing from the linked
+  // ROM_EXT.
+  if (isfb_is_present() == kHardenedBoolFalse &&
+      (hardened_bool_t)owner_config.isfb != kHardenedBoolFalse) {
+    boot_log->events =
+        bitfield_bit32_write(boot_log->events, BOOT_LOG_EVENT_ISFB_ERROR, true);
+  }
+
+  // Synchronize the boot_log entries that could be changed by boot services.
+  boot_log->rom_ext_nonce = boot_data->nonce;
+  boot_log->ownership_state = boot_data->ownership_state;
+  boot_log->ownership_transfers = boot_data->ownership_transfers;
+  boot_log->rom_ext_min_sec_ver = boot_data->min_security_version_rom_ext;
+  boot_log->bl0_min_sec_ver = boot_data->min_security_version_bl0;
+  boot_log_digest_update(boot_log);
+
+  // Now that boot services is finished, the ownership sealing key is no longer
+  // needed.
+  HARDENED_RETURN_IF_ERROR(ownership_seal_clear());
+
+  // We don't want to enter rescue mode if this is a low-power wakeup.
+  hardened_bool_t want_rescue =
+      waking_from_low_power != kHardenedBoolTrue
+          ? rescue_detect_entry(owner_config.rescue, reset_reasons)
+          : kHardenedBoolFalse;
+  hardened_bool_t boot_attempted = kHardenedBoolFalse;
+
+  if (want_rescue == kHardenedBoolFalse) {
+    // If rescue wasn't triggered, try booting the next stage.
+    error = rom_ext_try_next_stage(boot_data, boot_log);
+    boot_attempted = kHardenedBoolTrue;
+  }
+
+  // If we haven't already entered rescue and rescue is requested (either by
+  // the rescue trigger or by a boot failure), then enter rescue.
+  if (want_rescue == kHardenedBoolTrue ||
+      rescue_enter_on_fail(owner_config.rescue) == kHardenedBoolTrue) {
+    rom_ext_rescue_lockdown(boot_data);
+    if (error != kErrorOk) {
+      dbg_printf("BFV:%x\r\n", error);
+    }
+
+    // Disable the watchdog timer when entering rescue mode.
+    watchdog_disable();
+    error = rescue_protocol(boot_data, boot_log, owner_config.rescue);
+
+    // If rescue timed out and we didn't attempt to boot, request skipping
+    // rescue on the next boot.  This will permit booting owner code if
+    // the rescue trigger is stuck for some reason.
+    if (error == kErrorRescueInactivity &&
+        boot_attempted == kHardenedBoolFalse) {
+      rescue_skip_next_boot();
+      rstmgr_reboot();
+    }
+  }
+
+  return error;
+}
+
+void rom_ext_main(void) {
+  rom_ext_check_rom_expectations();
+  boot_data_t boot_data;
+  boot_log_t *boot_log = &retention_sram_get()->creator.boot_log;
+
+  rom_error_t error = rom_ext_start(&boot_data, boot_log);
+  if (launder32(error) == kErrorWriteBootdataThenReboot) {
+    HARDENED_CHECK_EQ(error, kErrorWriteBootdataThenReboot);
+    error = boot_data_write(&boot_data);
+  }
+  shutdown_finalize(error);
+}
